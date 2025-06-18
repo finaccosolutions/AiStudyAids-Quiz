@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useAuthStore } from './store/useAuthStore';
 import { useQuizStore } from './store/useQuizStore';
 import MainLayout from './components/layout/MainLayout';
 import HomePage from './pages/HomePage';
@@ -17,7 +18,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   if (!isLoggedIn) {
-    return <Navigate to="/auth" state={{ from: location }} replace />;
+    return <Navigate to="/PreferencesPage" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;
@@ -37,11 +38,11 @@ const QuizRoute: React.FC = () => {
   }, [user]);
 
   if (!isLoggedIn) {
-    return <Navigate to="/auth" state={{ from: location }} replace />;
+    return <Navigate to="/PreferencesPage" state={{ from: location }} replace />;
   }
 
-  if (questions.length === 0 && location.state?.from !== '/preferences') {
-    return <Navigate to="/preferences" replace />;
+  if (questions.length === 0 && location.state?.from !== '/PreferencesPage') {
+    return <Navigate to="/PreferencesPage" replace />;
   }
 
   return <QuizPage />;
@@ -59,7 +60,6 @@ function App() {
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route index element={<HomePage />} />
-          <Route path="auth" element={<AuthPage />} />
           <Route
             path="quiz"
             element={
@@ -69,7 +69,7 @@ function App() {
             }
           />
           <Route
-            path="preferences"
+            path="PreferencesPage"
             element={
               <ProtectedRoute>
                 <PreferencesPage />
@@ -81,62 +81,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <ApiSettingsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="question-bank"
-            element={
-              <ProtectedRoute>
-                <QuestionBankPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="answer-evaluation"
-            element={
-              <ProtectedRoute>
-                <AnswerEvaluationPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="notes"
-            element={
-              <ProtectedRoute>
-                <NotesGeneratorPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="study-plan"
-            element={
-              <ProtectedRoute>
-                <StudyPlannerPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="progress"
-            element={
-              <ProtectedRoute>
-                <ProgressTrackerPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="chat"
-            element={
-              <ProtectedRoute>
-                <ChatPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
               </ProtectedRoute>
             }
           />
