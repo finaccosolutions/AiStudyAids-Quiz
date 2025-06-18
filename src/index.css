@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --gradient-start: #6366f1;
+    --gradient-end: #8b5cf6;
+  }
+}
+
+@layer components {
+  .nav-link {
+    @apply text-gray-600 hover:text-purple-600 transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-purple-600 after:transition-all hover:after:w-full;
+  }
+  
+  .auth-input {
+    @apply w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-800 bg-white/50 backdrop-blur-sm;
+  }
+  
+  .feature-card {
+    @apply bg-white p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 backdrop-blur-sm;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] bg-clip-text text-transparent;
+  }
+  
+  .gradient-bg {
+    @apply bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white;
+  }
+
+  .tooltip {
+    @apply relative inline-block;
+  }
+
+  .tooltip .tooltiptext {
+    @apply invisible absolute z-10 w-48 bg-gray-900 text-white text-xs rounded-lg py-2 px-3 
+    bottom-full left-1/2 transform -translate-x-1/2 mb-2
+    opacity-0 transition-all duration-200;
+  }
+
+  .tooltip .tooltiptext::after {
+    content: "";
+    @apply absolute top-full left-1/2 transform -translate-x-1/2
+    border-4 border-transparent border-t-gray-900;
+  }
+
+  .tooltip:hover .tooltiptext {
+    @apply visible opacity-100;
+  }
+}
