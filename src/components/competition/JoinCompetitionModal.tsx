@@ -20,6 +20,8 @@ const JoinCompetitionModal: React.FC<JoinCompetitionModalProps> = ({
   const handleJoin = async () => {
     try {
       await joinCompetition(competitionCode.toUpperCase());
+      // Get the competition ID from the store after successful join
+      // For now, we'll pass the code as ID since we need to refactor this
       onSuccess(competitionCode);
     } catch (error) {
       console.error('Error joining competition:', error);

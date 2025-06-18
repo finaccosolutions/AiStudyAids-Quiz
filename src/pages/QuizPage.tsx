@@ -1,11 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useQuizStore, defaultPreferences } from '../store/useQuizStore';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useCompetitionStore } from '../store/useCompetitionStore';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import ApiKeyForm from '../components/quiz/ApiKeyForm';
 import QuizPreferencesForm from '../components/quiz/QuizPreferences';
 import QuizQuestion from '../components/quiz/QuizQuestion';
 import QuizResults from '../components/quiz/QuizResults';
+import CompetitionLobby from '../components/competition/CompetitionLobby';
+import CompetitionQuiz from '../components/competition/CompetitionQuiz';
+import CompetitionResults from '../components/competition/CompetitionResults';
 import { Button } from '../components/ui/Button';
 import { RefreshCw, X } from 'lucide-react';
 
@@ -20,10 +24,19 @@ const QuizPage: React.FC = () => {
     finishQuiz, resetQuiz, result 
   } = useQuizStore();
   
+  const {
+    currentCompetition,
+    loadCompetition,
+    participants,
+    loadParticipants
+  } = useCompetitionStore();
+  
   const navigate = useNavigate();
+  const location = useLocation();
   const [showSettings, setShowSettings] = useState(false);
-  const [step, setStep] = useState<'api-key' | 'preferences' | 'quiz' | 'results'>('api-key');
+  const [step, setStep] = useState<'api-key' | 'preferences' | 'quiz' | 'results' | 'competition-lobby' | 'competition-quiz' | 'competition-results'>('api-key');
   const [totalTimeRemaining, setTotalTimeRemaining] = useState<number | null>(null);
+  const [competitionQuestions, setCompetitionQuestions] = useState<any[]>([]);
   
   useEffect(() => {
     if (user) {
@@ -31,8 +44,15 @@ const QuizPage: React.FC = () => {
       loadPreferences(user.id);
     }
   }, [user]);
-  
+
   useEffect(() => {
+    // Handle competition mode from location state
+    if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
+      loadCompetition(location.state.competitionId);
+      setStep('competition-lobby');
+      return;
+    }
+
     if (apiKey && !preferences) {
       setStep('preferences');
     } else if (apiKey && preferences && questions.length === 0 && !result) {
@@ -48,7 +68,7 @@ const QuizPage: React.FC = () => {
     } else if (!apiKey) {
       setStep('api-key');
     }
-  }, [apiKey, preferences, questions, result]);
+  }, [apiKey, preferences, questions, result, location.state]);
 
   // Total quiz timer effect
   useEffect(() => {
@@ -118,6 +138,33 @@ const QuizPage: React.FC = () => {
   const handlePrevious = useCallback(() => {
     prevQuestion();
   }, [prevQuestion]);
+
+  // Competition handlers
+  const handleStartCompetitionQuiz = async () => {
+    if (!currentCompetition || !user || !apiKey) return;
+
+    try {
+      // Generate questions for competition
+      const { generateQuiz } = await import('../services/gemini');
+      const questions = await generateQuiz(apiKey, currentCompetition.quiz_preferences);
+      setCompetitionQuestions(questions);
+      setStep('competition-quiz');
+    } catch (error) {
+      console.error('Failed to generate competition questions:', error);
+    }
+  };
+
+  const handleCompetitionComplete = () => {
+    setStep('competition-results');
+  };
+
+  const handleNewCompetition = () => {
+    navigate('/preferences');
+  };
+
+  const handleBackToHome = () => {
+    navigate('/');
+  };
   
   const renderContent = () => {
     if (!user) return null;
@@ -133,11 +180,42 @@ const QuizPage: React.FC = () => {
               userId={user.id}
               initialPreferences={preferences || defaultPreferences}
             />
-            
-            <div className="flex justify-center">
-
-            </div>
           </div>
+        );
+
+      case 'competition-lobby':
+        if (!currentCompetition) {
+          return <div>Loading competition...</div>;
+        }
+        return (
+          <CompetitionLobby
+            competition={currentCompetition}
+            onStartQuiz={handleStartCompetitionQuiz}
+          />
+        );
+
+      case 'competition-quiz':
+        if (!currentCompetition || competitionQuestions.length === 0) {
+          return <div>Loading quiz...</div>;
+        }
+        return (
+          <CompetitionQuiz
+            competition={currentCompetition}
+            questions={competitionQuestions}
+            onComplete={handleCompetitionComplete}
+          />
+        );
+
+      case 'competition-results':
+        if (!currentCompetition) {
+          return <div>Loading results...</div>;
+        }
+        return (
+          <CompetitionResults
+            competition={currentCompetition}
+            onNewCompetition={handleNewCompetition}
+            onBackToHome={handleBackToHome}
+          />
         );
       
       case 'quiz':

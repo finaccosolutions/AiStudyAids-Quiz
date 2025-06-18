@@ -11,7 +11,7 @@ interface CreateCompetitionModalProps {
   mode: 'private' | 'random';
   quizPreferences: QuizPreferences;
   onClose: () => void;
-  onSuccess: (competitionId: string) => void;
+  onSuccess: (preferences: QuizPreferences, competitionData: any) => void;
 }
 
 const CreateCompetitionModal: React.FC<CreateCompetitionModalProps> = ({
@@ -20,7 +20,7 @@ const CreateCompetitionModal: React.FC<CreateCompetitionModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const { createCompetition, inviteParticipants, isLoading } = useCompetitionStore();
+  const { isLoading } = useCompetitionStore();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     title: '',
@@ -31,22 +31,18 @@ const CreateCompetitionModal: React.FC<CreateCompetitionModalProps> = ({
 
   const handleCreateCompetition = async () => {
     try {
-      const competition = await createCompetition({
+      // Filter out empty emails
+      const validEmails = formData.emails.filter(email => email.trim());
+      
+      const competitionData = {
         title: formData.title,
         description: formData.description,
-        type: mode,
         maxParticipants: formData.maxParticipants,
-        quizPreferences
-      });
+        emails: validEmails
+      };
 
-      if (mode === 'private' && formData.emails.some(email => email.trim())) {
-        const validEmails = formData.emails.filter(email => email.trim());
-        if (validEmails.length > 0) {
-          await inviteParticipants(competition.id, validEmails);
-        }
-      }
-
-      onSuccess(competition.id);
+      // Call the success handler with both preferences and competition data
+      onSuccess(quizPreferences, competitionData);
     } catch (error) {
       console.error('Error creating competition:', error);
     }

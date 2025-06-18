@@ -63,8 +63,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       if (!user) throw new Error('User not authenticated');
 
       // Generate competition code
-      const { data: codeResult } = await supabase.rpc('generate_competition_code');
-      const competitionCode = codeResult || Math.random().toString(36).substring(2, 8).toUpperCase();
+      const competitionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
       const competitionData = {
         creator_id: user.id,
@@ -73,7 +72,8 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         competition_code: competitionCode,
         type: data.type || 'private',
         max_participants: data.maxParticipants || 10,
-        quiz_preferences: data.quizPreferences
+        quiz_preferences: data.quizPreferences,
+        status: 'waiting'
       };
 
       const { data: competition, error } = await supabase
@@ -93,6 +93,19 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           status: 'joined',
           joined_at: new Date().toISOString()
         });
+
+      // Send invitations if emails provided
+      if (data.emails && data.emails.length > 0) {
+        const invites = data.emails.map((email: string) => ({
+          competition_id: competition.id,
+          email,
+          status: 'invited'
+        }));
+
+        await supabase
+          .from('competition_participants')
+          .insert(invites);
+      }
 
       set(state => ({
         competitions: [competition, ...state.competitions],
@@ -117,7 +130,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       const { data: competition, error: compError } = await supabase
         .from('competitions')
         .select('*')
-        .eq('competition_code', code)
+        .eq('competition_code', code.toUpperCase())
         .single();
 
       if (compError || !competition) {
@@ -182,19 +195,6 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
       if (error) throw error;
 
-      // Send email notifications (would be implemented via edge function)
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-competition-invite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          competitionId,
-          emails
-        }),
-      });
-
       set({ isLoading: false });
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -214,6 +214,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       if (error) throw error;
 
       set({ currentCompetition: competition, isLoading: false });
+      
+      // Also load participants
+      get().loadParticipants(id);
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
     }
@@ -225,7 +228,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .from('competition_participants')
         .select(`
           *,
-          profile:user_id (
+          profiles!competition_participants_user_id_fkey (
             full_name,
             avatar_url
           )
@@ -235,7 +238,15 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
       if (error) throw error;
 
-      set({ participants: participants || [] });
+      const formattedParticipants = (participants || []).map(p => ({
+        ...p,
+        profile: p.profiles ? {
+          full_name: p.profiles.full_name,
+          avatar_url: p.profiles.avatar_url
+        } : null
+      }));
+
+      set({ participants: formattedParticipants });
     } catch (error: any) {
       set({ error: error.message });
     }
@@ -541,7 +552,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .from('competition_chat')
         .select(`
           *,
-          profile:user_id (
+          profiles!competition_chat_user_id_fkey (
             full_name,
             avatar_url
           )
@@ -551,7 +562,15 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
       if (error) throw error;
 
-      set({ chatMessages: messages || [] });
+      const formattedMessages = (messages || []).map(m => ({
+        ...m,
+        profile: m.profiles ? {
+          full_name: m.profiles.full_name,
+          avatar_url: m.profiles.avatar_url
+        } : null
+      }));
+
+      set({ chatMessages: formattedMessages });
     } catch (error: any) {
       set({ error: error.message });
     }
