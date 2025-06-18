@@ -1,5 +1,4 @@
 import React from 'react';
-import { useAuthStore } from '../store/useAuthStore';
 import ApiKeyForm from '../components/quiz/ApiKeyForm';
 
 const ApiSettingsPage: React.FC = () => {

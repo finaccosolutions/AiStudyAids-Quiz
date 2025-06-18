@@ -1,20 +1,11 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from './store/useAuthStore';
 import { useQuizStore } from './store/useQuizStore';
 import MainLayout from './components/layout/MainLayout';
 import HomePage from './pages/HomePage';
-import AuthPage from './pages/AuthPage';
 import QuizPage from './pages/QuizPage';
 import PreferencesPage from './pages/PreferencesPage';
 import ApiSettingsPage from './pages/ApiSettingsPage';
-import QuestionBankPage from './pages/QuestionBankPage';
-import AnswerEvaluationPage from './pages/AnswerEvaluationPage';
-import NotesGeneratorPage from './pages/NotesGeneratorPage';
-import StudyPlannerPage from './pages/StudyPlannerPage';
-import ProgressTrackerPage from './pages/ProgressTrackerPage';
-import ChatPage from './pages/ChatPage';
-import ProfilePage from './pages/ProfilePage'; 
 
 // Protected route wrapper component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {

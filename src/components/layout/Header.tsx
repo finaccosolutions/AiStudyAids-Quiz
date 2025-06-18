@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../ui/Button';
 import { 
   ChevronDown, LogOut, User, BookOpen, 
