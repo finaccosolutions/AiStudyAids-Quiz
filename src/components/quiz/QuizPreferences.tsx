@@ -7,13 +7,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { QuizPreferences } from '../../types';
-import { 
-  Brain, Settings, Clock, Target, Globe, 
-  Users, Mail, Plus, X, Crown, Zap,
-  BookOpen, CheckCircle, AlertCircle,
-  Timer, Award, Sparkles, Star, Play,
-  Calculator, Info, Lightbulb, Flame
-} from 'lucide-react';
+import { Brain, Settings, Clock, Target, Globe, Users, Mail, Plus, X, Crown, Zap, BookOpen, CheckCircle, AlertCircle, Timer, Award, Sparkles, Star, Play, Calculator, Info, Lightbulb, Flame, Rocket, Shield, CloudLightning as Lightning, Wand2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface QuizPreferencesFormProps {
@@ -77,9 +71,9 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   ];
 
   const difficultyOptions = [
-    { value: 'easy', label: 'Easy', color: 'from-green-400 to-emerald-500', description: 'Basic concepts' },
-    { value: 'medium', label: 'Medium', color: 'from-yellow-400 to-orange-500', description: 'Intermediate level' },
-    { value: 'hard', label: 'Hard', color: 'from-red-400 to-pink-500', description: 'Advanced topics' }
+    { value: 'easy', label: 'Easy', gradient: 'from-green-400 to-emerald-500', description: 'Basic concepts', icon: '🌱' },
+    { value: 'medium', label: 'Medium', gradient: 'from-yellow-400 to-orange-500', description: 'Intermediate level', icon: '🔥' },
+    { value: 'hard', label: 'Hard', gradient: 'from-red-400 to-pink-500', description: 'Advanced topics', icon: '⚡' }
   ];
 
   const languageOptions = [
@@ -179,20 +173,20 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-8">
-      <div className="max-w-6xl mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-8 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-200/30 to-pink-200/30 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/30 to-cyan-200/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="relative"
         >
-          {/* Floating Background Elements */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-200/30 to-pink-200/30 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/30 to-cyan-200/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
-          </div>
-
-          <Card className="relative bg-white/80 backdrop-blur-xl border-0 shadow-2xl overflow-hidden">
+          <Card className="relative bg-white/90 backdrop-blur-xl border-0 shadow-2xl overflow-hidden">
             {/* Animated Header */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 animate-pulse" />
             
@@ -208,14 +202,14 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                     whileHover={{ scale: 1.1, rotate: 5 }}
                     className="relative"
                   >
-                    <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl">
+                    <div className={`w-20 h-20 bg-gradient-to-br ${isCompetitionMode ? 'from-purple-500 to-pink-600' : 'from-blue-500 to-indigo-600'} rounded-2xl flex items-center justify-center shadow-xl`}>
                       {isCompetitionMode ? (
                         <Crown className="w-10 h-10 text-white" />
                       ) : (
                         <Brain className="w-10 h-10 text-white" />
                       )}
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 to-blue-500/20 rounded-2xl blur-xl animate-pulse" />
+                    <div className={`absolute inset-0 bg-gradient-to-br ${isCompetitionMode ? 'from-purple-400/20 to-pink-500/20' : 'from-blue-400/20 to-indigo-500/20'} rounded-2xl blur-xl animate-pulse`} />
                   </motion.div>
                   
                   <div>
@@ -432,12 +426,13 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                               onClick={() => handlePreferenceChange('difficulty', option.value)}
                               className={`p-4 rounded-xl border-2 transition-all duration-300 text-center ${
                                 preferences.difficulty === option.value
-                                  ? `bg-gradient-to-r ${option.color} text-white border-transparent shadow-lg scale-105`
+                                  ? `bg-gradient-to-r ${option.gradient} text-white border-transparent shadow-lg scale-105`
                                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:shadow-md hover:scale-102'
                               }`}
                               whileHover={{ scale: preferences.difficulty === option.value ? 1.05 : 1.02 }}
                               whileTap={{ scale: 0.98 }}
                             >
+                              <div className="text-2xl mb-2">{option.icon}</div>
                               <div className="font-bold text-lg">{option.label}</div>
                               <div className="text-sm opacity-80">{option.description}</div>
                             </motion.button>
@@ -531,198 +526,6 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                   )}
                 </motion.div>
 
-                {/* Advanced Settings */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 }}
-                  className="space-y-6"
-                >
-                  <motion.button
-                    type="button"
-                    onClick={() => setShowAdvanced(!showAdvanced)}
-                    className="flex items-center space-x-3 text-purple-600 hover:text-purple-700 font-semibold text-xl transition-colors group"
-                    whileHover={{ scale: 1.02 }}
-                  >
-                    <Lightbulb className="w-6 h-6 group-hover:animate-pulse" />
-                    <span>Advanced Settings</span>
-                    <motion.div
-                      animate={{ rotate: showAdvanced ? 180 : 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                    </motion.div>
-                  </motion.button>
-
-                  <AnimatePresence>
-                    {showAdvanced && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="space-y-8 bg-gradient-to-br from-slate-50 to-blue-50 p-8 rounded-2xl border-2 border-slate-200 shadow-inner overflow-hidden"
-                      >
-                        {/* Quiz Mode */}
-                        <div className="space-y-4">
-                          <label className="block text-lg font-bold text-slate-800 flex items-center">
-                            <Award className="w-6 h-6 mr-2 text-purple-600" />
-                            Quiz Mode
-                          </label>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {modeOptions.map((option) => (
-                              <motion.button
-                                key={option.value}
-                                type="button"
-                                onClick={() => handlePreferenceChange('mode', option.value)}
-                                className={`p-5 rounded-xl border-2 transition-all duration-300 text-left ${
-                                  preferences.mode === option.value
-                                    ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-lg scale-105'
-                                    : 'border-slate-200 bg-white text-slate-700 hover:border-purple-300 hover:bg-purple-50 hover:scale-102'
-                                }`}
-                                whileHover={{ scale: preferences.mode === option.value ? 1.05 : 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                              >
-                                <div className="flex items-center space-x-3 mb-2">
-                                  <span className="text-xl">{option.icon}</span>
-                                  <span className="font-bold text-lg">{option.label}</span>
-                                </div>
-                                <div className="text-sm opacity-70">{option.description}</div>
-                              </motion.button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Time Limits */}
-                        <div className="space-y-6">
-                          <div className="flex items-center space-x-3">
-                            <Clock className="w-6 h-6 text-blue-600" />
-                            <h4 className="text-lg font-bold text-slate-800">Time Management</h4>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {[
-                              { value: 'none', label: 'No Time Limit', icon: '∞', description: 'Take your time' },
-                              { value: 'per-question', label: 'Per Question', icon: '⏱️', description: 'Time each question' },
-                              { value: 'total', label: 'Total Quiz Time', icon: '⏰', description: 'Overall time limit' }
-                            ].map((option) => (
-                              <motion.button
-                                key={option.value}
-                                type="button"
-                                onClick={() => handleTimeModeChange(option.value as any)}
-                                className={`p-4 rounded-xl border-2 transition-all duration-300 text-center ${
-                                  timeMode === option.value
-                                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-lg scale-105'
-                                    : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50 hover:scale-102'
-                                }`}
-                                whileHover={{ scale: timeMode === option.value ? 1.05 : 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                              >
-                                <div className="text-2xl mb-2">{option.icon}</div>
-                                <div className="font-bold">{option.label}</div>
-                                <div className="text-sm opacity-70">{option.description}</div>
-                              </motion.button>
-                            ))}
-                          </div>
-
-                          {timeMode !== 'none' && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="grid grid-cols-1 md:grid-cols-2 gap-6"
-                            >
-                              {timeMode === 'per-question' && (
-                                <div className="space-y-3">
-                                  <label className="block text-sm font-semibold text-slate-700">
-                                    Time per Question (seconds)
-                                  </label>
-                                  <Input
-                                    type="number"
-                                    min="10"
-                                    max="300"
-                                    value={preferences.timeLimit || ''}
-                                    onChange={(e) => handlePreferenceChange('timeLimit', e.target.value)}
-                                    placeholder="e.g., 30"
-                                    className="w-full bg-white border-2 border-slate-200 focus:border-blue-500 focus:ring-blue-200 text-slate-800 placeholder-slate-500 py-3 px-4 text-lg rounded-xl shadow-sm hover:shadow-md transition-all duration-300"
-                                  />
-                                  {calculateTimeReference() && (
-                                    <div className="flex items-center space-x-2 text-sm text-blue-600 bg-blue-50 p-2 rounded-lg">
-                                      <Info className="w-4 h-4" />
-                                      <span>{calculateTimeReference()}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {timeMode === 'total' && (
-                                <div className="space-y-3">
-                                  <label className="block text-sm font-semibold text-slate-700">
-                                    Total Quiz Time (seconds)
-                                  </label>
-                                  <Input
-                                    type="number"
-                                    min="60"
-                                    max="3600"
-                                    value={preferences.totalTimeLimit || ''}
-                                    onChange={(e) => handlePreferenceChange('totalTimeLimit', e.target.value)}
-                                    placeholder="e.g., 600"
-                                    className="w-full bg-white border-2 border-slate-200 focus:border-blue-500 focus:ring-blue-200 text-slate-800 placeholder-slate-500 py-3 px-4 text-lg rounded-xl shadow-sm hover:shadow-md transition-all duration-300"
-                                  />
-                                  {calculateTimeReference() && (
-                                    <div className="flex items-center space-x-2 text-sm text-blue-600 bg-blue-50 p-2 rounded-lg">
-                                      <Info className="w-4 h-4" />
-                                      <span>{calculateTimeReference()}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </motion.div>
-                          )}
-                        </div>
-
-                        {/* Negative Marking */}
-                        <div className="space-y-6">
-                          <div className="flex items-center space-x-4">
-                            <input
-                              type="checkbox"
-                              id="negativeMarking"
-                              checked={preferences.negativeMarking}
-                              onChange={(e) => handlePreferenceChange('negativeMarking', e.target.checked)}
-                              className="w-5 h-5 text-purple-600 border-2 border-slate-300 rounded focus:ring-purple-500"
-                            />
-                            <label htmlFor="negativeMarking" className="text-lg font-bold text-slate-800 flex items-center">
-                              <Target className="w-6 h-6 mr-2 text-red-600" />
-                              Enable Negative Marking
-                            </label>
-                          </div>
-
-                          {preferences.negativeMarking && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="ml-9 space-y-3"
-                            >
-                              <label className="block text-sm font-semibold text-slate-700">
-                                Marks Deducted per Wrong Answer
-                              </label>
-                              <Input
-                                type="number"
-                                min="-5"
-                                max="0"
-                                step="0.25"
-                                value={preferences.negativeMarks || ''}
-                                onChange={(e) => handlePreferenceChange('negativeMarks', parseFloat(e.target.value))}
-                                placeholder="e.g., -0.25"
-                                className="w-full max-w-xs bg-white border-2 border-slate-200 focus:border-red-500 focus:ring-red-200 text-slate-800 placeholder-slate-500 py-3 px-4 text-lg rounded-xl shadow-sm hover:shadow-md transition-all duration-300"
-                              />
-                            </motion.div>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-
                 {error && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
@@ -764,11 +567,11 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                             </>
                           ) : (
                             <>
-                              <Play className="w-6 h-6" />
+                              <Rocket className="w-6 h-6" />
                               <span>Start Quiz</span>
                             </>
                           )}
-                          <Zap className="w-6 h-6" />
+                          <Lightning className="w-6 h-6" />
                         </div>
                       )}
                     </Button>

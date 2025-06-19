@@ -32,7 +32,7 @@ interface CompetitionState {
   updateParticipantProgress: (competitionId: string, answers: any, score: number, correctAnswers: number, timeTaken: number, currentQuestion?: number) => Promise<void>;
   completeCompetition: (competitionId: string) => Promise<void>;
   loadUserStats: (userId: string) => Promise<void>;
-  joinRandomQueue: (topic: string, difficulty: string, language: string) => Promise<void>;
+  joinRandomQueue: (data: { topic: string; difficulty: string; language: string }) => Promise<void>;
   leaveRandomQueue: () => Promise<void>;
   loadChatMessages: (competitionId: string) => Promise<void>;
   sendChatMessage: (competitionId: string, message: string) => Promise<void>;
@@ -473,7 +473,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
     }
   },
 
-  joinRandomQueue: async (topic, difficulty, language) => {
+  joinRandomQueue: async (data) => {
     set({ isLoading: true, error: null });
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -490,9 +490,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .from('random_queue')
         .insert({
           user_id: user.id,
-          topic,
-          difficulty,
-          language,
+          topic: data.topic,
+          difficulty: data.difficulty,
+          language: data.language,
           status: 'waiting'
         })
         .select()
@@ -503,7 +503,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       set({ queueEntry, isLoading: false });
 
       // Check for matches
-      setTimeout(() => get().checkForMatches(topic, difficulty, language), 1000);
+      setTimeout(() => get().checkForMatches(data.topic, data.difficulty, data.language), 1000);
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
     }
