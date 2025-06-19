@@ -4,14 +4,17 @@ import { useQuizStore, defaultPreferences } from '../store/useQuizStore';
 import { useCompetitionStore } from '../store/useCompetitionStore';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import ApiKeyForm from '../components/quiz/ApiKeyForm';
+import QuizModeSelector from '../components/quiz/QuizModeSelector';
 import QuizPreferencesForm from '../components/quiz/QuizPreferences';
+import JoinCompetitionForm from '../components/quiz/JoinCompetitionForm';
+import RandomMatchmaking from '../components/competition/RandomMatchmaking';
 import QuizQuestion from '../components/quiz/QuizQuestion';
 import QuizResults from '../components/quiz/QuizResults';
 import CompetitionLobby from '../components/competition/CompetitionLobby';
 import CompetitionQuiz from '../components/competition/CompetitionQuiz';
 import CompetitionResults from '../components/competition/CompetitionResults';
 import { Button } from '../components/ui/Button';
-import { RefreshCw, X } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 const QuizPage: React.FC = () => {
   const { user, isLoggedIn } = useAuthStore();
@@ -33,8 +36,14 @@ const QuizPage: React.FC = () => {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const [showSettings, setShowSettings] = useState(false);
-  const [step, setStep] = useState<'api-key' | 'preferences' | 'quiz' | 'results' | 'competition-lobby' | 'competition-quiz' | 'competition-results'>('api-key');
+  
+  const [step, setStep] = useState<
+    'api-key' | 'mode-selector' | 'solo-preferences' | 'create-competition' | 
+    'join-competition' | 'random-match' | 'quiz' | 'results' | 
+    'competition-lobby' | 'competition-quiz' | 'competition-results'
+  >('api-key');
+  
+  const [selectedMode, setSelectedMode] = useState<string | null>(null);
   const [totalTimeRemaining, setTotalTimeRemaining] = useState<number | null>(null);
   const [competitionQuestions, setCompetitionQuestions] = useState<any[]>([]);
   
@@ -53,20 +62,19 @@ const QuizPage: React.FC = () => {
       return;
     }
 
-    if (apiKey && !preferences) {
-      setStep('preferences');
-    } else if (apiKey && preferences && questions.length === 0 && !result) {
-      setStep('preferences');
-    } else if (questions.length > 0 && !result) {
+    // Determine initial step based on current state
+    if (!apiKey) {
+      setStep('api-key');
+    } else if (result) {
+      setStep('results');
+    } else if (questions.length > 0) {
       setStep('quiz');
       // Initialize total time if set
       if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
         setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
       }
-    } else if (result) {
-      setStep('results');
-    } else if (!apiKey) {
-      setStep('api-key');
+    } else {
+      setStep('mode-selector');
     }
   }, [apiKey, preferences, questions, result, location.state]);
 
@@ -93,14 +101,39 @@ const QuizPage: React.FC = () => {
     return <Navigate to="/auth" />;
   }
   
-  const handleStartQuiz = async () => {
+  const handleApiKeySaved = () => {
+    setStep('mode-selector');
+  };
+
+  const handleModeSelect = (mode: 'solo' | 'create-competition' | 'join-competition' | 'random-match') => {
+    setSelectedMode(mode);
+    switch (mode) {
+      case 'solo':
+        setStep('solo-preferences');
+        break;
+      case 'create-competition':
+        setStep('create-competition');
+        break;
+      case 'join-competition':
+        setStep('join-competition');
+        break;
+      case 'random-match':
+        setStep('random-match');
+        break;
+    }
+  };
+
+  const handleBackToModeSelector = () => {
+    resetQuiz();
+    setSelectedMode(null);
+    setTotalTimeRemaining(null);
+    setStep('mode-selector');
+  };
+  
+  const handleStartSoloQuiz = async () => {
     if (!user) return;
     await generateQuiz(user.id);
     setStep('quiz');
-  };
-  
-  const handleApiKeySaved = () => {
-    setStep('preferences');
   };
   
   const handleFinishQuiz = useCallback(() => {
@@ -112,19 +145,17 @@ const QuizPage: React.FC = () => {
   const handleNewQuiz = () => {
     resetQuiz();
     setTotalTimeRemaining(null);
-    setStep('preferences');
+    setStep('mode-selector');
   };
   
   const handleChangePreferences = () => {
     resetQuiz();
     setTotalTimeRemaining(null);
-    navigate('/preferences');
-  };
-
-  const handleCloseQuiz = () => {
-    resetQuiz();
-    setTotalTimeRemaining(null);
-    navigate('/preferences');
+    if (selectedMode === 'solo') {
+      setStep('solo-preferences');
+    } else {
+      setStep('mode-selector');
+    }
   };
 
   const handleAnswerSubmit = useCallback(() => {
@@ -140,6 +171,15 @@ const QuizPage: React.FC = () => {
   }, [prevQuestion]);
 
   // Competition handlers
+  const handleJoinSuccess = () => {
+    setStep('competition-lobby');
+  };
+
+  const handleMatchFound = (competitionId: string) => {
+    // In real implementation, load the competition and go to lobby
+    setStep('competition-lobby');
+  };
+
   const handleStartCompetitionQuiz = async () => {
     if (!currentCompetition || !user || !apiKey) return;
 
@@ -159,7 +199,7 @@ const QuizPage: React.FC = () => {
   };
 
   const handleNewCompetition = () => {
-    navigate('/preferences');
+    setStep('mode-selector');
   };
 
   const handleBackToHome = () => {
@@ -173,14 +213,65 @@ const QuizPage: React.FC = () => {
       case 'api-key':
         return <ApiKeyForm userId={user.id} onSave={handleApiKeySaved} />;
       
-      case 'preferences':
+      case 'mode-selector':
+        return <QuizModeSelector onSelectMode={handleModeSelect} />;
+
+      case 'solo-preferences':
         return (
           <div className="space-y-6">
+            <div className="flex items-center justify-between mb-6">
+              <Button
+                variant="ghost"
+                onClick={handleBackToModeSelector}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back to Quiz Modes
+              </Button>
+            </div>
             <QuizPreferencesForm
               userId={user.id}
               initialPreferences={preferences || defaultPreferences}
+              onSave={handleStartSoloQuiz}
             />
           </div>
+        );
+
+      case 'create-competition':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between mb-6">
+              <Button
+                variant="ghost"
+                onClick={handleBackToModeSelector}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back to Quiz Modes
+              </Button>
+            </div>
+            <QuizPreferencesForm
+              userId={user.id}
+              initialPreferences={preferences || defaultPreferences}
+              onStartCompetition={() => setStep('competition-lobby')}
+            />
+          </div>
+        );
+
+      case 'join-competition':
+        return (
+          <JoinCompetitionForm
+            onJoinSuccess={handleJoinSuccess}
+            onCancel={handleBackToModeSelector}
+          />
+        );
+
+      case 'random-match':
+        return (
+          <RandomMatchmaking
+            onMatchFound={handleMatchFound}
+            onCancel={handleBackToModeSelector}
+          />
         );
 
       case 'competition-lobby':
@@ -230,14 +321,14 @@ const QuizPage: React.FC = () => {
         
         return (
           <div className="max-w-4xl mx-auto px-2 sm:px-4">
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-between items-center mb-4">
               <Button
-                onClick={handleCloseQuiz}
                 variant="ghost"
-                className="text-gray-600 hover:text-red-600 transition-colors"
+                onClick={handleBackToModeSelector}
+                className="text-gray-600 hover:text-gray-800"
               >
-                <X className="w-5 h-5 mr-2" />
-                Close Quiz
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back to Quiz Modes
               </Button>
             </div>
             <QuizQuestion
@@ -278,15 +369,6 @@ const QuizPage: React.FC = () => {
   
   return (
     <div className="relative min-h-screen bg-gray-50">
-      {showSettings && step !== 'api-key' && (
-        <div className="mb-8 bg-white p-6 rounded-xl shadow-md border border-gray-100 transition-all duration-300">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">API Key Settings</h2>
-          <div className="space-y-4">
-            <ApiKeyForm userId={user!.id} />
-          </div>
-        </div>
-      )}
-      
       {renderContent()}
     </div>
   );

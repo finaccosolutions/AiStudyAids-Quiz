@@ -9,7 +9,7 @@ import {
   BookOpen, Save, Clock, Languages, ListChecks, 
   BarChart3, Timer, AlertTriangle, Settings, 
   CheckCircle2, AlarmClock, Info, Brain, Users,
-  Zap, Target, Crown, Sparkles, Plus, Hash
+  Zap, Target, Crown, Sparkles, Plus, Hash, Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QuizPreferences } from '../../types';
@@ -35,7 +35,6 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   const [timingMode, setTimingMode] = useState<'per-question' | 'total'>(
     preferences.totalTimeLimit ? 'total' : 'per-question'
   );
-  const [selectedMode, setSelectedMode] = useState<'solo' | 'competition' | 'join'>('solo');
   
   // Competition form state
   const [competitionForm, setCompetitionForm] = useState({
@@ -45,10 +44,8 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
     emails: ['']
   });
 
-  // Join competition form state
-  const [joinForm, setJoinForm] = useState({
-    competitionCode: ''
-  });
+  // Determine if this is for competition based on the presence of onStartCompetition
+  const isCompetitionMode = !!onStartCompetition;
   
   useEffect(() => {
     setPreferences(initialPreferences);
@@ -141,7 +138,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
     };
 
     // Apply competition-specific settings
-    if (selectedMode === 'competition') {
+    if (isCompetitionMode) {
       updatedPreferences = {
         ...updatedPreferences,
         mode: 'exam', // Always exam mode for competitions
@@ -154,10 +151,8 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
     
     await savePreferences(userId, updatedPreferences);
     
-    if (selectedMode === 'competition') {
+    if (isCompetitionMode) {
       await handleCreateCompetition();
-    } else if (selectedMode === 'join') {
-      await handleJoinCompetition();
     } else {
       await generateQuiz(userId);
       if (onSave) onSave();
@@ -191,15 +186,6 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
       if (onStartCompetition) onStartCompetition();
     } catch (error: any) {
       console.error('Failed to create competition:', error);
-    }
-  };
-
-  const handleJoinCompetition = async () => {
-    try {
-      await joinCompetition(joinForm.competitionCode.toUpperCase());
-      if (onJoinCompetition) onJoinCompetition();
-    } catch (error: any) {
-      console.error('Failed to join competition:', error);
     }
   };
   
@@ -276,7 +262,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   };
 
   // Get the appropriate question types based on mode
-  const questionTypeOptions = selectedMode === 'competition' 
+  const questionTypeOptions = isCompetitionMode 
     ? competitionQuestionTypeOptions 
     : soloQuestionTypeOptions;
 
@@ -305,199 +291,128 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
     <div className="max-w-4xl mx-auto">
       <div className="bg-white rounded-2xl shadow-xl border border-purple-100 overflow-hidden transform transition-all duration-300 hover:shadow-2xl">
         <div className="p-8 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-indigo-50">
-          <h2 className="text-3xl font-bold gradient-text mb-2">Quiz Preferences</h2>
-          <p className="text-gray-600">Customize your learning experience</p>
-        </div>
-        
-        {/* Mode Selection */}
-        <div className="p-8 border-b border-purple-100 bg-gradient-to-r from-blue-50/30 to-purple-50/30">
-          <div className="flex items-center mb-6">
-            <Target className="w-6 h-6 mr-3 text-purple-600" />
-            <h3 className="text-xl font-semibold text-gray-800">Choose Your Experience</h3>
-            <div className="tooltip ml-2">
-              <Info className="w-4 h-4 text-gray-400 hover:text-purple-600 cursor-help" />
-              <span className="tooltiptext z-50">Select between solo practice or competitive multiplayer quiz</span>
-            </div>
+          <div className="flex items-center space-x-3 mb-2">
+            {isCompetitionMode ? (
+              <Crown className="w-8 h-8 text-purple-600" />
+            ) : (
+              <Brain className="w-8 h-8 text-purple-600" />
+            )}
+            <h2 className="text-3xl font-bold gradient-text">
+              {isCompetitionMode ? 'Create Competition' : 'Solo Quiz Preferences'}
+            </h2>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <motion.button
-              type="button"
-              onClick={() => setSelectedMode('solo')}
-              className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-300 cursor-pointer ${
-                selectedMode === 'solo' 
-                  ? 'border-purple-500 bg-purple-50 shadow-lg scale-[1.02]' 
-                  : 'border-gray-200 hover:border-purple-200 hover:bg-purple-50/50'
-              }`}
-              whileHover={{ scale: selectedMode === 'solo' ? 1.02 : 1.05 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-400/10 to-indigo-400/10" />
-              <div className="relative p-6">
-                <div className="flex items-center justify-center mb-4">
-                  <div className={`p-4 rounded-full ${
-                    selectedMode === 'solo' ? 'bg-purple-100' : 'bg-gray-100'
-                  }`}>
-                    <BookOpen className={`w-8 h-8 ${
-                      selectedMode === 'solo' ? 'text-purple-600' : 'text-gray-400'
-                    }`} />
-                  </div>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Solo Practice</h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  Practice at your own pace with instant feedback and detailed explanations
-                </p>
-                <div className="space-y-2 text-xs text-gray-500">
-                  <div className="flex items-center">
-                    <CheckCircle2 className="w-3 h-3 mr-2 text-green-500" />
-                    <span>Immediate feedback</span>
-                  </div>
-                  <div className="flex items-center">
-                    <CheckCircle2 className="w-3 h-3 mr-2 text-green-500" />
-                    <span>Detailed explanations</span>
-                  </div>
-                  <div className="flex items-center">
-                    <CheckCircle2 className="w-3 h-3 mr-2 text-green-500" />
-                    <span>Self-paced learning</span>
-                  </div>
-                </div>
-                {selectedMode === 'solo' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-4 p-3 bg-white bg-opacity-80 rounded-lg border border-purple-200"
-                  >
-                    <div className="flex items-center space-x-2 text-purple-700">
-                      <Sparkles className="w-4 h-4" />
-                      <span className="text-sm font-medium">Selected</span>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-            </motion.button>
-
-            <motion.button
-              type="button"
-              onClick={() => setSelectedMode('competition')}
-              className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-300 cursor-pointer ${
-                selectedMode === 'competition' 
-                  ? 'border-purple-500 bg-purple-50 shadow-lg scale-[1.02]' 
-                  : 'border-gray-200 hover:border-purple-200 hover:bg-purple-50/50'
-              }`}
-              whileHover={{ scale: selectedMode === 'competition' ? 1.02 : 1.05 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-400/10 to-pink-400/10" />
-              <div className="relative p-6">
-                <div className="flex items-center justify-center mb-4">
-                  <div className={`p-4 rounded-full ${
-                    selectedMode === 'competition' ? 'bg-purple-100' : 'bg-gray-100'
-                  }`}>
-                    <Crown className={`w-8 h-8 ${
-                      selectedMode === 'competition' ? 'text-purple-600' : 'text-gray-400'
-                    }`} />
-                  </div>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Create Competition</h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  Compete with friends or random players in real-time quiz battles
-                </p>
-                <div className="space-y-2 text-xs text-gray-500">
-                  <div className="flex items-center">
-                    <Crown className="w-3 h-3 mr-2 text-yellow-500" />
-                    <span>Real-time competition</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Users className="w-3 h-3 mr-2 text-blue-500" />
-                    <span>Multiplayer battles</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Zap className="w-3 h-3 mr-2 text-purple-500" />
-                    <span>Live leaderboards</span>
-                  </div>
-                </div>
-                {selectedMode === 'competition' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-4 p-3 bg-white bg-opacity-80 rounded-lg border border-purple-200"
-                  >
-                    <div className="flex items-center space-x-2 text-purple-700">
-                      <Sparkles className="w-4 h-4" />
-                      <span className="text-sm font-medium">Selected</span>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-            </motion.button>
-
-            <motion.button
-              type="button"
-              onClick={() => setSelectedMode('join')}
-              className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-300 cursor-pointer ${
-                selectedMode === 'join' 
-                  ? 'border-purple-500 bg-purple-50 shadow-lg scale-[1.02]' 
-                  : 'border-gray-200 hover:border-purple-200 hover:bg-purple-50/50'
-              }`}
-              whileHover={{ scale: selectedMode === 'join' ? 1.02 : 1.05 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/10 to-blue-400/10" />
-              <div className="relative p-6">
-                <div className="flex items-center justify-center mb-4">
-                  <div className={`p-4 rounded-full ${
-                    selectedMode === 'join' ? 'bg-purple-100' : 'bg-gray-100'
-                  }`}>
-                    <Hash className={`w-8 h-8 ${
-                      selectedMode === 'join' ? 'text-purple-600' : 'text-gray-400'
-                    }`} />
-                  </div>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Join Competition</h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  Enter a competition code to join an existing quiz battle
-                </p>
-                <div className="space-y-2 text-xs text-gray-500">
-                  <div className="flex items-center">
-                    <Hash className="w-3 h-3 mr-2 text-indigo-500" />
-                    <span>Enter competition code</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Users className="w-3 h-3 mr-2 text-blue-500" />
-                    <span>Join existing battles</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Zap className="w-3 h-3 mr-2 text-purple-500" />
-                    <span>Quick participation</span>
-                  </div>
-                </div>
-                {selectedMode === 'join' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-4 p-3 bg-white bg-opacity-80 rounded-lg border border-purple-200"
-                  >
-                    <div className="flex items-center space-x-2 text-purple-700">
-                      <Sparkles className="w-4 h-4" />
-                      <span className="text-sm font-medium">Selected</span>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-            </motion.button>
-          </div>
+          <p className="text-gray-600">
+            {isCompetitionMode 
+              ? 'Set up your competition and invite friends to compete'
+              : 'Customize your learning experience'
+            }
+          </p>
         </div>
         
         <form onSubmit={handleSubmit} className="divide-y divide-purple-100">
+          {/* Competition Details - Only show for competition mode */}
+          {isCompetitionMode && (
+            <div className="p-8 space-y-6 bg-gradient-to-r from-yellow-50/30 to-orange-50/30">
+              <div className="flex items-center mb-6">
+                <Crown className="w-6 h-6 mr-3 text-yellow-600" />
+                <h3 className="text-xl font-semibold text-gray-800">Competition Details</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Competition Title
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g., Computer Science Challenge"
+                    value={competitionForm.title}
+                    onChange={(e) => setCompetitionForm({ ...competitionForm, title: e.target.value })}
+                    className="w-full"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Max Participants
+                  </label>
+                  <Select
+                    options={[
+                      { value: '2', label: '2 Players' },
+                      { value: '4', label: '4 Players' },
+                      { value: '6', label: '6 Players' },
+                      { value: '8', label: '8 Players' },
+                      { value: '10', label: '10 Players' }
+                    ]}
+                    value={competitionForm.maxParticipants.toString()}
+                    onChange={(e) => setCompetitionForm({ ...competitionForm, maxParticipants: parseInt(e.target.value) })}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Description (Optional)
+                </label>
+                <textarea
+                  placeholder="Describe your competition..."
+                  value={competitionForm.description}
+                  onChange={(e) => setCompetitionForm({ ...competitionForm, description: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none"
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Invite Participants (Optional)
+                </label>
+                {competitionForm.emails.map((email, index) => (
+                  <div key={index} className="flex items-center space-x-3">
+                    <Mail className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                    <Input
+                      type="email"
+                      placeholder="participant@example.com"
+                      value={email}
+                      onChange={(e) => updateEmail(index, e.target.value)}
+                      className="flex-1"
+                    />
+                    {competitionForm.emails.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => removeEmail(index)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        ×
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addEmail}
+                  className="w-full border-dashed border-2 border-yellow-300 text-yellow-600 hover:bg-yellow-50"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Another Email
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Basic Settings Panel */}
           <div className="p-8 space-y-6 relative overflow-hidden group bg-gradient-to-r from-purple-50/30 to-indigo-50/30">
             <div className="relative">
               <div className="flex items-center mb-6 relative">
                 <Settings className="w-6 h-6 mr-3 text-purple-600" />
-                <h3 className="text-xl font-semibold text-gray-800">Basic Settings</h3>
+                <h3 className="text-xl font-semibold text-gray-800">Quiz Settings</h3>
                 <div className="tooltip ml-2">
                   <Info className="w-4 h-4 text-gray-400 hover:text-purple-600 cursor-help" />
-                  <span className="tooltiptext z-50">Configure your basic quiz settings including course, topic, and difficulty level</span>
+                  <span className="tooltiptext z-50">Configure your quiz settings including course, topic, and difficulty level</span>
                 </div>
               </div>
               
@@ -512,6 +427,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                     value={preferences.course || ''}
                     onChange={(e) => setPreferences({ ...preferences, course: e.target.value })}
                     className="w-full transition-all duration-300 hover:border-purple-400 focus:ring-purple-400 text-lg"
+                    required
                   />
                 </div>
                 
@@ -582,7 +498,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                   />
                 </div>
 
-                {selectedMode === 'solo' && (
+                {!isCompetitionMode && (
                   <div className="space-y-4">
                     <label className="flex items-center space-x-2">
                       <input
@@ -620,7 +536,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                   </div>
                 )}
 
-                {selectedMode === 'competition' && (
+                {isCompetitionMode && (
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700">
                       Time per Question
@@ -651,7 +567,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                 <div className="tooltip ml-2">
                   <Info className="w-4 h-4 text-gray-400 hover:text-blue-600 cursor-help" />
                   <span className="tooltiptext z-50">
-                    {selectedMode === 'competition' 
+                    {isCompetitionMode 
                       ? 'Question types optimized for competitive play'
                       : 'Choose the types of questions you want in your quiz'
                     }
@@ -687,7 +603,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
           </div>
           
           {/* Time Settings Panel - Only show for solo mode */}
-          {selectedMode === 'solo' && (
+          {!isCompetitionMode && (
             <div className="p-8 space-y-6 relative overflow-hidden group bg-gradient-to-r from-emerald-50/30 to-teal-50/30">
               <div className="relative">
                 <div className="flex items-center mb-6 relative">
@@ -771,7 +687,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
           )}
           
           {/* Quiz Mode Panel - Only show for solo mode */}
-          {selectedMode === 'solo' && (
+          {!isCompetitionMode && (
             <div className="p-8 space-y-6 relative overflow-hidden group bg-gradient-to-r from-amber-50/30 to-orange-50/30">
               <div className="relative">
                 <div className="flex items-center mb-6 relative">
@@ -824,154 +740,29 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
             </div>
           )}
 
-          {/* Competition Settings */}
-          {selectedMode === 'competition' && (
-            <div className="p-8 space-y-6 relative overflow-hidden group bg-gradient-to-r from-yellow-50/30 to-orange-50/30">
-              <div className="relative">
-                <div className="flex items-center mb-6 relative">
-                  <Crown className="w-6 h-6 mr-3 text-yellow-600" />
-                  <h3 className="text-xl font-semibold text-gray-800">Competition Settings</h3>
+          {/* Competition Rules Display - Only show for competition mode */}
+          {isCompetitionMode && (
+            <div className="p-8 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200">
+              <h4 className="font-semibold text-yellow-900 mb-4 flex items-center">
+                <AlertTriangle className="w-5 h-5 mr-2" />
+                Competition Rules Applied
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="text-yellow-700">Mode:</span>
+                  <span className="ml-2 font-medium">Exam Only</span>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Competition Title
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="e.g., Computer Science Challenge"
-                      value={competitionForm.title}
-                      onChange={(e) => setCompetitionForm({ ...competitionForm, title: e.target.value })}
-                      className="w-full"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Max Participants
-                    </label>
-                    <Select
-                      options={[
-                        { value: '2', label: '2 Players' },
-                        { value: '4', label: '4 Players' },
-                        { value: '6', label: '6 Players' },
-                        { value: '8', label: '8 Players' },
-                        { value: '10', label: '10 Players' }
-                      ]}
-                      value={competitionForm.maxParticipants.toString()}
-                      onChange={(e) => setCompetitionForm({ ...competitionForm, maxParticipants: parseInt(e.target.value) })}
-                      className="w-full"
-                    />
-                  </div>
+                <div>
+                  <span className="text-yellow-700">Time/Question:</span>
+                  <span className="ml-2 font-medium">{preferences.timeLimit || '30'}s</span>
                 </div>
-
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Description (Optional)
-                  </label>
-                  <textarea
-                    placeholder="Describe your competition..."
-                    value={competitionForm.description}
-                    onChange={(e) => setCompetitionForm({ ...competitionForm, description: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none"
-                    rows={3}
-                  />
+                <div>
+                  <span className="text-yellow-700">Negative Marking:</span>
+                  <span className="ml-2 font-medium text-red-600">-0.25 per wrong</span>
                 </div>
-
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Invite Participants (Optional)
-                  </label>
-                  {competitionForm.emails.map((email, index) => (
-                    <div key={index} className="flex items-center space-x-3">
-                      <Input
-                        type="email"
-                        placeholder="participant@example.com"
-                        value={email}
-                        onChange={(e) => updateEmail(index, e.target.value)}
-                        className="flex-1"
-                      />
-                      {competitionForm.emails.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => removeEmail(index)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          ×
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addEmail}
-                    className="w-full border-dashed border-2 border-yellow-300 text-yellow-600 hover:bg-yellow-50"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Another Email
-                  </Button>
-                </div>
-
-                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-xl border border-yellow-200">
-                  <h4 className="font-semibold text-yellow-900 mb-4">Competition Rules Applied</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-yellow-700">Mode:</span>
-                      <span className="ml-2 font-medium">Exam Only</span>
-                    </div>
-                    <div>
-                      <span className="text-yellow-700">Time/Question:</span>
-                      <span className="ml-2 font-medium">{preferences.timeLimit || '30'}s</span>
-                    </div>
-                    <div>
-                      <span className="text-yellow-700">Negative Marking:</span>
-                      <span className="ml-2 font-medium text-red-600">-0.25 per wrong</span>
-                    </div>
-                    <div>
-                      <span className="text-yellow-700">Results:</span>
-                      <span className="ml-2 font-medium">End of quiz</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Join Competition */}
-          {selectedMode === 'join' && (
-            <div className="p-8 space-y-6 relative overflow-hidden group bg-gradient-to-r from-indigo-50/30 to-blue-50/30">
-              <div className="relative">
-                <div className="flex items-center mb-6 relative">
-                  <Hash className="w-6 h-6 mr-3 text-indigo-600" />
-                  <h3 className="text-xl font-semibold text-gray-800">Join Competition</h3>
-                </div>
-                
-                <div className="text-center mb-8">
-                  <div className="w-20 h-20 bg-gradient-to-r from-indigo-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Hash className="w-10 h-10 text-indigo-600" />
-                  </div>
-                  <p className="text-gray-600 text-lg">
-                    Ask the competition creator for the 6-digit competition code
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
-                      Competition Code
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="ABC123"
-                      value={joinForm.competitionCode}
-                      onChange={(e) => setJoinForm({ competitionCode: e.target.value.toUpperCase() })}
-                      className="w-full py-4 text-center text-2xl font-mono tracking-wider border-2 focus:border-indigo-500"
-                      maxLength={6}
-                    />
-                  </div>
+                <div>
+                  <span className="text-yellow-700">Results:</span>
+                  <span className="ml-2 font-medium">End of quiz</span>
                 </div>
               </div>
             </div>
@@ -993,12 +784,9 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
               className="gradient-bg hover:opacity-90 transition-all duration-300 transform hover:scale-105 group text-lg px-8 py-3"
             >
               {isLoading || competitionLoading ? 'Processing...' : 
-               selectedMode === 'competition' ? 'Create Competition' : 
-               selectedMode === 'join' ? 'Join Competition' : 'Start Quiz'}
-              {selectedMode === 'competition' ? (
+               isCompetitionMode ? 'Create Competition' : 'Start Quiz'}
+              {isCompetitionMode ? (
                 <Crown className="ml-2 h-5 w-5 group-hover:rotate-12 transition-transform" />
-              ) : selectedMode === 'join' ? (
-                <Hash className="ml-2 h-5 w-5 group-hover:rotate-12 transition-transform" />
               ) : (
                 <Save className="ml-2 h-5 w-5 group-hover:rotate-12 transition-transform" />
               )}
