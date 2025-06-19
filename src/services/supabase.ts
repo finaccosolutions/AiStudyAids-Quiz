@@ -122,16 +122,6 @@ export const signUp = async (
   countryCode: string = 'IN',
   countryName: string = 'India'
 ) => {
-  // First check if mobile number exists
-  const { data: existingProfiles } = await supabase
-    .from('profiles')
-    .select('mobile_number')
-    .eq('mobile_number', mobileNumber);
-
-  if (existingProfiles && existingProfiles.length > 0) {
-    throw new Error('Mobile number already registered');
-  }
-
   // Sign up user with email confirmation required
   const { data, error } = await supabase.auth.signUp({ 
     email, 
@@ -146,7 +136,13 @@ export const signUp = async (
     }
   });
 
-  if (error) throw error;
+  if (error) {
+    // Check if email already exists
+    if (error.message.includes('already registered') || error.message.includes('already been registered')) {
+      throw new Error('This email address is already registered. Please sign in instead.');
+    }
+    throw error;
+  }
 
   if (data.user) {
     // Call the send-verification function to create profile and send verification email

@@ -59,25 +59,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) throw error;
       
       if (data.user) {
-        // Send verification email
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            userId: data.user.id,
-            email: data.user.email,
-            name: fullName,
-          }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Failed to send verification email');
-        }
-
         set({
           user: {
             id: data.user.id,

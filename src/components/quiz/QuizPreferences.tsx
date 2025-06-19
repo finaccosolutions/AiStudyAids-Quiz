@@ -11,7 +11,7 @@ import {
   CheckCircle2, AlarmClock, Info, Brain, Users,
   Zap, Target, Crown, Sparkles, Plus, Hash, Mail,
   GraduationCap, Globe, Layers, TrendingUp, Award,
-  PlayCircle, Gauge, Shield, Star
+  PlayCircle, Gauge, Shield, Star, Trophy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QuizPreferences } from '../../types';
