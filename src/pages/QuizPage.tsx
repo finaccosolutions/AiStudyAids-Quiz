@@ -205,6 +205,11 @@ const QuizPage: React.FC = () => {
   const handleBackToHome = () => {
     navigate('/');
   };
+
+  // Fixed: Handle competition creation properly
+  const handleCreateCompetitionSuccess = () => {
+    setStep('competition-lobby');
+  };
   
   const renderContent = () => {
     if (!user) return null;
@@ -253,7 +258,7 @@ const QuizPage: React.FC = () => {
             <QuizPreferencesForm
               userId={user.id}
               initialPreferences={preferences || defaultPreferences}
-              onStartCompetition={() => setStep('competition-lobby')}
+              onStartCompetition={handleCreateCompetitionSuccess}
             />
           </div>
         );
