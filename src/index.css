@@ -3,11 +3,17 @@
 @import 'tailwindcss/utilities';
 
 @layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --border: 214.3 31.8% 91.4%;
+  }
+  
   * {
-    @apply border-border;
+    @apply border-[color:hsl(var(--border))];
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
   }
 }
 
@@ -32,6 +38,10 @@
   
   .bg-gradient-radial {
     background: radial-gradient(ellipse at center, var(--tw-gradient-stops));
+  }
+
+  .gradient-bg {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
 }
 
@@ -120,5 +130,6 @@ input:focus, select:focus, textarea:focus {
   :root {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
   }
 }
