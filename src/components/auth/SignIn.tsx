@@ -106,7 +106,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
                     onBlur={() => setFocusedField(null)}
                     placeholder="Enter your email"
                     required
-                    className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400"
+                    className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400 text-gray-900"
                   />
                 </div>
               </motion.div>
@@ -136,7 +136,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
                     onBlur={() => setFocusedField(null)}
                     placeholder="Enter your password"
                     required
-                    className="w-full pl-12 pr-14 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400"
+                    className="w-full pl-12 pr-14 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400 text-gray-900"
                   />
                   <motion.button
                     type="button"

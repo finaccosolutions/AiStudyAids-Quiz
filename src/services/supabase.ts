@@ -145,26 +145,32 @@ export const signUp = async (
   }
 
   if (data.user) {
-    // Call the send-verification function to create profile and send verification email
-    const response = await fetch(`${supabaseUrl}/functions/v1/send-verification`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`,
-      },
-      body: JSON.stringify({
-        userId: data.user.id,
-        email,
-        name: fullName,
-        mobileNumber,
-        countryCode,
-        countryName,
-      }),
-    });
+    // Use the send-verification Edge Function to create profile with service role privileges
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
+          userId: data.user.id,
+          email: email,
+          fullName: fullName,
+          mobileNumber: mobileNumber,
+          countryCode: countryCode,
+          countryName: countryName
+        }),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to create profile');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Profile creation via Edge Function failed:', errorText);
+        throw new Error('Failed to create profile');
+      }
+    } catch (fetchError) {
+      console.error('Profile creation error:', fetchError);
+      throw new Error('Failed to create profile');
     }
   }
 

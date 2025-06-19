@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, User, Mail, Phone, Lock, Sparkles, CheckCircle, ArrowRight, Globe } from 'lucide-react';
+import { Eye, EyeOff, User, Mail, Phone, Lock, Sparkles, CheckCircle, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { countries } from '../../data/countries';
 import { motion } from 'framer-motion';
@@ -165,7 +165,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                     onBlur={() => setFocusedField(null)}
                     placeholder="Enter your full name"
                     required
-                    className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400"
+                    className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400 text-gray-900"
                   />
                 </div>
               </motion.div>
@@ -195,7 +195,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                     onBlur={() => setFocusedField(null)}
                     placeholder="Enter your email"
                     required
-                    className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400"
+                    className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400 text-gray-900"
                   />
                 </div>
               </motion.div>
@@ -222,7 +222,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                         name="countryCode"
                         value={formData.countryCode}
                         onChange={handleChange}
-                        className="pl-12 pr-3 py-4 border-2 border-gray-200 border-r-0 rounded-l-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white text-lg appearance-none cursor-pointer min-w-[120px]"
+                        className="pl-12 pr-3 py-4 border-2 border-gray-200 border-r-0 rounded-l-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white text-lg appearance-none cursor-pointer min-w-[80px] text-gray-900"
                       >
                         {countries.map((country) => (
                           <option key={country.code} value={country.code}>
@@ -230,9 +230,6 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                           </option>
                         ))}
                       </select>
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                        <Globe className="w-4 h-4 text-gray-400" />
-                      </div>
                     </div>
                     <input
                       type="tel"
@@ -243,15 +240,9 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                       onBlur={() => setFocusedField(null)}
                       placeholder="Mobile number"
                       required
-                      className="flex-1 px-4 py-4 border-2 border-l-0 border-gray-200 rounded-r-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white text-lg placeholder-gray-400"
+                      className="flex-1 px-4 py-4 border-2 border-l-0 border-gray-200 rounded-r-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white text-lg placeholder-gray-400 text-gray-900"
                     />
                   </div>
-                  {selectedCountry && (
-                    <div className="mt-2 text-sm text-gray-500 flex items-center">
-                      <span className="mr-2">{selectedCountry.flag}</span>
-                      <span>{selectedCountry.name} (+{selectedCountry.dialCode})</span>
-                    </div>
-                  )}
                 </div>
               </motion.div>
 
@@ -280,7 +271,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                     onBlur={() => setFocusedField(null)}
                     placeholder="Create a password"
                     required
-                    className="w-full pl-12 pr-14 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400"
+                    className="w-full pl-12 pr-14 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400 text-gray-900"
                   />
                   <motion.button
                     type="button"
@@ -319,7 +310,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                     onBlur={() => setFocusedField(null)}
                     placeholder="Confirm your password"
                     required
-                    className="w-full pl-12 pr-14 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400"
+                    className="w-full pl-12 pr-14 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400 text-gray-900"
                   />
                   <motion.button
                     type="button"
