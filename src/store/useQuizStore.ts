@@ -36,13 +36,14 @@ interface QuizState {
 export const defaultPreferences: QuizPreferences = {
   course: '',
   topic: '',
-  subtopic: null,
+  subtopic: '',
   questionCount: 5,
   questionTypes: ['multiple-choice'],
-  language: 'en',
+  language: 'English',
   difficulty: 'medium',
-  timeLimit: 'none',
-  customTimeLimit: null,
+  timeLimit: null,
+  totalTimeLimit: null,
+  timeLimitEnabled: false,
   negativeMarking: false,
   negativeMarks: 0,
   mode: 'practice',
@@ -104,15 +105,29 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         preferences.questionTypes = ['multiple-choice'];
       }
       
-      // Handle custom time limit
-      if (preferences.timeLimit === 'custom' && (!preferences.customTimeLimit || preferences.customTimeLimit < 1)) {
-        preferences.customTimeLimit = 30; // Default to 30 seconds if invalid
-      }
+      // Validate preferences
+      const validatedPreferences = {
+        ...preferences,
+        course: preferences.course || '',
+        topic: preferences.topic || '',
+        subtopic: preferences.subtopic || '',
+        questionCount: Math.max(1, Math.min(50, preferences.questionCount || 5)),
+        difficulty: preferences.difficulty || 'medium',
+        language: preferences.language || 'English',
+        timeLimitEnabled: preferences.timeLimitEnabled || false,
+        timeLimit: preferences.timeLimitEnabled ? preferences.timeLimit : null,
+        totalTimeLimit: preferences.timeLimitEnabled ? preferences.totalTimeLimit : null,
+        negativeMarking: preferences.negativeMarking || false,
+        negativeMarks: preferences.negativeMarking ? (preferences.negativeMarks || -0.25) : 0,
+        mode: preferences.mode || 'practice',
+        answerMode: preferences.mode === 'practice' ? 'immediate' : 'end'
+      };
       
-      await saveQuizPreferences(userId, preferences);
-      set({ preferences });
+      await saveQuizPreferences(userId, validatedPreferences);
+      set({ preferences: validatedPreferences });
     } catch (error: any) {
       set({ error: error.message || 'Failed to save preferences' });
+      throw error;
     } finally {
       set({ isLoading: false });
     }
@@ -174,9 +189,10 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   },
   
   finishQuiz: () => {
-    const { questions, answers } = get();
+    const { questions, answers, preferences } = get();
     
     let correctAnswers = 0;
+    let finalScore = 0;
     
     const questionsWithAnswers = questions.map(question => {
       const userAnswer = answers[question.id];
@@ -232,6 +248,10 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       
       if (isCorrect) {
         correctAnswers++;
+        finalScore += 1; // Each correct answer is worth 1 point
+      } else if (userAnswer && preferences?.negativeMarking) {
+        // Apply negative marking only if an answer was given
+        finalScore += preferences.negativeMarks || 0;
       }
       
       return {
@@ -241,10 +261,13 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       };
     });
     
+    // Ensure final score is not negative
+    finalScore = Math.max(0, finalScore);
+    
     const result: QuizResult = {
       totalQuestions: questions.length,
       correctAnswers,
-      percentage: questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0,
+      percentage: questions.length > 0 ? Math.round((finalScore / questions.length) * 100) : 0,
       questions: questionsWithAnswers
     };
     

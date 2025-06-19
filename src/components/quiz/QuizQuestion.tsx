@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card, CardBody, CardFooter } from '../ui/Card';
 import { ArrowLeft, ArrowRight, CheckCircle, Volume2, VolumeX, BookOpen, Clock, Sparkles, Target, Zap, Star } from 'lucide-react';
+import { speechService } from '../../services/speech';
 import { motion, AnimatePresence } from 'framer-motion';
 import { evaluateTextAnswer } from '../../services/gemini';
 import { useQuizStore } from '../../store/useQuizStore';

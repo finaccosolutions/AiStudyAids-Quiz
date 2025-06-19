@@ -57,19 +57,20 @@ export const getQuizPreferences = async (userId: string): Promise<QuizPreference
   if (!data) return null;
 
   return {
-    course: data.course,
-    topic: data.topic,
-    subtopic: data.subtopic,
-    questionCount: data.question_count,
-    questionTypes: data.question_types,
-    language: data.language,
-    difficulty: data.difficulty,
+    course: data.course || '',
+    topic: data.topic || '',
+    subtopic: data.subtopic || '',
+    questionCount: data.question_count || 5,
+    questionTypes: data.question_types || ['multiple-choice'],
+    language: data.language || 'English',
+    difficulty: data.difficulty || 'medium',
     timeLimit: data.time_limit,
     totalTimeLimit: data.total_time_limit,
-    timeLimitEnabled: data.time_limit_enabled,
-    negativeMarking: data.negative_marking,
-    negativeMarks: data.negative_marks,
-    mode: data.mode
+    timeLimitEnabled: data.time_limit_enabled || false,
+    negativeMarking: data.negative_marking || false,
+    negativeMarks: data.negative_marks || 0,
+    mode: data.mode || 'practice',
+    answerMode: data.mode === 'practice' ? 'immediate' : 'end'
   };
 };
 
@@ -83,19 +84,19 @@ export const saveQuizPreferences = async (userId: string, preferences: QuizPrefe
 
   const prefsData = {
     user_id: userId,
-    course: preferences.course,
-    topic: preferences.topic,
-    subtopic: preferences.subtopic,
-    question_count: preferences.questionCount,
-    question_types: preferences.questionTypes,
-    language: preferences.language,
-    difficulty: preferences.difficulty,
+    course: preferences.course || '',
+    topic: preferences.topic || '',
+    subtopic: preferences.subtopic || '',
+    question_count: preferences.questionCount || 5,
+    question_types: preferences.questionTypes || ['multiple-choice'],
+    language: preferences.language || 'English',
+    difficulty: preferences.difficulty || 'medium',
     time_limit: preferences.timeLimit,
     total_time_limit: preferences.totalTimeLimit,
-    time_limit_enabled: preferences.timeLimitEnabled,
-    negative_marking: preferences.negativeMarking,
-    negative_marks: preferences.negativeMarks,
-    mode: preferences.mode
+    time_limit_enabled: preferences.timeLimitEnabled || false,
+    negative_marking: preferences.negativeMarking || false,
+    negative_marks: preferences.negativeMarks || 0,
+    mode: preferences.mode || 'practice'
   };
 
   if (existingPrefs) {

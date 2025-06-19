@@ -5,7 +5,9 @@ import { Button } from '../ui/Button';
 import { Card, CardBody } from '../ui/Card';
 import { 
   Clock, Users, Trophy, Target, Zap, 
-  ArrowRight, ArrowLeft, CheckCircle 
+  ArrowRight, ArrowLeft, CheckCircle, 
+  Crown, Star, Timer, Brain, Award,
+  TrendingUp, Activity, BarChart3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
@@ -34,6 +36,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [score, setScore] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeToCompetition(competition.id);
@@ -48,7 +51,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Update progress every 5 seconds
+  // Update progress every 3 seconds
   useEffect(() => {
     const progressTimer = setInterval(() => {
       updateParticipantProgress(
@@ -58,7 +61,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
         correctAnswers,
         timeElapsed
       );
-    }, 5000);
+    }, 3000);
 
     return () => clearInterval(progressTimer);
   }, [answers, score, correctAnswers, timeElapsed]);
@@ -97,12 +100,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       }
     });
 
-    // Apply negative marking if enabled
-    if (competition.quiz_preferences.negativeMarking) {
-      const incorrectAnswers = Object.keys(answers).length - finalCorrectAnswers;
-      finalScore += incorrectAnswers * (competition.quiz_preferences.negativeMarks || 0);
-    }
-
     setScore(finalScore);
     setCorrectAnswers(finalCorrectAnswers);
 
@@ -135,36 +132,85 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
   const answeredQuestions = Object.keys(answers).length;
 
+  // Sort participants by score and time
+  const sortedParticipants = [...participants]
+    .filter(p => p.status === 'joined' || p.status === 'completed')
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.time_taken - b.time_taken;
+    });
+
+  const getRankColor = (rank: number) => {
+    switch (rank) {
+      case 1: return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 2: return 'text-gray-600 bg-gray-50 border-gray-200';
+      case 3: return 'text-orange-600 bg-orange-50 border-orange-200';
+      default: return 'text-purple-600 bg-purple-50 border-purple-200';
+    }
+  };
+
+  const getRankIcon = (rank: number) => {
+    switch (rank) {
+      case 1: return <Crown className="w-4 h-4" />;
+      case 2: return <Award className="w-4 h-4" />;
+      case 3: return <Star className="w-4 h-4" />;
+      default: return <Trophy className="w-4 h-4" />;
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Competition Header */}
       <div className="mb-8">
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 rounded-2xl shadow-xl">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold">{competition.title}</h1>
-              <p className="text-purple-100">Live Competition</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold">{formatTime(timeElapsed)}</div>
-                <div className="text-sm text-purple-200">Time Elapsed</div>
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 rounded-2xl shadow-xl relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 to-indigo-400/20 backdrop-blur-3xl" />
+          <div className="relative">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-2xl font-bold">{competition.title}</h1>
+                <p className="text-purple-100">Live Competition • {sortedParticipants.length} participants</p>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold">{currentQuestionIndex + 1}/{questions.length}</div>
-                <div className="text-sm text-purple-200">Question</div>
+              <div className="flex items-center space-x-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{formatTime(timeElapsed)}</div>
+                  <div className="text-sm text-purple-200">Time Elapsed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{currentQuestionIndex + 1}/{questions.length}</div>
+                  <div className="text-sm text-purple-200">Question</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{answeredQuestions}</div>
+                  <div className="text-sm text-purple-200">Answered</div>
+                </div>
               </div>
             </div>
-          </div>
-          
-          {/* Progress Bar */}
-          <div className="w-full bg-purple-400 rounded-full h-2">
-            <motion.div
-              className="bg-white h-2 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5 }}
-            />
+            
+            {/* Progress Bar */}
+            <div className="w-full bg-purple-400/30 rounded-full h-3 mb-4">
+              <motion.div
+                className="bg-white h-3 rounded-full shadow-lg"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.5 }}
+              />
+            </div>
+            
+            {/* Quick Stats */}
+            <div className="flex items-center space-x-6 text-sm">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="w-4 h-4" />
+                <span>Correct: {correctAnswers}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Target className="w-4 h-4" />
+                <span>Score: {score}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Activity className="w-4 h-4" />
+                <span>Accuracy: {answeredQuestions > 0 ? Math.round((correctAnswers / answeredQuestions) * 100) : 0}%</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -183,35 +229,40 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
             isLastQuestion={currentQuestionIndex === questions.length - 1}
             onFinish={handleFinish}
             language={competition.quiz_preferences.language}
-            timeLimitEnabled={false} // No individual time limits in competition
-            mode="exam" // Always exam mode for competitions
+            timeLimitEnabled={true}
+            timeLimit={competition.quiz_preferences.timeLimit}
+            mode="exam"
             answerMode="end"
           />
         </div>
 
-        {/* Live Leaderboard */}
+        {/* Live Leaderboard & Stats */}
         <div className="space-y-6">
-          {/* Current Stats */}
+          {/* Current Performance */}
           <Card>
-            <CardBody>
+            <CardBody className="p-6">
               <div className="text-center space-y-4">
                 <div className="w-16 h-16 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto">
-                  <Target className="w-8 h-8 text-purple-600" />
+                  <Brain className="w-8 h-8 text-purple-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Your Progress</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Answered:</span>
-                      <span className="font-medium">{answeredQuestions}/{questions.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Time:</span>
-                      <span className="font-medium">{formatTime(timeElapsed)}</span>
-                    </div>
-                    <div className="flex justify-between">
+                  <h3 className="font-semibold text-gray-900 mb-2">Your Performance</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
                       <span className="text-gray-600">Progress:</span>
-                      <span className="font-medium">{Math.round(progress)}%</span>
+                      <span className="font-bold text-purple-600">{Math.round(progress)}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Answered:</span>
+                      <span className="font-bold">{answeredQuestions}/{questions.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Correct:</span>
+                      <span className="font-bold text-green-600">{correctAnswers}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Score:</span>
+                      <span className="font-bold text-blue-600">{score}</span>
                     </div>
                   </div>
                 </div>
@@ -219,65 +270,76 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
             </CardBody>
           </Card>
 
-          {/* Live Participants */}
+          {/* Live Leaderboard */}
           <Card>
-            <CardBody>
+            <CardBody className="p-6">
               <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Users className="w-5 h-5 text-purple-600" />
-                  <h3 className="font-semibold text-gray-900">Live Standings</h3>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <TrendingUp className="w-5 h-5 text-purple-600" />
+                    <h3 className="font-semibold text-gray-900">Live Rankings</h3>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowLeaderboard(!showLeaderboard)}
+                    className="text-purple-600 hover:bg-purple-50"
+                  >
+                    {showLeaderboard ? 'Hide' : 'Show'}
+                  </Button>
                 </div>
                 
-                <div className="space-y-3">
-                  {participants
-                    .filter(p => p.status === 'joined' || p.status === 'completed')
-                    .sort((a, b) => {
-                      if (b.score !== a.score) return b.score - a.score;
-                      return a.time_taken - b.time_taken;
-                    })
-                    .map((participant, index) => (
-                      <motion.div
-                        key={participant.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`flex items-center space-x-3 p-3 rounded-lg ${
-                          index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'
-                        }`}
-                      >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                          index === 0 ? 'bg-yellow-500' : 
-                          index === 1 ? 'bg-gray-400' : 
-                          index === 2 ? 'bg-orange-400' : 'bg-purple-500'
-                        }`}>
-                          {index + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-gray-900 truncate">
-                            {participant.profile?.full_name || 'Anonymous'}
+                <AnimatePresence>
+                  {showLeaderboard && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-3 max-h-64 overflow-y-auto"
+                    >
+                      {sortedParticipants.slice(0, 5).map((participant, index) => (
+                        <motion.div
+                          key={participant.id}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className={`flex items-center space-x-3 p-3 rounded-lg border ${getRankColor(index + 1)}`}
+                        >
+                          <div className="flex items-center space-x-2">
+                            {getRankIcon(index + 1)}
+                            <span className="font-bold text-sm">#{index + 1}</span>
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {participant.correct_answers} correct • {formatTime(participant.time_taken)}
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {participant.profile?.full_name || 'Anonymous'}
+                            </div>
+                            <div className="text-xs opacity-75">
+                              {participant.correct_answers} correct • {formatTime(participant.time_taken)}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          {participant.status === 'completed' && (
-                            <CheckCircle className="w-4 h-4 text-green-500" />
-                          )}
-                          <span className="text-sm font-medium">{participant.score}</span>
-                        </div>
-                      </motion.div>
-                    ))}
-                </div>
+                          
+                          <div className="text-right">
+                            <div className="font-bold text-sm">{participant.score}</div>
+                            {participant.status === 'completed' && (
+                              <CheckCircle className="w-3 h-3 text-green-500 mx-auto" />
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </CardBody>
           </Card>
 
           {/* Quick Navigation */}
           <Card>
-            <CardBody>
+            <CardBody className="p-6">
               <div className="space-y-4">
                 <h3 className="font-semibold text-gray-900 flex items-center">
-                  <Zap className="w-4 h-4 mr-2 text-purple-600" />
+                  <BarChart3 className="w-4 h-4 mr-2 text-purple-600" />
                   Quick Navigation
                 </h3>
                 
@@ -288,7 +350,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                       onClick={() => setCurrentQuestionIndex(index)}
                       className={`w-8 h-8 rounded text-xs font-medium transition-all ${
                         index === currentQuestionIndex
-                          ? 'bg-purple-600 text-white'
+                          ? 'bg-purple-600 text-white shadow-lg scale-110'
                           : answers[questions[index].id]
                             ? 'bg-green-100 text-green-700 hover:bg-green-200'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -297,6 +359,61 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                       {index + 1}
                     </button>
                   ))}
+                </div>
+                
+                <div className="text-xs text-gray-500 space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-purple-600 rounded"></div>
+                    <span>Current</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-green-100 border border-green-300 rounded"></div>
+                    <span>Answered</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-gray-100 border border-gray-300 rounded"></div>
+                    <span>Unanswered</span>
+                  </div>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Competition Stats */}
+          <Card>
+            <CardBody className="p-6">
+              <div className="space-y-4">
+                <h3 className="font-semibold text-gray-900 flex items-center">
+                  <Trophy className="w-4 h-4 mr-2 text-yellow-600" />
+                  Competition Stats
+                </h3>
+                
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Participants:</span>
+                    <span className="font-medium">{sortedParticipants.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Completed:</span>
+                    <span className="font-medium">
+                      {sortedParticipants.filter(p => p.status === 'completed').length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Your Rank:</span>
+                    <span className="font-medium text-purple-600">
+                      #{sortedParticipants.findIndex(p => p.user_id === 'current') + 1 || '?'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Avg. Score:</span>
+                    <span className="font-medium">
+                      {sortedParticipants.length > 0 
+                        ? Math.round(sortedParticipants.reduce((sum, p) => sum + p.score, 0) / sortedParticipants.length)
+                        : 0
+                      }
+                    </span>
+                  </div>
                 </div>
               </div>
             </CardBody>

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../ui/Button';
 import { 
   ChevronDown, LogOut, User, BookOpen, 
@@ -8,7 +9,6 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuthStore } from '../../store/useAuthStore';
 
 const Header: React.FC = () => {
   const { user, logout, isLoggedIn } = useAuthStore();

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuizStore } from '../../store/useQuizStore';
+import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -8,7 +9,7 @@ import {
   BookOpen, Save, Clock, Languages, ListChecks, 
   BarChart3, Timer, AlertTriangle, Settings, 
   CheckCircle2, AlarmClock, Info, Brain, Users,
-  Zap, Target, Crown, Sparkles
+  Zap, Target, Crown, Sparkles, Plus, Hash
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QuizPreferences } from '../../types';
@@ -29,11 +30,25 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   onJoinCompetition
 }) => {
   const [preferences, setPreferences] = useState<QuizPreferences>(initialPreferences);
-  const { savePreferences, isLoading, error } = useQuizStore();
+  const { savePreferences, generateQuiz, isLoading, error } = useQuizStore();
+  const { createCompetition, joinCompetition, isLoading: competitionLoading } = useCompetitionStore();
   const [timingMode, setTimingMode] = useState<'per-question' | 'total'>(
     preferences.totalTimeLimit ? 'total' : 'per-question'
   );
-  const [selectedMode, setSelectedMode] = useState<'solo' | 'competition'>('solo');
+  const [selectedMode, setSelectedMode] = useState<'solo' | 'competition' | 'join'>('solo');
+  
+  // Competition form state
+  const [competitionForm, setCompetitionForm] = useState({
+    title: '',
+    description: '',
+    maxParticipants: 4,
+    emails: ['']
+  });
+
+  // Join competition form state
+  const [joinForm, setJoinForm] = useState({
+    competitionCode: ''
+  });
   
   useEffect(() => {
     setPreferences(initialPreferences);
@@ -140,9 +155,51 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
     await savePreferences(userId, updatedPreferences);
     
     if (selectedMode === 'competition') {
-      if (onStartCompetition) onStartCompetition();
+      await handleCreateCompetition();
+    } else if (selectedMode === 'join') {
+      await handleJoinCompetition();
     } else {
+      await generateQuiz(userId);
       if (onSave) onSave();
+    }
+  };
+
+  const handleCreateCompetition = async () => {
+    try {
+      const validEmails = competitionForm.emails.filter(email => email.trim());
+      
+      const competition = await createCompetition({
+        title: competitionForm.title,
+        description: competitionForm.description,
+        type: 'private',
+        maxParticipants: competitionForm.maxParticipants,
+        quizPreferences: {
+          course: preferences.course,
+          topic: preferences.topic,
+          subtopic: preferences.subtopic,
+          questionCount: preferences.questionCount,
+          difficulty: preferences.difficulty,
+          language: preferences.language,
+          timeLimit: preferences.timeLimit || '30',
+          timeLimitEnabled: true,
+          mode: 'exam',
+          questionTypes: preferences.questionTypes.length > 0 ? preferences.questionTypes : ['multiple-choice', 'true-false', 'short-answer']
+        },
+        emails: validEmails
+      });
+
+      if (onStartCompetition) onStartCompetition();
+    } catch (error: any) {
+      console.error('Failed to create competition:', error);
+    }
+  };
+
+  const handleJoinCompetition = async () => {
+    try {
+      await joinCompetition(joinForm.competitionCode.toUpperCase());
+      if (onJoinCompetition) onJoinCompetition();
+    } catch (error: any) {
+      console.error('Failed to join competition:', error);
     }
   };
   
@@ -222,6 +279,27 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   const questionTypeOptions = selectedMode === 'competition' 
     ? competitionQuestionTypeOptions 
     : soloQuestionTypeOptions;
+
+  const addEmail = () => {
+    setCompetitionForm(prev => ({
+      ...prev,
+      emails: [...prev.emails, '']
+    }));
+  };
+
+  const removeEmail = (index: number) => {
+    setCompetitionForm(prev => ({
+      ...prev,
+      emails: prev.emails.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateEmail = (index: number, value: string) => {
+    setCompetitionForm(prev => ({
+      ...prev,
+      emails: prev.emails.map((email, i) => i === index ? value : email)
+    }));
+  };
   
   return (
     <div className="max-w-4xl mx-auto">
@@ -242,7 +320,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <motion.button
               type="button"
               onClick={() => setSelectedMode('solo')}
@@ -320,7 +398,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                     }`} />
                   </div>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Competition Mode</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Create Competition</h3>
                 <p className="text-gray-600 text-sm mb-4">
                   Compete with friends or random players in real-time quiz battles
                 </p>
@@ -352,33 +430,62 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                 )}
               </div>
             </motion.button>
-          </div>
 
-          {selectedMode === 'competition' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200"
+            <motion.button
+              type="button"
+              onClick={() => setSelectedMode('join')}
+              className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-300 cursor-pointer ${
+                selectedMode === 'join' 
+                  ? 'border-purple-500 bg-purple-50 shadow-lg scale-[1.02]' 
+                  : 'border-gray-200 hover:border-purple-200 hover:bg-purple-50/50'
+              }`}
+              whileHover={{ scale: selectedMode === 'join' ? 1.02 : 1.05 }}
+              whileTap={{ scale: 0.98 }}
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-purple-800 mb-1">Competition Options</h4>
-                  <p className="text-sm text-purple-600">Choose how you want to compete</p>
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/10 to-blue-400/10" />
+              <div className="relative p-6">
+                <div className="flex items-center justify-center mb-4">
+                  <div className={`p-4 rounded-full ${
+                    selectedMode === 'join' ? 'bg-purple-100' : 'bg-gray-100'
+                  }`}>
+                    <Hash className={`w-8 h-8 ${
+                      selectedMode === 'join' ? 'text-purple-600' : 'text-gray-400'
+                    }`} />
+                  </div>
                 </div>
-                <div className="flex space-x-3">
-                  <Button
-                    type="button"
-                    onClick={onJoinCompetition}
-                    variant="outline"
-                    className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 border-purple-300"
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Join Competition</h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  Enter a competition code to join an existing quiz battle
+                </p>
+                <div className="space-y-2 text-xs text-gray-500">
+                  <div className="flex items-center">
+                    <Hash className="w-3 h-3 mr-2 text-indigo-500" />
+                    <span>Enter competition code</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Users className="w-3 h-3 mr-2 text-blue-500" />
+                    <span>Join existing battles</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Zap className="w-3 h-3 mr-2 text-purple-500" />
+                    <span>Quick participation</span>
+                  </div>
+                </div>
+                {selectedMode === 'join' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 p-3 bg-white bg-opacity-80 rounded-lg border border-purple-200"
                   >
-                    <Users className="w-4 h-4 mr-2" />
-                    Join Competition
-                  </Button>
-                </div>
+                    <div className="flex items-center space-x-2 text-purple-700">
+                      <Sparkles className="w-4 h-4" />
+                      <span className="text-sm font-medium">Selected</span>
+                    </div>
+                  </motion.div>
+                )}
               </div>
-            </motion.div>
-          )}
+            </motion.button>
+          </div>
         </div>
         
         <form onSubmit={handleSubmit} className="divide-y divide-purple-100">
@@ -441,7 +548,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                   <Select
                     options={difficultyOptions}
                     value={preferences.difficulty}
-                    onChange={(e) => setPreferences({ ...preferences, difficulty: e.target.value })}
+                    onChange={(e) => setPreferences({ ...preferences, difficulty: e.target.value as any })}
                     className="w-full transition-all duration-300 hover:border-purple-400 focus:ring-purple-400 text-lg"
                   />
                 </div>
@@ -453,7 +560,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                   <Select
                     options={languageOptions}
                     value={preferences.language}
-                    onChange={(e) => setPreferences({ ...preferences, language: e.target.value })}
+                    onChange={(e) => setPreferences({ ...preferences, language: e.target.value as any })}
                     className="w-full transition-all duration-300 hover:border-purple-400 focus:ring-purple-400 text-lg"
                   />
                 </div>
@@ -717,7 +824,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
             </div>
           )}
 
-          {/* Competition Settings Summary - Only show for competition mode */}
+          {/* Competition Settings */}
           {selectedMode === 'competition' && (
             <div className="p-8 space-y-6 relative overflow-hidden group bg-gradient-to-r from-yellow-50/30 to-orange-50/30">
               <div className="relative">
@@ -726,6 +833,88 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                   <h3 className="text-xl font-semibold text-gray-800">Competition Settings</h3>
                 </div>
                 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Competition Title
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="e.g., Computer Science Challenge"
+                      value={competitionForm.title}
+                      onChange={(e) => setCompetitionForm({ ...competitionForm, title: e.target.value })}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Max Participants
+                    </label>
+                    <Select
+                      options={[
+                        { value: '2', label: '2 Players' },
+                        { value: '4', label: '4 Players' },
+                        { value: '6', label: '6 Players' },
+                        { value: '8', label: '8 Players' },
+                        { value: '10', label: '10 Players' }
+                      ]}
+                      value={competitionForm.maxParticipants.toString()}
+                      onChange={(e) => setCompetitionForm({ ...competitionForm, maxParticipants: parseInt(e.target.value) })}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    placeholder="Describe your competition..."
+                    value={competitionForm.description}
+                    onChange={(e) => setCompetitionForm({ ...competitionForm, description: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Invite Participants (Optional)
+                  </label>
+                  {competitionForm.emails.map((email, index) => (
+                    <div key={index} className="flex items-center space-x-3">
+                      <Input
+                        type="email"
+                        placeholder="participant@example.com"
+                        value={email}
+                        onChange={(e) => updateEmail(index, e.target.value)}
+                        className="flex-1"
+                      />
+                      {competitionForm.emails.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => removeEmail(index)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          ×
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addEmail}
+                    className="w-full border-dashed border-2 border-yellow-300 text-yellow-600 hover:bg-yellow-50"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Another Email
+                  </Button>
+                </div>
+
                 <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-xl border border-yellow-200">
                   <h4 className="font-semibold text-yellow-900 mb-4">Competition Rules Applied</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -750,6 +939,43 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
               </div>
             </div>
           )}
+
+          {/* Join Competition */}
+          {selectedMode === 'join' && (
+            <div className="p-8 space-y-6 relative overflow-hidden group bg-gradient-to-r from-indigo-50/30 to-blue-50/30">
+              <div className="relative">
+                <div className="flex items-center mb-6 relative">
+                  <Hash className="w-6 h-6 mr-3 text-indigo-600" />
+                  <h3 className="text-xl font-semibold text-gray-800">Join Competition</h3>
+                </div>
+                
+                <div className="text-center mb-8">
+                  <div className="w-20 h-20 bg-gradient-to-r from-indigo-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Hash className="w-10 h-10 text-indigo-600" />
+                  </div>
+                  <p className="text-gray-600 text-lg">
+                    Ask the competition creator for the 6-digit competition code
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
+                      Competition Code
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="ABC123"
+                      value={joinForm.competitionCode}
+                      onChange={(e) => setJoinForm({ competitionCode: e.target.value.toUpperCase() })}
+                      className="w-full py-4 text-center text-2xl font-mono tracking-wider border-2 focus:border-indigo-500"
+                      maxLength={6}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
           {error && (
             <div className="p-4 bg-red-50 border-l-4 border-red-500">
@@ -763,12 +989,16 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
           <div className="p-8 bg-gray-50 flex justify-end">
             <Button
               type="submit"
-              disabled={isLoading || !preferences.course}
+              disabled={isLoading || competitionLoading || !preferences.course}
               className="gradient-bg hover:opacity-90 transition-all duration-300 transform hover:scale-105 group text-lg px-8 py-3"
             >
-              {isLoading ? 'Generating...' : selectedMode === 'competition' ? 'Create Competition' : 'Start Quiz'}
+              {isLoading || competitionLoading ? 'Processing...' : 
+               selectedMode === 'competition' ? 'Create Competition' : 
+               selectedMode === 'join' ? 'Join Competition' : 'Start Quiz'}
               {selectedMode === 'competition' ? (
                 <Crown className="ml-2 h-5 w-5 group-hover:rotate-12 transition-transform" />
+              ) : selectedMode === 'join' ? (
+                <Hash className="ml-2 h-5 w-5 group-hover:rotate-12 transition-transform" />
               ) : (
                 <Save className="ml-2 h-5 w-5 group-hover:rotate-12 transition-transform" />
               )}
