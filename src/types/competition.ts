@@ -34,6 +34,11 @@ export interface CompetitionParticipant {
     full_name: string;
     avatar_url?: string;
   };
+  // Real-time progress tracking
+  current_question?: number;
+  questions_answered?: number;
+  is_online?: boolean;
+  last_activity?: string;
 }
 
 export interface UserStats {
@@ -80,4 +85,13 @@ export interface CompetitionInvite {
   creator_name: string;
   participant_count: number;
   max_participants: number;
+}
+
+export interface LiveCompetitionData {
+  competition: Competition;
+  participants: CompetitionParticipant[];
+  leaderboard: CompetitionParticipant[];
+  totalQuestions: number;
+  timeElapsed: number;
+  averageProgress: number;
 }

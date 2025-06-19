@@ -6,7 +6,8 @@ import {
   UserStats, 
   RandomQueueEntry, 
   CompetitionChat,
-  CompetitionInvite 
+  CompetitionInvite,
+  LiveCompetitionData
 } from '../types/competition';
 
 interface CompetitionState {
@@ -18,6 +19,7 @@ interface CompetitionState {
   queueEntry: RandomQueueEntry | null;
   chatMessages: CompetitionChat[];
   pendingInvites: CompetitionInvite[];
+  liveData: LiveCompetitionData | null;
   isLoading: boolean;
   error: string | null;
 
@@ -27,7 +29,7 @@ interface CompetitionState {
   inviteParticipants: (competitionId: string, emails: string[]) => Promise<void>;
   loadCompetition: (id: string) => Promise<void>;
   loadParticipants: (competitionId: string) => Promise<void>;
-  updateParticipantProgress: (competitionId: string, answers: any, score: number, correctAnswers: number, timeTaken: number) => Promise<void>;
+  updateParticipantProgress: (competitionId: string, answers: any, score: number, correctAnswers: number, timeTaken: number, currentQuestion?: number) => Promise<void>;
   completeCompetition: (competitionId: string) => Promise<void>;
   loadUserStats: (userId: string) => Promise<void>;
   joinRandomQueue: (topic: string, difficulty: string, language: string) => Promise<void>;
@@ -42,6 +44,12 @@ interface CompetitionState {
   subscribeToCompetition: (competitionId: string) => () => void;
   subscribeToChat: (competitionId: string) => () => void;
   subscribeToInvites: (userId: string) => () => void;
+  
+  // Helper methods
+  finalizeCompetition: (competitionId: string) => Promise<void>;
+  updateUserStats: (userId: string, rank: number, points: number, timeTaken: number) => Promise<void>;
+  checkForMatches: (topic: string, difficulty: string, language: string) => Promise<void>;
+  getLiveLeaderboard: (competitionId: string) => CompetitionParticipant[];
 }
 
 export const useCompetitionStore = create<CompetitionState>((set, get) => ({
@@ -53,6 +61,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
   queueEntry: null,
   chatMessages: [],
   pendingInvites: [],
+  liveData: null,
   isLoading: false,
   error: null,
 
@@ -71,7 +80,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         description: data.description,
         competition_code: competitionCode,
         type: data.type || 'private',
-        max_participants: data.maxParticipants || 10,
+        max_participants: 999, // Remove participant limit
         quiz_preferences: data.quizPreferences,
         status: 'waiting'
       };
@@ -265,7 +274,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         profile: p.profiles ? {
           full_name: p.profiles.full_name,
           avatar_url: p.profiles.avatar_url
-        } : null
+        } : null,
+        is_online: true, // In real implementation, track online status
+        last_activity: new Date().toISOString()
       }));
 
       set({ participants: formattedParticipants });
@@ -274,23 +285,40 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
     }
   },
 
-  updateParticipantProgress: async (competitionId, answers, score, correctAnswers, timeTaken) => {
+  updateParticipantProgress: async (competitionId, answers, score, correctAnswers, timeTaken, currentQuestion) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      const updateData: any = {
+        answers,
+        score,
+        correct_answers: correctAnswers,
+        time_taken: timeTaken,
+        last_activity: new Date().toISOString()
+      };
+
+      if (currentQuestion !== undefined) {
+        updateData.current_question = currentQuestion;
+        updateData.questions_answered = Object.keys(answers).length;
+      }
+
       const { error } = await supabase
         .from('competition_participants')
-        .update({
-          answers,
-          score,
-          correct_answers: correctAnswers,
-          time_taken: timeTaken
-        })
+        .update(updateData)
         .eq('competition_id', competitionId)
         .eq('user_id', user.id);
 
       if (error) throw error;
+
+      // Update local state for real-time updates
+      set(state => ({
+        participants: state.participants.map(p => 
+          p.user_id === user.id 
+            ? { ...p, ...updateData }
+            : p
+        )
+      }));
     } catch (error: any) {
       set({ error: error.message });
     }
@@ -314,13 +342,13 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       if (error) throw error;
 
       // Check if all participants have completed
-      const { data: participants } = await supabase
+      const { data: activeParticipants } = await supabase
         .from('competition_participants')
         .select('status')
         .eq('competition_id', competitionId)
         .eq('status', 'joined');
 
-      if (!participants || participants.length === 0) {
+      if (!activeParticipants || activeParticipants.length === 0) {
         // All participants completed, finalize competition
         await get().finalizeCompetition(competitionId);
       }
@@ -336,6 +364,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .from('competition_participants')
         .select('*')
         .eq('competition_id', competitionId)
+        .eq('status', 'completed')
         .order('score', { ascending: false })
         .order('time_taken', { ascending: true });
 
@@ -346,11 +375,13 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           const rank = i + 1;
           let points = 0;
 
-          // Points system: 1st place = 100, 2nd = 75, 3rd = 50, participation = 25
-          if (rank === 1) points = 100;
-          else if (rank === 2) points = 75;
-          else if (rank === 3) points = 50;
-          else points = 25;
+          // Enhanced points system
+          const totalParticipants = participants.length;
+          if (rank === 1) points = Math.max(100, totalParticipants * 10);
+          else if (rank === 2) points = Math.max(75, totalParticipants * 7);
+          else if (rank === 3) points = Math.max(50, totalParticipants * 5);
+          else if (rank <= totalParticipants * 0.5) points = Math.max(25, totalParticipants * 2);
+          else points = Math.max(10, totalParticipants);
 
           await supabase
             .from('competition_participants')
@@ -389,14 +420,19 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       const isLoss = rank > 1;
 
       if (stats) {
+        // Calculate new average score
+        const newTotalComps = stats.total_competitions + 1;
+        const newAvgScore = ((stats.average_score * stats.total_competitions) + points) / newTotalComps;
+
         // Update existing stats
         await supabase
           .from('user_stats')
           .update({
-            total_competitions: stats.total_competitions + 1,
+            total_competitions: newTotalComps,
             wins: stats.wins + (isWin ? 1 : 0),
             losses: stats.losses + (isLoss ? 1 : 0),
             total_points: stats.total_points + points,
+            average_score: newAvgScore,
             best_rank: stats.best_rank ? Math.min(stats.best_rank, rank) : rank,
             total_time_played: stats.total_time_played + timeTaken
           })
@@ -411,6 +447,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
             wins: isWin ? 1 : 0,
             losses: isLoss ? 1 : 0,
             total_points: points,
+            average_score: points,
             best_rank: rank,
             total_time_played: timeTaken
           });
@@ -481,7 +518,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .eq('difficulty', difficulty)
         .eq('language', language)
         .eq('status', 'waiting')
-        .limit(4); // Max 4 players for random match
+        .limit(8); // Max 8 players for random match
 
       if (waitingUsers && waitingUsers.length >= 2) {
         // Create random competition
@@ -497,8 +534,11 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
             difficulty,
             language,
             questionCount: 10,
-            questionTypes: ['multiple-choice'],
-            mode: 'exam'
+            questionTypes: ['multiple-choice', 'true-false'],
+            mode: 'exam',
+            timeLimitEnabled: true,
+            timeLimit: '30',
+            totalTimeLimit: '600'
           }
         };
 
@@ -682,6 +722,17 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
     } catch (error: any) {
       set({ error: error.message });
     }
+  },
+
+  getLiveLeaderboard: (competitionId) => {
+    const { participants } = get();
+    return participants
+      .filter(p => p.competition_id === competitionId && p.status !== 'declined')
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.correct_answers !== a.correct_answers) return b.correct_answers - a.correct_answers;
+        return a.time_taken - b.time_taken;
+      });
   },
 
   // Real-time subscriptions

@@ -5,7 +5,9 @@ import { Button } from '../ui/Button';
 import { Card, CardBody } from '../ui/Card';
 import { 
   Clock, Users, Trophy, Target, Zap, 
-  CheckCircle, ArrowRight, Crown, Timer
+  CheckCircle, ArrowRight, Crown, Timer,
+  Activity, Star, Award, TrendingUp,
+  Brain, Eye, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
@@ -27,7 +29,8 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     participants, 
     updateParticipantProgress,
     completeCompetition,
-    subscribeToCompetition
+    subscribeToCompetition,
+    getLiveLeaderboard
   } = useCompetitionStore();
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -35,14 +38,18 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const [timeLeft, setTimeLeft] = useState<number>(
     parseInt(competition.quiz_preferences?.timeLimit || '30')
   );
+  const [totalTimeElapsed, setTotalTimeElapsed] = useState(0);
   const [score, setScore] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [startTime] = useState(Date.now());
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+  const [showLeaderboard, setShowLeaderboard] = useState(true);
+  const [selectedAnswer, setSelectedAnswer] = useState('');
 
   const currentQuestion = questions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const joinedParticipants = participants.filter(p => p.status === 'joined' || p.status === 'completed');
+  const leaderboard = getLiveLeaderboard(competition.id);
 
   useEffect(() => {
     if (competition.id) {
@@ -54,8 +61,10 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   useEffect(() => {
     setQuestionStartTime(Date.now());
     setTimeLeft(parseInt(competition.quiz_preferences?.timeLimit || '30'));
-  }, [currentQuestionIndex]);
+    setSelectedAnswer(answers[currentQuestion?.id] || '');
+  }, [currentQuestionIndex, currentQuestion]);
 
+  // Per-question timer
   useEffect(() => {
     if (timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
@@ -64,6 +73,14 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       handleNextQuestion();
     }
   }, [timeLeft]);
+
+  // Total time elapsed timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTotalTimeElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [startTime]);
 
   const calculateScore = useCallback((questionId: number, userAnswer: string) => {
     const question = questions.find(q => q.id === questionId);
@@ -94,6 +111,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   }, [questions]);
 
   const handleAnswerSelect = (answer: string) => {
+    setSelectedAnswer(answer);
     setAnswers(prev => ({
       ...prev,
       [currentQuestion.id]: answer
@@ -101,7 +119,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   };
 
   const handleNextQuestion = useCallback(async () => {
-    const userAnswer = answers[currentQuestion.id] || '';
+    const userAnswer = answers[currentQuestion.id] || selectedAnswer;
     const isCorrect = calculateScore(currentQuestion.id, userAnswer);
     
     let newScore = score;
@@ -110,9 +128,8 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     if (isCorrect) {
       newScore += 1;
       newCorrectAnswers += 1;
-    } else if (userAnswer) {
-      // Apply negative marking for wrong answers
-      newScore -= 0.25;
+    } else if (userAnswer && competition.quiz_preferences?.negativeMarking) {
+      newScore += competition.quiz_preferences.negativeMarks || 0;
     }
     
     setScore(Math.max(0, newScore));
@@ -122,10 +139,11 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     const timeTaken = Math.floor((Date.now() - startTime) / 1000);
     await updateParticipantProgress(
       competition.id,
-      answers,
+      { ...answers, [currentQuestion.id]: userAnswer },
       Math.max(0, newScore),
       newCorrectAnswers,
-      timeTaken
+      timeTaken,
+      currentQuestionIndex + 1
     );
 
     if (isLastQuestion) {
@@ -137,6 +155,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   }, [
     currentQuestion, 
     answers, 
+    selectedAnswer,
     score, 
     correctAnswers, 
     isLastQuestion, 
@@ -154,34 +173,45 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  const getProgressPercentage = (participant: any) => {
+    const questionsAnswered = participant.questions_answered || 0;
+    return (questionsAnswered / questions.length) * 100;
+  };
+
   const renderQuestionContent = () => {
     switch (currentQuestion.type) {
       case 'multiple-choice':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 mt-8">
             {currentQuestion.options?.map((option, index) => (
               <motion.button
                 key={index}
                 onClick={() => handleAnswerSelect(option)}
                 className={`w-full p-4 text-left rounded-xl border-2 transition-all duration-300 ${
-                  answers[currentQuestion.id] === option
-                    ? 'border-purple-500 bg-purple-50 shadow-lg'
-                    : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                  selectedAnswer === option
+                    ? 'border-purple-500 bg-purple-50 shadow-lg scale-[1.02] ring-4 ring-purple-200'
+                    : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50 hover:shadow-md hover:scale-[1.01]'
                 }`}
-                whileHover={{ scale: 1.02 }}
+                whileHover={{ scale: selectedAnswer === option ? 1.02 : 1.01 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <div className="flex items-center space-x-3">
                   <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                    answers[currentQuestion.id] === option
-                      ? 'border-purple-600 bg-purple-600'
+                    selectedAnswer === option
+                      ? 'border-purple-600 bg-purple-600 shadow-lg'
                       : 'border-gray-400'
                   }`}>
-                    {answers[currentQuestion.id] === option && (
-                      <CheckCircle className="w-4 h-4 text-white" />
+                    {selectedAnswer === option && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      >
+                        <CheckCircle className="w-4 h-4 text-white" />
+                      </motion.div>
                     )}
                   </div>
-                  <span className="font-medium">{option}</span>
+                  <span className="font-medium text-lg">{option}</span>
                 </div>
               </motion.button>
             ))}
@@ -190,17 +220,17 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
       case 'true-false':
         return (
-          <div className="flex space-x-4">
+          <div className="flex space-x-4 mt-8">
             {['True', 'False'].map((option) => (
               <motion.button
                 key={option}
                 onClick={() => handleAnswerSelect(option)}
                 className={`flex-1 py-6 px-8 rounded-xl font-bold text-lg transition-all duration-300 ${
-                  answers[currentQuestion.id] === option
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xl'
-                    : 'bg-gray-100 text-gray-700 hover:bg-purple-100'
+                  selectedAnswer === option
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xl scale-105 ring-4 ring-purple-300'
+                    : 'bg-gray-100 text-gray-700 hover:bg-purple-100 hover:text-purple-700 hover:shadow-lg hover:scale-102'
                 }`}
-                whileHover={{ scale: 1.02 }}
+                whileHover={{ scale: selectedAnswer === option ? 1.05 : 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
                 {option}
@@ -214,9 +244,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
           <input
             type="text"
             placeholder="Type your answer..."
-            value={answers[currentQuestion.id] || ''}
+            value={selectedAnswer}
             onChange={(e) => handleAnswerSelect(e.target.value)}
-            className="w-full p-4 text-lg border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none"
+            className="w-full p-4 text-lg border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none mt-8"
           />
         );
     }
@@ -251,18 +281,29 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                 </span>
               </div>
               <div className="flex items-center space-x-2">
+                <Timer className="w-5 h-5 text-cyan-400" />
+                <span className="font-mono text-lg font-bold">{formatTime(totalTimeElapsed)}</span>
+              </div>
+              <div className="flex items-center space-x-2">
                 <Zap className="w-5 h-5 text-green-400" />
                 <span className="font-bold">{score.toFixed(1)} pts</span>
               </div>
+              <button
+                onClick={() => setShowLeaderboard(!showLeaderboard)}
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white bg-opacity-10 hover:bg-opacity-20 transition-all"
+              >
+                {showLeaderboard ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span className="text-sm">Leaderboard</span>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className={`grid gap-8 ${showLeaderboard ? 'grid-cols-1 lg:grid-cols-4' : 'grid-cols-1'}`}>
           {/* Main Quiz Area */}
-          <div className="lg:col-span-3">
+          <div className={showLeaderboard ? 'lg:col-span-3' : 'max-w-4xl mx-auto w-full'}>
             <Card className="bg-white bg-opacity-95 backdrop-blur-sm border-0 shadow-2xl">
               <CardBody className="p-8">
                 <div className="mb-8">
@@ -293,7 +334,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                   </div>
                   <Button
                     onClick={handleNextQuestion}
-                    disabled={!answers[currentQuestion.id]}
+                    disabled={!selectedAnswer}
                     className="gradient-bg hover:opacity-90 transition-all duration-300 px-8 py-3"
                   >
                     {isLastQuestion ? 'Finish' : 'Next'}
@@ -305,82 +346,140 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
           </div>
 
           {/* Live Leaderboard */}
-          <div className="lg:col-span-1">
-            <Card className="bg-white bg-opacity-95 backdrop-blur-sm border-0 shadow-2xl h-fit">
-              <CardBody className="p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                  <Users className="w-5 h-5 mr-2 text-purple-600" />
-                  Live Rankings
-                </h3>
-                
-                <div className="space-y-3">
-                  {joinedParticipants
-                    .sort((a, b) => {
-                      if (b.score !== a.score) return b.score - a.score;
-                      return a.time_taken - b.time_taken;
-                    })
-                    .map((participant, index) => (
-                      <motion.div
-                        key={participant.id}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className={`p-3 rounded-lg border-2 ${
-                          participant.user_id === user?.id
-                            ? 'border-purple-500 bg-purple-50'
-                            : 'border-gray-200 bg-white'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                            index === 0 ? 'bg-yellow-500' :
-                            index === 1 ? 'bg-gray-400' :
-                            index === 2 ? 'bg-orange-500' :
-                            'bg-gray-300'
-                          }`}>
-                            {index === 0 ? <Crown className="w-4 h-4" /> : index + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-800 truncate">
-                              {participant.profile?.full_name || 'Anonymous'}
-                              {participant.user_id === user?.id && ' (You)'}
-                            </p>
-                            <div className="flex items-center space-x-2 text-xs text-gray-600">
-                              <span>{participant.score.toFixed(1)} pts</span>
-                              <span>•</span>
-                              <span>{participant.correct_answers}/{questions.length}</span>
-                              <span>•</span>
-                              <span>{formatTime(participant.time_taken)}</span>
+          <AnimatePresence>
+            {showLeaderboard && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="lg:col-span-1"
+              >
+                <Card className="bg-white bg-opacity-95 backdrop-blur-sm border-0 shadow-2xl h-fit sticky top-4">
+                  <CardBody className="p-6">
+                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                      <Users className="w-5 h-5 mr-2 text-purple-600" />
+                      Live Rankings
+                    </h3>
+                    
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {leaderboard.map((participant, index) => (
+                        <motion.div
+                          key={participant.id}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className={`p-3 rounded-lg border-2 ${
+                            participant.user_id === user?.id
+                              ? 'border-purple-500 bg-purple-50'
+                              : 'border-gray-200 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                              index === 0 ? 'bg-yellow-500' :
+                              index === 1 ? 'bg-gray-400' :
+                              index === 2 ? 'bg-orange-500' :
+                              'bg-gray-300'
+                            }`}>
+                              {index === 0 ? <Crown className="w-4 h-4" /> : index + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-800 truncate">
+                                {participant.profile?.full_name || 'Anonymous'}
+                                {participant.user_id === user?.id && ' (You)'}
+                              </p>
+                              <div className="flex items-center space-x-2 text-xs text-gray-600">
+                                <span>{participant.score.toFixed(1)} pts</span>
+                                <span>•</span>
+                                <span>{participant.correct_answers}/{questions.length}</span>
+                                <span>•</span>
+                                <span>{formatTime(participant.time_taken)}</span>
+                              </div>
+                              
+                              {/* Progress bar */}
+                              <div className="mt-2">
+                                <div className="w-full bg-gray-200 rounded-full h-1">
+                                  <div 
+                                    className="bg-gradient-to-r from-purple-500 to-indigo-500 h-1 rounded-full transition-all duration-300"
+                                    style={{ width: `${getProgressPercentage(participant)}%` }}
+                                  />
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {participant.questions_answered || 0}/{questions.length} answered
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Online indicator */}
+                            <div className="flex flex-col items-center space-y-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                participant.is_online ? 'bg-green-400 animate-pulse' : 'bg-gray-400'
+                              }`} />
+                              <Activity className="w-3 h-3 text-gray-400" />
                             </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                </div>
+                        </motion.div>
+                      ))}
+                    </div>
 
-                <div className="mt-6 p-3 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg">
-                  <h4 className="font-semibold text-gray-800 mb-2 flex items-center">
-                    <Timer className="w-4 h-4 mr-2 text-purple-600" />
-                    Your Progress
-                  </h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Correct:</span>
-                      <span className="font-medium">{correctAnswers}/{questions.length}</span>
+                    {/* Your Progress Summary */}
+                    <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
+                      <h4 className="font-semibold text-purple-800 mb-3 flex items-center">
+                        <Star className="w-4 h-4 mr-2" />
+                        Your Progress
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Correct:</span>
+                          <span className="font-medium">{correctAnswers}/{questions.length}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Score:</span>
+                          <span className="font-medium">{score.toFixed(1)} pts</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Time:</span>
+                          <span className="font-medium">{formatTime(totalTimeElapsed)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Rank:</span>
+                          <span className="font-medium">
+                            {leaderboard.findIndex(p => p.user_id === user?.id) + 1}/{leaderboard.length}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Score:</span>
-                      <span className="font-medium">{score.toFixed(1)} pts</span>
+
+                    {/* Competition Stats */}
+                    <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
+                      <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
+                        <TrendingUp className="w-4 h-4 mr-2" />
+                        Competition Stats
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Participants:</span>
+                          <span className="font-medium">{joinedParticipants.length}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Avg Progress:</span>
+                          <span className="font-medium">
+                            {Math.round(leaderboard.reduce((acc, p) => acc + getProgressPercentage(p), 0) / leaderboard.length || 0)}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Top Score:</span>
+                          <span className="font-medium">
+                            {leaderboard[0]?.score.toFixed(1) || '0'} pts
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Time:</span>
-                      <span className="font-medium">{formatTime(Math.floor((Date.now() - startTime) / 1000))}</span>
-                    </div>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-          </div>
+                  </CardBody>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
