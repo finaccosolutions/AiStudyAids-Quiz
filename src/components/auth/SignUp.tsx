@@ -41,8 +41,8 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
         formData.mobileNumber
       );
       setIsSubmitted(true);
-    } catch (error) {
-      console.error('Registration failed:', error);
+    } catch (error: any) {
+      console.error('Registration failed:', error?.message || error);
     }
   };
 

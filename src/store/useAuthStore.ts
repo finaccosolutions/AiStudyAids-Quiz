@@ -29,7 +29,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       if (error) throw error;
       
-      if (data.user) {
+      if (data?.user) {
         // Check if email is verified
         if (!data.user.email_confirmed_at) {
           throw new Error('Please verify your email before signing in');
@@ -54,11 +54,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   register: async (email, password, fullName, mobileNumber) => {
     set({ isLoading: true, error: null });
     try {
-      const { data, error } = await signUp(email, password, fullName, mobileNumber);
+      const data = await signUp(email, password, fullName, mobileNumber);
       
-      if (error) throw error;
-      
-      if (data.user) {
+      if (data?.user) {
         set({
           user: {
             id: data.user.id,
@@ -76,6 +74,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           },
           isLoggedIn: false,
         });
+      } else {
+        throw new Error('Registration failed - no user data returned');
       }
     } catch (error: any) {
       set({ error: error.message || 'Failed to register' });

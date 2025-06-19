@@ -144,7 +144,7 @@ export const signUp = async (
     throw error;
   }
 
-  if (data.user) {
+  if (data?.user) {
     // Use the send-verification Edge Function to create profile with service role privileges
     try {
       const response = await fetch(`${supabaseUrl}/functions/v1/send-verification`, {
@@ -156,7 +156,7 @@ export const signUp = async (
         body: JSON.stringify({
           userId: data.user.id,
           email: email,
-          fullName: fullName,
+          name: fullName,
           mobileNumber: mobileNumber,
           countryCode: countryCode,
           countryName: countryName
@@ -164,14 +164,25 @@ export const signUp = async (
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Profile creation via Edge Function failed:', errorText);
-        throw new Error('Failed to create profile');
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = errorData?.error || 'Failed to create profile';
+        const errorDetails = errorData?.details || '';
+        console.error('Profile creation via Edge Function failed:', errorMessage, errorDetails);
+        throw new Error(`${errorMessage}${errorDetails ? ': ' + errorDetails : ''}`);
       }
-    } catch (fetchError) {
+
+      const responseData = await response.json();
+      console.log('Profile creation successful:', responseData);
+    } catch (fetchError: any) {
       console.error('Profile creation error:', fetchError);
-      throw new Error('Failed to create profile');
+      // If it's a network error or other fetch error, provide a more specific message
+      if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
+        throw new Error('Network error: Unable to complete registration');
+      }
+      throw new Error(fetchError.message || 'Failed to create profile');
     }
+  } else {
+    throw new Error('User registration failed - no user data returned');
   }
 
   return data;
