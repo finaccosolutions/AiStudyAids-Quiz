@@ -419,7 +419,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
   loadParticipants: async (competitionId) => {
     try {
-      // Fixed the foreign key reference to use the correct constraint name
+      // Load all participants including those with email invites and user profiles
       const { data: participants, error } = await supabase
         .from('competition_participants')
         .select(`
@@ -967,7 +967,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           table: 'competition_participants',
           filter: `competition_id=eq.${competitionId}`
         },
-        () => {
+        (payload) => {
+          console.log('Participant change detected:', payload);
+          // Reload participants when any change occurs
           get().loadParticipants(competitionId);
         }
       )
