@@ -303,7 +303,6 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       set({ isLoading: false });
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
-      throw error;
     }
   },
 
