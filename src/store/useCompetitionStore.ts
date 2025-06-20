@@ -157,19 +157,24 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Find competition by code
-      const { data: competition, error: compError } = await supabase
+      // Find competition by code - use array query instead of single
+      const { data: competitions, error: compError } = await supabase
         .from('competitions')
         .select('*')
-        .eq('competition_code', code.toUpperCase())
-        .single();
+        .eq('competition_code', code.toUpperCase());
 
-      if (compError || !competition) {
-        throw new Error('Competition not found');
+      if (compError) {
+        throw new Error('Failed to search for competition');
       }
 
+      if (!competitions || competitions.length === 0) {
+        throw new Error('Competition not found. Please check the code and try again.');
+      }
+
+      const competition = competitions[0];
+
       if (competition.status !== 'waiting') {
-        throw new Error('Competition is no longer accepting participants');
+        throw new Error('This competition is no longer accepting participants');
       }
 
       // Check if user is already a participant
@@ -178,11 +183,11 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .select('*')
         .eq('competition_id', competition.id)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (existingParticipant) {
         if (existingParticipant.status === 'joined') {
-          throw new Error('You are already in this competition');
+          throw new Error('You are already participating in this competition');
         }
         // Update status if previously declined
         await supabase
@@ -194,7 +199,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           .eq('id', existingParticipant.id);
       } else {
         // Add as new participant
-        await supabase
+        const { error: insertError } = await supabase
           .from('competition_participants')
           .insert({
             competition_id: competition.id,
@@ -202,6 +207,10 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
             status: 'joined',
             joined_at: new Date().toISOString()
           });
+
+        if (insertError) {
+          throw new Error('Failed to join competition. Please try again.');
+        }
       }
 
       set({ currentCompetition: competition, isLoading: false });
@@ -614,7 +623,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .from('competition_chat')
         .select(`
           *,
-          profiles!competition_chat_user_id_fkey (
+          profiles!competition_chat_user_id_profiles_fkey (
             full_name,
             avatar_url
           )
