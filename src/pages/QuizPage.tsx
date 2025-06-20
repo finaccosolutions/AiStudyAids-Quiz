@@ -31,8 +31,7 @@ const QuizPage: React.FC = () => {
     currentCompetition,
     loadCompetition,
     participants,
-    loadParticipants,
-    checkUserActiveCompetitions
+    loadParticipants
   } = useCompetitionStore();
   
   const navigate = useNavigate();
@@ -56,44 +55,31 @@ const QuizPage: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    const initializeStep = async () => {
-      if (!user) return;
-
-      // Handle competition mode from location state
-      if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
-        loadCompetition(location.state.competitionId);
-        setStep('competition-lobby');
-        return;
+    // Handle competition mode from location state
+    if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
+      loadCompetition(location.state.competitionId);
+      setStep('competition-lobby');
+      return;
+    }
+  
+    // Determine initial step based on current state
+    if (!apiKey) {
+      setStep('api-key');
+    } else if (result) {
+      setStep('results');
+    } else if (questions.length > 0) {
+      setStep('quiz');
+      // Initialize total time if set
+      if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
+        setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
       }
-
-      // Check for active competitions first
-      const activeCompetition = await checkUserActiveCompetitions(user.id);
-      if (activeCompetition) {
-        setStep('competition-lobby');
-        return;
-      }
-    
-      // Determine initial step based on current state
-      if (!apiKey) {
-        setStep('api-key');
-      } else if (result) {
-        setStep('results');
-      } else if (questions.length > 0) {
-        setStep('quiz');
-        // Initialize total time if set
-        if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
-          setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
-        }
-      } else if (currentCompetition) {
-        // If we have a current competition, go to lobby
-        setStep('competition-lobby');
-      } else {
-        setStep('mode-selector');
-      }
-    };
-
-    initializeStep();
-  }, [apiKey, preferences, questions, result, location.state, currentCompetition, user, checkUserActiveCompetitions]);
+    } else if (currentCompetition) {
+      // If we have a current competition, go to lobby
+      setStep('competition-lobby');
+    } else {
+      setStep('mode-selector');
+    }
+  }, [apiKey, preferences, questions, result, location.state, currentCompetition]);
 
   // Total quiz timer effect
   useEffect(() => {
