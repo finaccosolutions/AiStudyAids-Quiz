@@ -3,9 +3,10 @@ import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
-import { Users, Clock, Trophy, Copy, CheckCircle, MessageCircle, Crown, Zap, Play, UserPlus, Hash, Mail, Timer, Target, Brain, Settings, Globe, BookOpen, Award, Star, Activity, Rocket, Shield, CloudLightning as Lightning, Sparkles } from 'lucide-react';
+import { Users, Clock, Trophy, Copy, CheckCircle, MessageCircle, Crown, Zap, Play, UserPlus, Hash, Mail, Timer, Target, Brain, Settings, Globe, BookOpen, Award, Star, Activity, Rocket, Shield, CloudLightning as Lightning, Sparkles, X, LogOut, Trash2, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
+import { useNavigate } from 'react-router-dom';
 
 interface CompetitionLobbyProps {
   competition: Competition;
@@ -17,6 +18,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   onStartQuiz 
 }) => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const { 
     participants, 
     loadParticipants, 
@@ -25,17 +27,22 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     sendChatMessage,
     subscribeToCompetition,
     subscribeToChat,
-    startCompetition
+    startCompetition,
+    leaveCompetition,
+    cancelCompetition
   } = useCompetitionStore();
   
   const [copied, setCopied] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [showChat, setShowChat] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const isCreator = user?.id === competition.creator_id;
   const joinedParticipants = participants.filter(p => p.status === 'joined');
   const canStart = joinedParticipants.length >= 2;
+  const userParticipant = participants.find(p => p.user_id === user?.id);
 
   useEffect(() => {
     if (competition.id) {
@@ -87,6 +94,30 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     if (isCreator && canStart) {
       await startCompetition(competition.id);
     }
+  };
+
+  const handleLeaveCompetition = async () => {
+    if (user && userParticipant) {
+      try {
+        await leaveCompetition(competition.id);
+        navigate('/quiz');
+      } catch (error) {
+        console.error('Failed to leave competition:', error);
+      }
+    }
+    setShowLeaveConfirm(false);
+  };
+
+  const handleCancelCompetition = async () => {
+    if (isCreator) {
+      try {
+        await cancelCompetition(competition.id);
+        navigate('/quiz');
+      } catch (error) {
+        console.error('Failed to cancel competition:', error);
+      }
+    }
+    setShowCancelConfirm(false);
   };
 
   if (countdown !== null) {
@@ -176,10 +207,10 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
             <motion.div
               animate={{ rotate: [0, 10, -10, 0] }}
               transition={{ duration: 3, repeat: Infinity }}
-              className="w-24 h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mr-6 shadow-2xl relative"
+              className="w-24 h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl flex items-center justify-center mr-6 shadow-2xl relative"
             >
               <Trophy className="w-12 h-12 text-white" />
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-400/50 to-indigo-400/50 rounded-full blur-xl animate-pulse" />
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-400/50 to-indigo-400/50 rounded-2xl blur-xl animate-pulse" />
             </motion.div>
             <div>
               <h1 className="text-5xl font-bold bg-gradient-to-r from-slate-800 to-purple-600 bg-clip-text text-transparent">
@@ -233,18 +264,44 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                     <Users className="w-8 h-8 mr-3 text-purple-600" />
                     Battle Arena
                   </h3>
-                  {isCreator && (
-                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <Button
-                        onClick={handleStartCompetition}
-                        disabled={!canStart}
-                        className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 transition-all duration-300 px-8 py-4 text-lg font-bold shadow-xl"
-                      >
-                        <Play className="w-6 h-6 mr-2" />
-                        Start Battle
-                      </Button>
-                    </motion.div>
-                  )}
+                  <div className="flex items-center space-x-3">
+                    {isCreator && (
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          onClick={handleStartCompetition}
+                          disabled={!canStart}
+                          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 transition-all duration-300 px-8 py-4 text-lg font-bold shadow-xl"
+                        >
+                          <Play className="w-6 h-6 mr-2" />
+                          Start Battle
+                        </Button>
+                      </motion.div>
+                    )}
+                    {/* Leave/Cancel Competition Buttons */}
+                    {isCreator ? (
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          onClick={() => setShowCancelConfirm(true)}
+                          variant="outline"
+                          className="border-red-200 text-red-600 hover:bg-red-50 px-6 py-4 text-lg font-bold"
+                        >
+                          <Trash2 className="w-5 h-5 mr-2" />
+                          Cancel
+                        </Button>
+                      </motion.div>
+                    ) : (
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          onClick={() => setShowLeaveConfirm(true)}
+                          variant="outline"
+                          className="border-orange-200 text-orange-600 hover:bg-orange-50 px-6 py-4 text-lg font-bold"
+                        >
+                          <LogOut className="w-5 h-5 mr-2" />
+                          Leave
+                        </Button>
+                      </motion.div>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardBody className="p-8">
@@ -255,7 +312,9 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="bg-gradient-to-r from-white to-purple-50 p-6 rounded-2xl border-2 border-purple-100 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden"
+                      className={`bg-gradient-to-r from-white to-purple-50 p-6 rounded-2xl border-2 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden ${
+                        participant.user_id === user?.id ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-100'
+                      }`}
                     >
                       {/* Background Pattern */}
                       <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-200/20 to-indigo-200/20 rounded-full blur-xl" />
@@ -288,9 +347,21 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                           </motion.div>
                         </div>
                         <div className="flex-1">
-                          <h4 className="font-bold text-slate-800 text-xl">
-                            {participant.profile?.full_name || participant.email || 'Anonymous'}
-                          </h4>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h4 className="font-bold text-slate-800 text-xl">
+                              {participant.profile?.full_name || participant.email || 'Anonymous'}
+                            </h4>
+                            {participant.user_id === competition.creator_id && (
+                              <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">
+                                CREATOR
+                              </span>
+                            )}
+                            {participant.user_id === user?.id && (
+                              <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full">
+                                YOU
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center space-x-2 text-sm text-green-600 mt-1">
                             <Shield className="w-4 h-4" />
                             <span className="font-medium">Ready for battle</span>
@@ -614,6 +685,87 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                   </div>
                 </CardBody>
               </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Confirmation Modals */}
+        <AnimatePresence>
+          {showLeaveConfirm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl"
+              >
+                <div className="text-center">
+                  <AlertTriangle className="w-16 h-16 text-orange-500 mx-auto mb-4" />
+                  <h3 className="text-2xl font-bold text-gray-800 mb-4">Leave Competition?</h3>
+                  <p className="text-gray-600 mb-6">
+                    Are you sure you want to leave this competition? You won't be able to rejoin once you leave.
+                  </p>
+                  <div className="flex space-x-4">
+                    <Button
+                      onClick={() => setShowLeaveConfirm(false)}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleLeaveCompetition}
+                      className="flex-1 bg-orange-500 hover:bg-orange-600"
+                    >
+                      Leave
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {showCancelConfirm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl"
+              >
+                <div className="text-center">
+                  <Trash2 className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                  <h3 className="text-2xl font-bold text-gray-800 mb-4">Cancel Competition?</h3>
+                  <p className="text-gray-600 mb-6">
+                    Are you sure you want to cancel this competition? This action cannot be undone and all participants will be notified.
+                  </p>
+                  <div className="flex space-x-4">
+                    <Button
+                      onClick={() => setShowCancelConfirm(false)}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      Keep Competition
+                    </Button>
+                    <Button
+                      onClick={handleCancelCompetition}
+                      className="flex-1 bg-red-500 hover:bg-red-600"
+                    >
+                      Cancel Competition
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>

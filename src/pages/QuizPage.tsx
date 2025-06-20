@@ -13,6 +13,7 @@ import QuizResults from '../components/quiz/QuizResults';
 import CompetitionLobby from '../components/competition/CompetitionLobby';
 import CompetitionQuiz from '../components/competition/CompetitionQuiz';
 import CompetitionResults from '../components/competition/CompetitionResults';
+import CompetitionManagement from '../components/competition/CompetitionManagement';
 import { Button } from '../components/ui/Button';
 import { ArrowLeft } from 'lucide-react';
 
@@ -30,8 +31,10 @@ const QuizPage: React.FC = () => {
   const {
     currentCompetition,
     loadCompetition,
+    loadUserCompetitions,
     participants,
-    loadParticipants
+    loadParticipants,
+    clearCurrentCompetition
   } = useCompetitionStore();
   
   const navigate = useNavigate();
@@ -40,7 +43,8 @@ const QuizPage: React.FC = () => {
   const [step, setStep] = useState<
     'api-key' | 'mode-selector' | 'solo-preferences' | 'create-competition' | 
     'join-competition' | 'random-match' | 'quiz' | 'results' | 
-    'competition-lobby' | 'competition-quiz' | 'competition-results'
+    'competition-lobby' | 'competition-quiz' | 'competition-results' |
+    'competition-management'
   >('api-key');
   
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
@@ -51,6 +55,7 @@ const QuizPage: React.FC = () => {
     if (user) {
       loadApiKey(user.id);
       loadPreferences(user.id);
+      loadUserCompetitions(user.id);
     }
   }, [user]);
 
@@ -59,6 +64,23 @@ const QuizPage: React.FC = () => {
     if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
       loadCompetition(location.state.competitionId);
       setStep('competition-lobby');
+      return;
+    }
+
+    // Check if user has an active competition
+    if (currentCompetition) {
+      // Determine step based on competition status
+      if (currentCompetition.status === 'waiting') {
+        setStep('competition-lobby');
+      } else if (currentCompetition.status === 'active') {
+        setStep('competition-quiz');
+      } else if (currentCompetition.status === 'completed') {
+        setStep('competition-results');
+      } else {
+        // Competition cancelled or other status
+        clearCurrentCompetition();
+        setStep('mode-selector');
+      }
       return;
     }
   
@@ -73,9 +95,6 @@ const QuizPage: React.FC = () => {
       if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
         setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
       }
-    } else if (currentCompetition) {
-      // If we have a current competition, go to lobby
-      setStep('competition-lobby');
     } else {
       setStep('mode-selector');
     }
@@ -128,9 +147,14 @@ const QuizPage: React.FC = () => {
 
   const handleBackToModeSelector = () => {
     resetQuiz();
+    clearCurrentCompetition();
     setSelectedMode(null);
     setTotalTimeRemaining(null);
     setStep('mode-selector');
+  };
+
+  const handleShowCompetitionManagement = () => {
+    setStep('competition-management');
   };
   
   const handleStartSoloQuiz = async () => {
@@ -202,6 +226,7 @@ const QuizPage: React.FC = () => {
   };
 
   const handleNewCompetition = () => {
+    clearCurrentCompetition();
     setStep('mode-selector');
   };
 
@@ -223,7 +248,31 @@ const QuizPage: React.FC = () => {
         return <ApiKeyForm userId={user.id} onSave={handleApiKeySaved} />;
       
       case 'mode-selector':
-        return <QuizModeSelector onSelectMode={handleModeSelect} />;
+        return (
+          <div>
+            <QuizModeSelector 
+              onSelectMode={handleModeSelect} 
+              onShowCompetitionManagement={handleShowCompetitionManagement}
+            />
+          </div>
+        );
+
+      case 'competition-management':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between mb-6">
+              <Button
+                variant="ghost"
+                onClick={handleBackToModeSelector}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back to Quiz Modes
+              </Button>
+            </div>
+            <CompetitionManagement userId={user.id} />
+          </div>
+        );
 
       case 'solo-preferences':
         return (

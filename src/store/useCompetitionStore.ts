@@ -26,6 +26,10 @@ interface CompetitionState {
   // Actions
   createCompetition: (data: any) => Promise<Competition>;
   joinCompetition: (code: string) => Promise<void>;
+  leaveCompetition: (competitionId: string) => Promise<void>;
+  cancelCompetition: (competitionId: string) => Promise<void>;
+  deleteCompetition: (competitionId: string) => Promise<void>;
+  loadUserCompetitions: (userId: string) => Promise<void>;
   inviteParticipants: (competitionId: string, emails: string[]) => Promise<void>;
   loadCompetition: (id: string) => Promise<void>;
   loadParticipants: (competitionId: string) => Promise<void>;
@@ -50,6 +54,7 @@ interface CompetitionState {
   updateUserStats: (userId: string, rank: number, points: number, timeTaken: number) => Promise<void>;
   checkForMatches: (topic: string, difficulty: string, language: string) => Promise<void>;
   getLiveLeaderboard: (competitionId: string) => CompetitionParticipant[];
+  clearCurrentCompetition: () => void;
 }
 
 export const useCompetitionStore = create<CompetitionState>((set, get) => ({
@@ -243,6 +248,110 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       console.error('Join competition error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
+    }
+  },
+
+  leaveCompetition: async (competitionId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Remove participant from competition
+      const { error } = await supabase
+        .from('competition_participants')
+        .delete()
+        .eq('competition_id', competitionId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Clear current competition if user left it
+      const currentComp = get().currentCompetition;
+      if (currentComp?.id === competitionId) {
+        set({ currentCompetition: null });
+      }
+
+      set({ isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  cancelCompetition: async (competitionId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Update competition status to cancelled
+      const { error } = await supabase
+        .from('competitions')
+        .update({ status: 'cancelled' })
+        .eq('id', competitionId)
+        .eq('creator_id', user.id); // Only creator can cancel
+
+      if (error) throw error;
+
+      // Clear current competition if it was cancelled
+      const currentComp = get().currentCompetition;
+      if (currentComp?.id === competitionId) {
+        set({ currentCompetition: null });
+      }
+
+      set({ isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  deleteCompetition: async (competitionId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Delete competition (cascade will handle participants and chat)
+      const { error } = await supabase
+        .from('competitions')
+        .delete()
+        .eq('id', competitionId)
+        .eq('creator_id', user.id); // Only creator can delete
+
+      if (error) throw error;
+
+      // Remove from local state
+      set(state => ({
+        competitions: state.competitions.filter(c => c.id !== competitionId),
+        currentCompetition: state.currentCompetition?.id === competitionId ? null : state.currentCompetition,
+        isLoading: false
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  loadUserCompetitions: async (userId) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Load competitions where user is creator or participant
+      const { data: competitions, error } = await supabase
+        .from('competitions')
+        .select(`
+          *,
+          competition_participants!inner(user_id, status)
+        `)
+        .or(`creator_id.eq.${userId},competition_participants.user_id.eq.${userId}`)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      set({ competitions: competitions || [], isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
     }
   },
 
@@ -808,6 +917,10 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         if (b.correct_answers !== a.correct_answers) return b.correct_answers - a.correct_answers;
         return a.time_taken - b.time_taken;
       });
+  },
+
+  clearCurrentCompetition: () => {
+    set({ currentCompetition: null, participants: [], chatMessages: [] });
   },
 
   // Real-time subscriptions

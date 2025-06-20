@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Button } from '../ui/Button';
 import { Card, CardBody } from '../ui/Card';
-import { BookOpen, Crown, Hash, Users, Zap, Target, Brain, Trophy, Sparkles, ArrowRight, Star, Clock, Award, TrendingUp, Play, Gamepad2, Rocket, Shield, Globe, CloudLightning as Lightning } from 'lucide-react';
+import { BookOpen, Crown, Hash, Users, Zap, Target, Brain, Trophy, Sparkles, ArrowRight, Star, Clock, Award, TrendingUp, Play, Gamepad2, Rocket, Shield, Globe, CloudLightning as Lightning, Settings } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface QuizModeSelectorProps {
   onSelectMode: (mode: 'solo' | 'create-competition' | 'join-competition' | 'random-match') => void;
+  onShowCompetitionManagement?: () => void;
 }
 
-const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ onSelectMode }) => {
+const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ onSelectMode, onShowCompetitionManagement }) => {
   const [hoveredMode, setHoveredMode] = useState<string | null>(null);
 
   const modes = [
@@ -134,6 +135,25 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ onSelectMode }) => 
               <p className="text-2xl text-slate-600">Select your learning adventure</p>
             </div>
           </div>
+
+          {/* Competition Management Button */}
+          {onShowCompetitionManagement && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mb-8"
+            >
+              <Button
+                onClick={onShowCompetitionManagement}
+                variant="outline"
+                className="border-2 border-purple-200 text-purple-600 hover:bg-purple-50 px-6 py-3 text-lg font-semibold shadow-lg"
+              >
+                <Settings className="w-5 h-5 mr-2" />
+                Manage My Competitions
+              </Button>
+            </motion.div>
+          )}
         </motion.div>
 
         {/* Mode Cards */}
