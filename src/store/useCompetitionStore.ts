@@ -157,46 +157,54 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Find competition by code - use array query instead of single
+      // Find competition by code with better error handling
       const { data: competitions, error: compError } = await supabase
         .from('competitions')
         .select('*')
-        .eq('competition_code', code.toUpperCase());
+        .eq('competition_code', code.toUpperCase())
+        .eq('status', 'waiting'); // Only look for waiting competitions
 
       if (compError) {
-        throw new Error('Failed to search for competition');
+        console.error('Database error:', compError);
+        throw new Error('Failed to search for competition. Please try again.');
       }
 
       if (!competitions || competitions.length === 0) {
-        throw new Error('Competition not found. Please check the code and try again.');
+        throw new Error('Competition not found or no longer accepting participants. Please check the code and try again.');
       }
 
       const competition = competitions[0];
 
-      if (competition.status !== 'waiting') {
-        throw new Error('This competition is no longer accepting participants');
-      }
-
       // Check if user is already a participant
-      const { data: existingParticipant } = await supabase
+      const { data: existingParticipant, error: participantError } = await supabase
         .from('competition_participants')
         .select('*')
         .eq('competition_id', competition.id)
         .eq('user_id', user.id)
         .maybeSingle();
 
+      if (participantError) {
+        console.error('Error checking existing participant:', participantError);
+        throw new Error('Failed to check participation status. Please try again.');
+      }
+
       if (existingParticipant) {
         if (existingParticipant.status === 'joined') {
           throw new Error('You are already participating in this competition');
         }
-        // Update status if previously declined
-        await supabase
+        // Update status if previously declined or invited
+        const { error: updateError } = await supabase
           .from('competition_participants')
           .update({ 
             status: 'joined', 
             joined_at: new Date().toISOString() 
           })
           .eq('id', existingParticipant.id);
+
+        if (updateError) {
+          console.error('Error updating participant status:', updateError);
+          throw new Error('Failed to join competition. Please try again.');
+        }
       } else {
         // Add as new participant
         const { error: insertError } = await supabase
@@ -209,12 +217,14 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           });
 
         if (insertError) {
+          console.error('Error inserting new participant:', insertError);
           throw new Error('Failed to join competition. Please try again.');
         }
       }
 
       set({ currentCompetition: competition, isLoading: false });
     } catch (error: any) {
+      console.error('Join competition error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -264,11 +274,12 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
   loadParticipants: async (competitionId) => {
     try {
+      // Fixed the foreign key reference to use the correct constraint name
       const { data: participants, error } = await supabase
         .from('competition_participants')
         .select(`
           *,
-          profiles!competition_participants_user_id_fkey (
+          profiles!competition_participants_user_id_profiles_fkey (
             full_name,
             avatar_url
           )
@@ -276,7 +287,27 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .eq('competition_id', competitionId)
         .order('joined_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading participants:', error);
+        // Fallback query without profiles if the foreign key is still not working
+        const { data: fallbackParticipants, error: fallbackError } = await supabase
+          .from('competition_participants')
+          .select('*')
+          .eq('competition_id', competitionId)
+          .order('joined_at', { ascending: true });
+
+        if (fallbackError) throw fallbackError;
+
+        const formattedParticipants = (fallbackParticipants || []).map(p => ({
+          ...p,
+          profile: null,
+          is_online: true,
+          last_activity: new Date().toISOString()
+        }));
+
+        set({ participants: formattedParticipants });
+        return;
+      }
 
       const formattedParticipants = (participants || []).map(p => ({
         ...p,
@@ -284,12 +315,13 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           full_name: p.profiles.full_name,
           avatar_url: p.profiles.avatar_url
         } : null,
-        is_online: true, // In real implementation, track online status
+        is_online: true,
         last_activity: new Date().toISOString()
       }));
 
       set({ participants: formattedParticipants });
     } catch (error: any) {
+      console.error('Error in loadParticipants:', error);
       set({ error: error.message });
     }
   },
@@ -631,7 +663,25 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .eq('competition_id', competitionId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading chat messages:', error);
+        // Fallback without profiles
+        const { data: fallbackMessages, error: fallbackError } = await supabase
+          .from('competition_chat')
+          .select('*')
+          .eq('competition_id', competitionId)
+          .order('created_at', { ascending: true });
+
+        if (fallbackError) throw fallbackError;
+
+        const formattedMessages = (fallbackMessages || []).map(m => ({
+          ...m,
+          profile: null
+        }));
+
+        set({ chatMessages: formattedMessages });
+        return;
+      }
 
       const formattedMessages = (messages || []).map(m => ({
         ...m,
