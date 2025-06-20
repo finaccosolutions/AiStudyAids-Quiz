@@ -336,19 +336,40 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
   loadUserCompetitions: async (userId) => {
     set({ isLoading: true, error: null });
     try {
-      // Load competitions where user is creator or participant
-      const { data: competitions, error } = await supabase
+      // Load competitions where user is creator
+      const { data: createdCompetitions, error: createdError } = await supabase
         .from('competitions')
-        .select(`
-          *,
-          competition_participants!inner(user_id, status)
-        `)
-        .or(`creator_id.eq.${userId},competition_participants.user_id.eq.${userId}`)
+        .select('*')
+        .eq('creator_id', userId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (createdError) throw createdError;
 
-      set({ competitions: competitions || [], isLoading: false });
+      // Load competitions where user is participant
+      const { data: participantData, error: participantError } = await supabase
+        .from('competition_participants')
+        .select(`
+          competition_id,
+          competitions!inner(*)
+        `)
+        .eq('user_id', userId)
+        .neq('status', 'declined');
+
+      if (participantError) throw participantError;
+
+      // Extract competitions from participant data
+      const participantCompetitions = (participantData || []).map(p => p.competitions);
+
+      // Combine and deduplicate competitions
+      const allCompetitions = [...(createdCompetitions || []), ...participantCompetitions];
+      const uniqueCompetitions = allCompetitions.filter((comp, index, self) => 
+        index === self.findIndex(c => c.id === comp.id)
+      );
+
+      // Sort by created_at descending
+      uniqueCompetitions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      set({ competitions: uniqueCompetitions, isLoading: false });
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
     }
