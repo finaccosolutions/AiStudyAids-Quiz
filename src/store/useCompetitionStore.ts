@@ -70,29 +70,29 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
-
+  
       // Generate competition code
       const competitionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
+  
       const competitionData = {
         creator_id: user.id,
         title: data.title,
         description: data.description,
         competition_code: competitionCode,
         type: data.type || 'private',
-        max_participants: 999, // Remove participant limit
+        max_participants: 999,
         quiz_preferences: data.quizPreferences,
         status: 'waiting'
       };
-
+  
       const { data: competition, error } = await supabase
         .from('competitions')
         .insert(competitionData)
         .select()
         .single();
-
+  
       if (error) throw error;
-
+  
       // Add creator as participant
       await supabase
         .from('competition_participants')
@@ -102,7 +102,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           status: 'joined',
           joined_at: new Date().toISOString()
         });
-
+  
       // Send invitations if emails provided
       if (data.emails && data.emails.length > 0) {
         const invites = data.emails.map((email: string) => ({
@@ -110,11 +110,11 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           email,
           status: 'invited'
         }));
-
+  
         await supabase
           .from('competition_participants')
           .insert(invites);
-
+  
         // Send email invitations via edge function
         try {
           const { data: { session } } = await supabase.auth.getSession();
@@ -134,16 +134,16 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           });
         } catch (emailError) {
           console.warn('Failed to send email invitations:', emailError);
-          // Don't fail the competition creation if email sending fails
         }
       }
-
+  
+      // IMPORTANT: Set current competition in state
       set(state => ({
         competitions: [competition, ...state.competitions],
         currentCompetition: competition,
         isLoading: false
       }));
-
+  
       return competition;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });

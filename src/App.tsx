@@ -49,9 +49,7 @@ const QuizRoute: React.FC = () => {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  if (questions.length === 0 && location.state?.from !== '/preferences') {
-    return <Navigate to="/preferences" replace />;
-  }
+
 
   return <QuizPage />;
 };

@@ -61,7 +61,7 @@ const QuizPage: React.FC = () => {
       setStep('competition-lobby');
       return;
     }
-
+  
     // Determine initial step based on current state
     if (!apiKey) {
       setStep('api-key');
@@ -73,10 +73,13 @@ const QuizPage: React.FC = () => {
       if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
         setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
       }
+    } else if (currentCompetition) {
+      // If we have a current competition, go to lobby
+      setStep('competition-lobby');
     } else {
       setStep('mode-selector');
     }
-  }, [apiKey, preferences, questions, result, location.state]);
+  }, [apiKey, preferences, questions, result, location.state, currentCompetition]);
 
   // Total quiz timer effect
   useEffect(() => {
@@ -208,6 +211,7 @@ const QuizPage: React.FC = () => {
 
   // Fixed: Handle competition creation properly
   const handleCreateCompetitionSuccess = () => {
+    // Navigate to competition lobby
     setStep('competition-lobby');
   };
   

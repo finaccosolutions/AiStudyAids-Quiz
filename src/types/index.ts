@@ -24,7 +24,7 @@ export type ApiKeyData = {
 };
 
 // Supported languages for quiz generation
-export type QuizLanguage = 'English' | 'Hindi' | 'Malayalam' | 'Tamil' | 'Telugu';
+export type QuizLanguage = 'English' | 'Hindi' | 'Malayalam' | 'Tamil' | 'Telugu' | 'Spanish' | 'French' | 'German' | 'Chinese' | 'Japanese';
 
 // Language display information
 export type LanguageInfo = {

@@ -7,7 +7,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { QuizPreferences } from '../../types';
-import { Brain, Settings, Clock, Target, Globe, Users, Mail, Plus, X, Crown, Zap, BookOpen, CheckCircle, AlertCircle, Timer, Award, Sparkles, Star, Play, Calculator, Info, Lightbulb, Flame, Rocket, Shield, CloudLightning as Lightning, Wand2, Trophy, Gamepad2, Palette, Layers, Grid3X3, Hash, MessageCircle } from 'lucide-react';
+import { Brain, Settings, Clock, Target, Globe, Users, Mail, Plus, X, Crown, Zap, BookOpen, CheckCircle, AlertCircle, Timer, Award, Sparkles, Star, Play, Calculator, Info, Lightbulb, Flame, Rocket, Shield, CloudLightning as Lightning, Wand2, Trophy, Gamepad2, Palette, Layers, Grid3X3, Hash, MessageCircle, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface QuizPreferencesFormProps {
@@ -41,6 +41,14 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
 
   useEffect(() => {
     setPreferences(initialPreferences);
+    // Set time mode based on existing preferences
+    if (initialPreferences.timeLimitEnabled) {
+      if (initialPreferences.timeLimit) {
+        setTimeMode('per-question');
+      } else if (initialPreferences.totalTimeLimit) {
+        setTimeMode('total');
+      }
+    }
   }, [initialPreferences]);
 
   // Calculate time references
@@ -78,16 +86,21 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   ];
 
   const languageOptions = [
-    { value: 'English', label: 'English', flag: '🇺🇸', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
-    { value: 'Hindi', label: 'Hindi', flag: '🇮🇳', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
-    { value: 'Malayalam', label: 'Malayalam', flag: '🇮🇳', bgColor: 'bg-green-50', borderColor: 'border-green-200' },
-    { value: 'Tamil', label: 'Tamil', flag: '🇮🇳', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
-    { value: 'Telugu', label: 'Telugu', flag: '🇮🇳', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' }
+    { value: 'English', label: 'English', flag: '🇺🇸' },
+    { value: 'Hindi', label: 'Hindi', flag: '🇮🇳' },
+    { value: 'Malayalam', label: 'Malayalam', flag: '🇮🇳' },
+    { value: 'Tamil', label: 'Tamil', flag: '🇮🇳' },
+    { value: 'Telugu', label: 'Telugu', flag: '🇮🇳' },
+    { value: 'Spanish', label: 'Spanish', flag: '🇪🇸' },
+    { value: 'French', label: 'French', flag: '🇫🇷' },
+    { value: 'German', label: 'German', flag: '🇩🇪' },
+    { value: 'Chinese', label: 'Chinese', flag: '🇨🇳' },
+    { value: 'Japanese', label: 'Japanese', flag: '🇯🇵' }
   ];
 
   const modeOptions = [
-    { value: 'practice', label: 'Practice Mode', icon: '🎯', description: 'Immediate feedback', color: 'from-blue-500 to-cyan-500' },
-    { value: 'exam', label: 'Exam Mode', icon: '📝', description: 'Feedback at the end', color: 'from-purple-500 to-pink-500' }
+    { value: 'practice', label: 'Practice Mode', icon: '🎯', description: 'Immediate feedback after each question', color: 'from-blue-500 to-cyan-500' },
+    { value: 'exam', label: 'Exam Mode', icon: '📝', description: 'Feedback shown only at the end', color: 'from-purple-500 to-pink-500' }
   ];
 
   const handlePreferenceChange = (field: keyof QuizPreferences, value: any) => {
@@ -152,10 +165,11 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
     e.preventDefault();
     
     try {
+      // Save preferences first
       await savePreferences(userId, preferences);
       
       if (isCompetitionMode && onStartCompetition) {
-        // Create competition
+        // Create competition with all details
         const competition = await createCompetition({
           title: competitionData.title || `${preferences.course} Quiz Competition`,
           description: competitionData.description || `A ${preferences.difficulty} level quiz on ${preferences.course}`,
@@ -164,6 +178,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
           type: 'private'
         });
         
+        // Call the callback to navigate to lobby
         onStartCompetition();
       } else if (onSave) {
         onSave();
@@ -529,7 +544,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                         </div>
                       </motion.div>
 
-                      {/* Language */}
+                      {/* Language - Updated to use Select component */}
                       <motion.div
                         whileHover={{ scale: 1.02 }}
                         className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-white to-indigo-50 p-6 border-2 border-indigo-200 shadow-lg hover:shadow-xl transition-all duration-300"
@@ -539,35 +554,253 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                           <Globe className="w-6 h-6 mr-3 text-indigo-600" />
                           Language
                         </label>
-                        <div className="grid grid-cols-2 gap-3 relative z-10">
-                          {languageOptions.map((option) => (
-                            <motion.button
-                              key={option.value}
-                              type="button"
-                              onClick={() => handlePreferenceChange('language', option.value)}
-                              className={`p-4 rounded-xl border-2 transition-all duration-300 flex items-center space-x-3 relative overflow-hidden ${
-                                preferences.language === option.value
-                                  ? `${option.bgColor} ${option.borderColor} text-slate-700 shadow-lg scale-105 ring-4 ring-indigo-200 ring-opacity-30`
-                                  : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 hover:scale-102'
-                              }`}
-                              whileHover={{ scale: preferences.language === option.value ? 1.05 : 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                            >
-                              <span className="text-2xl">{option.flag}</span>
-                              <span className="font-semibold flex-1">{option.label}</span>
-                              {preferences.language === option.value && (
-                                <motion.div
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1 }}
-                                >
-                                  <CheckCircle className="w-5 h-5 text-indigo-600" />
-                                </motion.div>
-                              )}
-                            </motion.button>
-                          ))}
+                        <div className="relative z-10">
+                          <Select
+                            value={preferences.language}
+                            onChange={(e) => handlePreferenceChange('language', e.target.value)}
+                            options={languageOptions.map(lang => ({ value: lang.value, label: `${lang.flag} ${lang.label}` }))}
+                            className="w-full bg-white/90 border-2 border-indigo-300 focus:border-indigo-500 focus:ring-indigo-200 text-slate-800 py-4 px-4 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group-hover:border-indigo-400"
+                          />
                         </div>
                       </motion.div>
                     </div>
+                  </div>
+                </motion.div>
+
+                {/* Quiz Mode Selection */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="space-y-8"
+                >
+                  <div className="flex items-center space-x-4 mb-8">
+                    <motion.div
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-xl"
+                    >
+                      <Play className="w-8 h-8 text-white" />
+                    </motion.div>
+                    <div>
+                      <h4 className="text-3xl font-bold text-slate-800">Quiz Mode</h4>
+                      <p className="text-slate-600 text-lg">Choose how you want to receive feedback during the quiz</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {modeOptions.map((mode) => (
+                      <motion.button
+                        key={mode.value}
+                        type="button"
+                        onClick={() => handlePreferenceChange('mode', mode.value)}
+                        className={`p-6 rounded-2xl border-2 transition-all duration-300 text-left group relative overflow-hidden ${
+                          preferences.mode === mode.value
+                            ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-pink-50 text-purple-700 shadow-xl scale-105 ring-4 ring-purple-200 ring-opacity-30'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-purple-300 hover:bg-gradient-to-br hover:from-purple-50 hover:to-pink-50 hover:scale-102 hover:shadow-lg'
+                        }`}
+                        whileHover={{ scale: preferences.mode === mode.value ? 1.05 : 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-br ${mode.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
+                        
+                        <div className="relative z-10">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <span className="text-3xl">{mode.icon}</span>
+                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${
+                              preferences.mode === mode.value
+                                ? 'border-purple-600 bg-purple-600'
+                                : 'border-slate-400 group-hover:border-purple-400'
+                            }`}>
+                              {preferences.mode === mode.value && (
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                >
+                                  <CheckCircle className="w-4 h-4 text-white" />
+                                </motion.div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="font-bold text-lg mb-2">{mode.label}</div>
+                          <div className="text-sm opacity-80 leading-relaxed">{mode.description}</div>
+                        </div>
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* Time Settings */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 }}
+                  className="space-y-8"
+                >
+                  <div className="flex items-center space-x-4 mb-8">
+                    <motion.div
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-xl"
+                    >
+                      <Clock className="w-8 h-8 text-white" />
+                    </motion.div>
+                    <div>
+                      <h4 className="text-3xl font-bold text-slate-800">Time Settings</h4>
+                      <p className="text-slate-600 text-lg">Configure time limits for your quiz</p>
+                    </div>
+                  </div>
+
+                  {/* Time Mode Selection */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[
+                      { value: 'none', label: 'No Time Limit', description: 'Take as much time as needed', icon: '∞' },
+                      { value: 'per-question', label: 'Per Question', description: 'Set time limit for each question', icon: '⏱️' },
+                      { value: 'total', label: 'Total Time', description: 'Set total time for entire quiz', icon: '⏰' }
+                    ].map((option) => (
+                      <motion.button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleTimeModeChange(option.value as any)}
+                        className={`p-6 rounded-2xl border-2 transition-all duration-300 text-center ${
+                          timeMode === option.value
+                            ? 'border-orange-500 bg-orange-50 text-orange-700 shadow-lg scale-105'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-orange-300 hover:bg-orange-50 hover:scale-102'
+                        }`}
+                        whileHover={{ scale: timeMode === option.value ? 1.05 : 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="text-3xl mb-2">{option.icon}</div>
+                        <div className="font-bold text-lg mb-2">{option.label}</div>
+                        <div className="text-sm opacity-80">{option.description}</div>
+                      </motion.button>
+                    ))}
+                  </div>
+
+                  {/* Time Input Fields */}
+                  {timeMode === 'per-question' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="bg-orange-50 p-6 rounded-2xl border border-orange-200"
+                    >
+                      <label className="block text-sm font-bold text-orange-800 mb-4">
+                        <Timer className="w-5 h-5 inline mr-2" />
+                        Time per Question (seconds)
+                      </label>
+                      <Input
+                        type="number"
+                        min="10"
+                        max="300"
+                        value={preferences.timeLimit || '30'}
+                        onChange={(e) => handlePreferenceChange('timeLimit', e.target.value)}
+                        className="w-full bg-white border-2 border-orange-300 focus:border-orange-500 py-3 px-4 text-lg rounded-xl"
+                      />
+                      {calculateTimeReference() && (
+                        <div className="mt-2 text-sm text-orange-600 font-medium">
+                          {calculateTimeReference()}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {timeMode === 'total' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="bg-orange-50 p-6 rounded-2xl border border-orange-200"
+                    >
+                      <label className="block text-sm font-bold text-orange-800 mb-4">
+                        <Timer className="w-5 h-5 inline mr-2" />
+                        Total Quiz Time (seconds)
+                      </label>
+                      <Input
+                        type="number"
+                        min="60"
+                        max="3600"
+                        value={preferences.totalTimeLimit || '600'}
+                        onChange={(e) => handlePreferenceChange('totalTimeLimit', e.target.value)}
+                        className="w-full bg-white border-2 border-orange-300 focus:border-orange-500 py-3 px-4 text-lg rounded-xl"
+                      />
+                      {calculateTimeReference() && (
+                        <div className="mt-2 text-sm text-orange-600 font-medium">
+                          {calculateTimeReference()}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </motion.div>
+
+                {/* Negative Marking */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 }}
+                  className="space-y-8"
+                >
+                  <div className="flex items-center space-x-4 mb-8">
+                    <motion.div
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      className="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-xl"
+                    >
+                      <Calculator className="w-8 h-8 text-white" />
+                    </motion.div>
+                    <div>
+                      <h4 className="text-3xl font-bold text-slate-800">Scoring System</h4>
+                      <p className="text-slate-600 text-lg">Configure how points are awarded and deducted</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-red-50 to-pink-50 p-6 rounded-2xl border border-red-200">
+                    <div className="flex items-center space-x-4 mb-4">
+                      <motion.button
+                        type="button"
+                        onClick={() => handlePreferenceChange('negativeMarking', !preferences.negativeMarking)}
+                        className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${
+                          preferences.negativeMarking
+                            ? 'border-red-600 bg-red-600'
+                            : 'border-slate-400 hover:border-red-400'
+                        }`}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        {preferences.negativeMarking && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          >
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          </motion.div>
+                        )}
+                      </motion.button>
+                      <label className="text-lg font-bold text-red-800">
+                        Enable Negative Marking
+                      </label>
+                    </div>
+                    
+                    {preferences.negativeMarking && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-4"
+                      >
+                        <label className="block text-sm font-bold text-red-800 mb-2">
+                          Marks deducted per wrong answer
+                        </label>
+                        <Input
+                          type="number"
+                          min="-5"
+                          max="0"
+                          step="0.25"
+                          value={preferences.negativeMarks || -0.25}
+                          onChange={(e) => handlePreferenceChange('negativeMarks', parseFloat(e.target.value))}
+                          className="w-full bg-white border-2 border-red-300 focus:border-red-500 py-3 px-4 text-lg rounded-xl"
+                        />
+                        <div className="mt-2 text-sm text-red-600">
+                          Common values: -0.25, -0.33, -0.5, -1
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
                 </motion.div>
 
@@ -575,7 +808,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
+                  transition={{ delay: 0.8 }}
                   className="space-y-8"
                 >
                   <div className="flex items-center space-x-4 mb-8">
@@ -599,7 +832,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                         onClick={() => handleQuestionTypeToggle(type.value)}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.6 + index * 0.1 }}
+                        transition={{ delay: 0.9 + index * 0.1 }}
                         className={`p-6 rounded-2xl border-2 transition-all duration-300 text-left group relative overflow-hidden ${
                           preferences.questionTypes?.includes(type.value)
                             ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-pink-50 text-purple-700 shadow-xl scale-105 ring-4 ring-purple-200 ring-opacity-30'
