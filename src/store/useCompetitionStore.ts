@@ -39,6 +39,7 @@ interface CompetitionState {
   loadPendingInvites: (userId: string) => Promise<void>;
   respondToInvite: (competitionId: string, accept: boolean) => Promise<void>;
   startCompetition: (competitionId: string) => Promise<void>;
+  checkUserActiveCompetitions: (userId: string) => Promise<Competition | null>;
   
   // Real-time subscriptions
   subscribeToCompetition: (competitionId: string) => () => void;
@@ -162,7 +163,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .from('competitions')
         .select('*')
         .eq('competition_code', code.toUpperCase())
-        .eq('status', 'waiting'); // Only look for waiting competitions
+        .in('status', ['waiting', 'active']); // Allow joining waiting or active competitions
 
       if (compError) {
         console.error('Database error:', compError);
@@ -190,7 +191,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
       if (existingParticipant) {
         if (existingParticipant.status === 'joined') {
-          throw new Error('You are already participating in this competition');
+          // User is already participating - allow re-entry to lobby
+          set({ currentCompetition: competition, isLoading: false });
+          return;
         }
         // Update status if previously declined or invited
         const { error: updateError } = await supabase
@@ -227,6 +230,54 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       console.error('Join competition error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
+    }
+  },
+
+  checkUserActiveCompetitions: async (userId) => {
+    try {
+      // Check for competitions where user is a participant and competition is waiting or active
+      const { data: participations, error } = await supabase
+        .from('competition_participants')
+        .select(`
+          competition_id,
+          status,
+          competitions!inner (
+            id,
+            title,
+            description,
+            competition_code,
+            type,
+            status,
+            max_participants,
+            quiz_preferences,
+            start_time,
+            end_time,
+            created_at,
+            updated_at,
+            creator_id
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('status', 'joined')
+        .in('competitions.status', ['waiting', 'active'])
+        .order('competitions.created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error checking active competitions:', error);
+        return null;
+      }
+
+      if (participations && participations.length > 0) {
+        const competition = participations[0].competitions as Competition;
+        set({ currentCompetition: competition });
+        return competition;
+      }
+
+      return null;
+    } catch (error: any) {
+      console.error('Error in checkUserActiveCompetitions:', error);
+      return null;
     }
   },
 
