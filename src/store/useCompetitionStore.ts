@@ -564,13 +564,13 @@ loadParticipants: async (competitionId) => {
       return;
     }
 
-    // Load all participants with enhanced query - remove table qualification from user_id
+    // Load all participants with enhanced query - explicitly qualify user_id column
     const { data: participantsWithProfiles, error } = await supabase
       .from('competition_participants')
       .select(`
         id,
         competition_id,
-        user_id,
+        competition_participants:user_id,
         email,
         status,
         score,
@@ -602,13 +602,13 @@ loadParticipants: async (competitionId) => {
     if (error) {
       console.error('Error loading participants with profiles:', error);
       
-      // Fallback: Try without inner join - also remove table qualification
+      // Fallback: Try without inner join - explicitly qualify user_id column
       const { data: participants, error: fallbackError } = await supabase
         .from('competition_participants')
         .select(`
           id,
           competition_id,
-          user_id,
+          competition_participants:user_id,
           email,
           status,
           score,
