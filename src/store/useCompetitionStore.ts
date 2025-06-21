@@ -564,13 +564,13 @@ loadParticipants: async (competitionId) => {
       return;
     }
 
-    // Load all participants with enhanced query - explicitly list columns to avoid ambiguity
+    // Load all participants with enhanced query - use table aliases to avoid ambiguity
     const { data: participantsWithProfiles, error } = await supabase
       .from('competition_participants')
       .select(`
         id,
         competition_id,
-        user_id,
+        competition_participants.user_id,
         email,
         status,
         score,
@@ -589,7 +589,8 @@ loadParticipants: async (competitionId) => {
         is_ready,
         quiz_start_time,
         quiz_end_time,
-        profiles!inner (
+        profiles!competition_participants_user_id_fkey (
+          user_id,
           full_name,
           avatar_url
         )
@@ -602,13 +603,13 @@ loadParticipants: async (competitionId) => {
     if (error) {
       console.error('Error loading participants with profiles:', error);
       
-      // Fallback: Try without inner join - explicitly list columns
+      // Fallback: Try without inner join - use explicit table prefix
       const { data: participants, error: fallbackError } = await supabase
         .from('competition_participants')
         .select(`
           id,
           competition_id,
-          user_id,
+          competition_participants.user_id,
           email,
           status,
           score,
