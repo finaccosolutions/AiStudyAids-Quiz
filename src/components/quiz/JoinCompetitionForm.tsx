@@ -95,7 +95,7 @@ const JoinCompetitionForm: React.FC<JoinCompetitionFormProps> = ({
                     placeholder="ABC123"
                     value={competitionCode}
                     onChange={(e) => handleCodeChange(e.target.value.toUpperCase())}
-                    className="w-full py-4 text-center text-3xl font-mono tracking-wider border-2 focus:border-green-500 focus:ring-green-200"
+                    className="w-full py-4 text-center text-3xl font-mono tracking-wider border-2 focus:border-green-500 focus:ring-green-200 bg-white text-gray-900 placeholder-gray-400"
                     maxLength={6}
                     autoComplete="off"
                   />
