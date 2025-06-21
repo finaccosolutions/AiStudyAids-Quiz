@@ -434,86 +434,70 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
     try {
       console.log('Loading participants for competition:', competitionId);
       
-      // Load participants first
-      const { data: participants, error } = await supabase
+      // Enhanced query to get participants with profile data using proper joins
+      const { data: participantsWithProfiles, error } = await supabase
         .from('competition_participants')
-        .select('*')
+        .select(`
+          *,
+          profiles!competition_participants_user_id_profiles_fkey (
+            full_name,
+            avatar_url
+          )
+        `)
         .eq('competition_id', competitionId)
         .order('joined_at', { ascending: true });
 
       if (error) {
-        console.error('Error loading participants:', error);
-        throw error;
-      }
+        console.error('Error loading participants with profiles:', error);
+        
+        // Fallback: Load participants without profiles
+        const { data: participants, error: fallbackError } = await supabase
+          .from('competition_participants')
+          .select('*')
+          .eq('competition_id', competitionId)
+          .order('joined_at', { ascending: true });
 
-      console.log('Raw participants loaded:', participants);
-
-      // Get all unique user IDs from participants (including creator)
-      const userIds = [...new Set(participants
-        ?.filter(p => p.user_id)
-        .map(p => p.user_id))] || [];
-
-      console.log('User IDs to fetch profiles for:', userIds);
-
-      let profilesMap = new Map();
-      if (userIds.length > 0) {
-        const { data: profiles, error: profileError } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, avatar_url')
-          .in('user_id', userIds);
-
-        if (profileError) {
-          console.error('Error loading profiles:', profileError);
-        } else {
-          console.log('Profiles loaded:', profiles);
-          profiles?.forEach(profile => {
-            profilesMap.set(profile.user_id, profile);
-          });
+        if (fallbackError) {
+          console.error('Fallback query also failed:', fallbackError);
+          throw fallbackError;
         }
+
+        console.log('Using fallback participants data:', participants);
+        
+        // Format participants without profile data
+        const formattedParticipants = (participants || []).map(p => ({
+          ...p,
+          profile: {
+            full_name: p.email ? p.email.split('@')[0] : 'Anonymous User',
+            avatar_url: null
+          },
+          is_online: p.is_online ?? true,
+          last_activity: p.last_activity ?? new Date().toISOString()
+        }));
+
+        set({ participants: formattedParticipants });
+        return;
       }
 
-      // Also get user emails from auth.users for fallback display names
-      let usersMap = new Map();
-      if (userIds.length > 0) {
-        try {
-          // We can't directly query auth.users, so we'll use the profile data
-          // and fall back to email from the participant data if available
-          const { data: { user: currentUser } } = await supabase.auth.getUser();
-          if (currentUser) {
-            usersMap.set(currentUser.id, { email: currentUser.email });
-          }
-        } catch (userError) {
-          console.warn('Could not load user data:', userError);
-        }
-      }
+      console.log('Participants with profiles loaded:', participantsWithProfiles);
 
       // Format participants with profile data
-      const formattedParticipants = (participants || []).map(p => {
-        const profile = p.user_id && profilesMap.has(p.user_id) 
-          ? profilesMap.get(p.user_id) 
-          : null;
-        
-        const user = p.user_id && usersMap.has(p.user_id)
-          ? usersMap.get(p.user_id)
-          : null;
-        
-        // Create display name with better fallback logic
+      const formattedParticipants = (participantsWithProfiles || []).map(p => {
+        // Get display name with better fallback logic
         let displayName = 'Anonymous User';
-        if (profile?.full_name) {
-          displayName = profile.full_name;
+        
+        if (p.profiles?.full_name) {
+          displayName = p.profiles.full_name;
         } else if (p.email) {
           displayName = p.email.split('@')[0];
-        } else if (user?.email) {
-          displayName = user.email.split('@')[0];
         }
         
         return {
           ...p,
           profile: {
             full_name: displayName,
-            avatar_url: profile?.avatar_url || null
+            avatar_url: p.profiles?.avatar_url || null
           },
-          email: p.email || user?.email || null,
           is_online: p.is_online ?? true,
           last_activity: p.last_activity ?? new Date().toISOString()
         };
@@ -843,74 +827,99 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
   startCompetition: async (competitionId) => {
     try {
-      await supabase
+      console.log('Starting competition:', competitionId);
+      
+      const { error } = await supabase
         .from('competitions')
         .update({ 
           status: 'active',
           start_time: new Date().toISOString()
         })
         .eq('id', competitionId);
+
+      if (error) {
+        console.error('Error starting competition:', error);
+        throw error;
+      }
+
+      console.log('Competition started successfully');
+      
+      // Update local state immediately
+      set(state => ({
+        currentCompetition: state.currentCompetition ? {
+          ...state.currentCompetition,
+          status: 'active',
+          start_time: new Date().toISOString()
+        } : null
+      }));
     } catch (error: any) {
+      console.error('Failed to start competition:', error);
       set({ error: error.message });
+      throw error;
     }
   },
 
   loadChatMessages: async (competitionId) => {
     try {
-      // Load chat messages first
-      const { data: messages, error } = await supabase
+      // Enhanced query to get chat messages with profile data
+      const { data: messagesWithProfiles, error } = await supabase
         .from('competition_chat')
-        .select('*')
+        .select(`
+          *,
+          profiles!competition_chat_user_id_profiles_fkey (
+            full_name,
+            avatar_url
+          )
+        `)
         .eq('competition_id', competitionId)
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Error loading chat messages:', error);
-        throw error;
-      }
+        console.error('Error loading chat messages with profiles:', error);
+        
+        // Fallback: Load messages without profiles
+        const { data: messages, error: fallbackError } = await supabase
+          .from('competition_chat')
+          .select('*')
+          .eq('competition_id', competitionId)
+          .order('created_at', { ascending: true });
 
-      console.log('Chat messages loaded:', messages);
-
-      // Get profile data separately for users who have user_id
-      const userIds = messages
-        ?.filter(m => m.user_id)
-        .map(m => m.user_id) || [];
-
-      let profilesMap = new Map();
-      if (userIds.length > 0) {
-        const { data: profiles, error: profileError } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, avatar_url')
-          .in('user_id', userIds);
-
-        if (profileError) {
-          console.error('Error loading profiles for chat:', profileError);
-        } else {
-          console.log('Profiles loaded for chat:', profiles);
-          profiles?.forEach(profile => {
-            profilesMap.set(profile.user_id, profile);
-          });
+        if (fallbackError) {
+          console.error('Fallback chat query also failed:', fallbackError);
+          throw fallbackError;
         }
+
+        // Format messages without profile data
+        const formattedMessages = (messages || []).map(m => ({
+          ...m,
+          profile: {
+            full_name: 'Anonymous User',
+            avatar_url: null
+          }
+        }));
+
+        set({ chatMessages: formattedMessages });
+        return;
       }
+
+      console.log('Chat messages with profiles loaded:', messagesWithProfiles);
 
       // Format messages with profile data
-      const formattedMessages = (messages || []).map(m => {
-        const profile = m.user_id && profilesMap.has(m.user_id) 
-          ? profilesMap.get(m.user_id) 
-          : null;
-        
-        return {
-          ...m,
-          profile: profile ? {
-            full_name: profile.full_name,
-            avatar_url: profile.avatar_url
-          } : null
-        };
-      });
+      const formattedMessages = (messagesWithProfiles || []).map(m => ({
+        ...m,
+        profile: m.profiles ? {
+          full_name: m.profiles.full_name || 'Anonymous User',
+          avatar_url: m.profiles.avatar_url
+        } : {
+          full_name: 'Anonymous User',
+          avatar_url: null
+        }
+      }));
 
       console.log('Formatted chat messages:', formattedMessages);
       set({ chatMessages: formattedMessages });
     } catch (error: any) {
+      console.error('Error in loadChatMessages:', error);
       set({ error: error.message });
     }
   },
