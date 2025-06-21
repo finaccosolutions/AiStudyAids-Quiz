@@ -14,7 +14,8 @@ import NotesGeneratorPage from './pages/NotesGeneratorPage';
 import StudyPlannerPage from './pages/StudyPlannerPage';
 import ProgressTrackerPage from './pages/ProgressTrackerPage';
 import ChatPage from './pages/ChatPage';
-import ProfilePage from './pages/ProfilePage'; 
+import ProfilePage from './pages/ProfilePage';
+import CompetitionPage from './pages/CompetitionPage';
 
 // Protected route wrapper component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -48,8 +49,6 @@ const QuizRoute: React.FC = () => {
   if (!isLoggedIn) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
-
-
 
   return <QuizPage />;
 };
@@ -144,6 +143,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="competitions"
+            element={
+              <ProtectedRoute>
+                <CompetitionPage />
               </ProtectedRoute>
             }
           />

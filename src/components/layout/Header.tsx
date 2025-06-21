@@ -5,7 +5,7 @@ import {
   ChevronDown, LogOut, User, BookOpen, 
   Home, Settings, GraduationCap, FileQuestion, 
   PenTool, NotebookText, Calendar, LineChart,
-  Brain, Menu, Key
+  Brain, Menu, Key, Trophy
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -131,6 +131,18 @@ const Header: React.FC = () => {
                     )}
                   </AnimatePresence>
                 </div>
+
+                <Link 
+                  to="/competitions"
+                  className={`nav-link px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-1 ${
+                    isActive('/competitions') 
+                      ? 'text-purple-700 bg-purple-50' 
+                      : 'hover:text-purple-700 hover:bg-purple-50/50'
+                  }`}
+                >
+                  <Trophy className="w-4 h-4" />
+                  <span>Competitions</span>
+                </Link>
               </>
             )}
           </nav>
