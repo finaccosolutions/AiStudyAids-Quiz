@@ -564,13 +564,13 @@ loadParticipants: async (competitionId) => {
       return;
     }
 
-    // Load all participants with enhanced query - explicitly qualify user_id column
+    // Load all participants with explicit column references
     const { data: participantsWithProfiles, error } = await supabase
       .from('competition_participants')
       .select(`
         id,
         competition_id,
-        competition_participants:user_id,
+        competition_participants.user_id,
         email,
         status,
         score,
@@ -589,10 +589,7 @@ loadParticipants: async (competitionId) => {
         is_ready,
         quiz_start_time,
         quiz_end_time,
-        profiles!competition_participants_user_id_profiles_fkey (
-          full_name,
-          avatar_url
-        )
+        profiles:user_id (full_name, avatar_url)
       `)
       .eq('competition_id', competitionId)
       .in('status', ['joined', 'completed'])
@@ -602,13 +599,13 @@ loadParticipants: async (competitionId) => {
     if (error) {
       console.error('Error loading participants with profiles:', error);
       
-      // Fallback: Try without inner join - explicitly qualify user_id column
+      // Fallback: Try without profile join
       const { data: participants, error: fallbackError } = await supabase
         .from('competition_participants')
         .select(`
           id,
           competition_id,
-          competition_participants:user_id,
+          user_id,
           email,
           status,
           score,
