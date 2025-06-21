@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useQuizStore } from '../../store/useQuizStore';
 import { supabase } from '../../services/supabase';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
@@ -19,6 +20,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   onStartQuiz 
 }) => {
   const { user } = useAuthStore();
+  const { apiKey } = useQuizStore();
   const navigate = useNavigate();
   const { 
     participants, 
@@ -42,6 +44,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isComponentMounted, setIsComponentMounted] = useState(true);
+  const [isStarting, setIsStarting] = useState(false);
   
   // Refs for subscription cleanup
   const competitionSubscriptionRef = useRef<(() => void) | null>(null);
@@ -50,7 +53,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
 
   const isCreator = user?.id === competition.creator_id;
   const joinedParticipants = participants.filter(p => p.status === 'joined');
-  const canStart = joinedParticipants.length >= 2;
+  const canStart = joinedParticipants.length >= 2 && !isStarting;
   const userParticipant = participants.find(p => p.user_id === user?.id);
 
   // Heartbeat to keep session alive and update participant activity
@@ -220,8 +223,14 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   };
 
   const handleStartCompetition = async () => {
-    if (isCreator && canStart && isComponentMounted) {
-      await startCompetition(competition.id);
+    if (isCreator && canStart && isComponentMounted && apiKey) {
+      try {
+        setIsStarting(true);
+        await startCompetition(competition.id, apiKey);
+      } catch (error) {
+        console.error('Failed to start competition:', error);
+        setIsStarting(false);
+      }
     }
   };
 
@@ -435,11 +444,20 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                       <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                         <Button
                           onClick={handleStartCompetition}
-                          disabled={!canStart}
-                          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 transition-all duration-300 px-8 py-4 text-lg font-bold shadow-xl"
+                          disabled={!canStart || !apiKey}
+                          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 transition-all duration-300 px-8 py-4 text-lg font-bold shadow-xl disabled:opacity-50"
                         >
-                          <Play className="w-6 h-6 mr-2" />
-                          Start Battle
+                          {isStarting ? (
+                            <>
+                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                              Starting...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-6 h-6 mr-2" />
+                              Start Battle
+                            </>
+                          )}
                         </Button>
                       </motion.div>
                     )}
@@ -450,6 +468,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                           onClick={() => setShowCancelConfirm(true)}
                           variant="outline"
                           className="border-red-200 text-red-600 hover:bg-red-50 px-6 py-4 text-lg font-bold"
+                          disabled={isStarting}
                         >
                           <Trash2 className="w-5 h-5 mr-2" />
                           Cancel
@@ -566,7 +585,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                   )}
                 </div>
                 
-                {!canStart && (
+                {!canStart && !isStarting && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -576,7 +595,28 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                       <Timer className="w-6 h-6" />
                       <div>
                         <span className="font-semibold text-lg">Gathering Warriors</span>
-                        <p className="text-sm mt-1">At least 2 participants needed to start the epic battle</p>
+                        <p className="text-sm mt-1">
+                          {!apiKey 
+                            ? 'Please set up your Gemini API key in settings to start the competition'
+                            : 'At least 2 participants needed to start the epic battle'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {isStarting && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl"
+                  >
+                    <div className="flex items-center space-x-3 text-blue-800">
+                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                      <div>
+                        <span className="font-semibold text-lg">Preparing Battle Arena</span>
+                        <p className="text-sm mt-1">Generating questions and setting up the competition...</p>
                       </div>
                     </div>
                   </motion.div>

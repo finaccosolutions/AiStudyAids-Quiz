@@ -1,6 +1,7 @@
 // src/store/useCompetitionStore.ts
 import { create } from 'zustand';
 import { supabase } from '../services/supabase';
+import { generateQuiz } from '../services/gemini';
 import { 
   Competition, 
   CompetitionParticipant, 
@@ -49,7 +50,7 @@ interface CompetitionState {
   sendChatMessage: (competitionId: string, message: string) => Promise<void>;
   loadPendingInvites: (userId: string) => Promise<void>;
   respondToInvite: (competitionId: string, accept: boolean) => Promise<void>;
-  startCompetition: (competitionId: string) => Promise<void>;
+  startCompetition: (competitionId: string, apiKey?: string) => Promise<void>;
   
   // Real-time subscriptions
   subscribeToCompetition: (competitionId: string) => () => void;
@@ -544,6 +545,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           )
         `)
         .eq('competition_id', competitionId)
+        .in('status', ['joined', 'completed']) // Only show joined and completed participants
         .order('joined_at', { ascending: true });
 
       if (error) {
@@ -554,6 +556,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           .from('competition_participants')
           .select('*')
           .eq('competition_id', competitionId)
+          .in('status', ['joined', 'completed'])
           .order('joined_at', { ascending: true });
 
         if (fallbackError) {
@@ -887,15 +890,49 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
     }
   },
 
-  startCompetition: async (competitionId) => {
+  startCompetition: async (competitionId, apiKey) => {
     try {
       console.log('Starting competition:', competitionId);
       
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Get current competition data
+      const { data: competition, error: compError } = await supabase
+        .from('competitions')
+        .select('*')
+        .eq('id', competitionId)
+        .single();
+
+      if (compError) throw compError;
+
+      // Only the creator can start the competition
+      if (competition.creator_id !== user.id) {
+        throw new Error('Only the competition creator can start the competition');
+      }
+
+      // Generate questions if not already generated and API key is provided
+      let questionsToStore = competition.questions;
+      
+      if (!questionsToStore && apiKey && competition.quiz_preferences) {
+        console.log('Generating questions for competition...');
+        try {
+          const generatedQuestions = await generateQuiz(apiKey, competition.quiz_preferences);
+          questionsToStore = generatedQuestions;
+          console.log('Questions generated successfully:', generatedQuestions.length);
+        } catch (error: any) {
+          console.error('Failed to generate questions:', error);
+          throw new Error('Failed to generate quiz questions. Please try again.');
+        }
+      }
+
+      // Update competition with questions and active status
       const { error } = await supabase
         .from('competitions')
         .update({ 
           status: 'active',
-          start_time: new Date().toISOString()
+          start_time: new Date().toISOString(),
+          questions: questionsToStore
         })
         .eq('id', competitionId);
 
@@ -911,7 +948,8 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         currentCompetition: state.currentCompetition ? {
           ...state.currentCompetition,
           status: 'active',
-          start_time: new Date().toISOString()
+          start_time: new Date().toISOString(),
+          questions: questionsToStore
         } : null
       }));
     } catch (error: any) {
