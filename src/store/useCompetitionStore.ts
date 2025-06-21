@@ -103,17 +103,27 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
   
       if (error) throw error;
   
-      // Add creator as participant
+      // Add creator as participant with safe column handling
+      const participantData: any = {
+        competition_id: competition.id,
+        user_id: user.id,
+        status: 'joined',
+        joined_at: new Date().toISOString(),
+        is_online: true,
+        last_activity: new Date().toISOString()
+      };
+
+      // Only add progress columns if they exist in the schema
+      try {
+        participantData.current_question = 0;
+        participantData.questions_answered = 0;
+      } catch (e) {
+        console.warn('Progress columns not available yet');
+      }
+
       await supabase
         .from('competition_participants')
-        .insert({
-          competition_id: competition.id,
-          user_id: user.id,
-          status: 'joined',
-          joined_at: new Date().toISOString(),
-          is_online: true,
-          last_activity: new Date().toISOString()
-        });
+        .insert(participantData);
   
       // Send invitations if emails provided
       if (data.emails && data.emails.length > 0) {
@@ -216,6 +226,21 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         throw new Error('Failed to check participation status. Please try again.');
       }
 
+      const updateData: any = { 
+        status: 'joined', 
+        joined_at: new Date().toISOString(),
+        is_online: true,
+        last_activity: new Date().toISOString()
+      };
+
+      // Only add progress columns if they exist
+      try {
+        updateData.current_question = 0;
+        updateData.questions_answered = 0;
+      } catch (e) {
+        console.warn('Progress columns not available yet');
+      }
+
       if (existingParticipant) {
         if (existingParticipant.status === 'joined') {
           throw new Error('You are already participating in this competition');
@@ -223,12 +248,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         // Update status if previously declined or invited
         const { error: updateError } = await supabase
           .from('competition_participants')
-          .update({ 
-            status: 'joined', 
-            joined_at: new Date().toISOString(),
-            is_online: true,
-            last_activity: new Date().toISOString()
-          })
+          .update(updateData)
           .eq('id', existingParticipant.id);
 
         if (updateError) {
@@ -237,16 +257,15 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         }
       } else {
         // Add as new participant
+        const insertData = {
+          competition_id: competition.id,
+          user_id: user.id,
+          ...updateData
+        };
+
         const { error: insertError } = await supabase
           .from('competition_participants')
-          .insert({
-            competition_id: competition.id,
-            user_id: user.id,
-            status: 'joined',
-            joined_at: new Date().toISOString(),
-            is_online: true,
-            last_activity: new Date().toISOString()
-          });
+          .insert(insertData);
 
         if (insertError) {
           console.error('Error inserting new participant:', insertError);
@@ -479,7 +498,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
             avatar_url: null
           },
           is_online: p.is_online ?? true,
-          last_activity: p.last_activity ?? new Date().toISOString()
+          last_activity: p.last_activity ?? new Date().toISOString(),
+          current_question: p.current_question ?? 0,
+          questions_answered: p.questions_answered ?? 0
         }));
 
         set({ participants: formattedParticipants });
@@ -509,7 +530,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
             avatar_url: p.profiles?.avatar_url || null
           },
           is_online: p.is_online ?? true,
-          last_activity: p.last_activity ?? new Date().toISOString()
+          last_activity: p.last_activity ?? new Date().toISOString(),
+          current_question: p.current_question ?? 0,
+          questions_answered: p.questions_answered ?? 0
         };
       });
 
@@ -535,9 +558,14 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         is_online: true
       };
 
+      // Only add progress columns if they exist and currentQuestion is provided
       if (currentQuestion !== undefined) {
-        updateData.current_question = currentQuestion;
-        updateData.questions_answered = Object.keys(answers).length;
+        try {
+          updateData.current_question = currentQuestion;
+          updateData.questions_answered = Object.keys(answers).length;
+        } catch (e) {
+          console.warn('Progress columns not available, skipping progress update');
+        }
       }
 
       const { error } = await supabase
@@ -557,6 +585,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         )
       }));
     } catch (error: any) {
+      console.error('Error updating participant progress:', error);
       set({ error: error.message });
     }
   },
@@ -789,14 +818,26 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
         if (competition) {
           // Add all waiting users as participants
-          const participants = waitingUsers.map(user => ({
-            competition_id: competition.id,
-            user_id: user.user_id,
-            status: 'joined',
-            joined_at: new Date().toISOString(),
-            is_online: true,
-            last_activity: new Date().toISOString()
-          }));
+          const participants = waitingUsers.map(user => {
+            const participantData: any = {
+              competition_id: competition.id,
+              user_id: user.user_id,
+              status: 'joined',
+              joined_at: new Date().toISOString(),
+              is_online: true,
+              last_activity: new Date().toISOString()
+            };
+
+            // Only add progress columns if they exist
+            try {
+              participantData.current_question = 0;
+              participantData.questions_answered = 0;
+            } catch (e) {
+              console.warn('Progress columns not available yet');
+            }
+
+            return participantData;
+          });
 
           await supabase
             .from('competition_participants')
@@ -1001,6 +1042,14 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         updateData.joined_at = new Date().toISOString();
         updateData.is_online = true;
         updateData.last_activity = new Date().toISOString();
+        
+        // Only add progress columns if they exist
+        try {
+          updateData.current_question = 0;
+          updateData.questions_answered = 0;
+        } catch (e) {
+          console.warn('Progress columns not available yet');
+        }
       }
 
       const { error } = await supabase
