@@ -1,3 +1,4 @@
+import { supabase } from '../services/supabase';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useQuizStore, defaultPreferences } from '../store/useQuizStore';
@@ -59,46 +60,79 @@ const QuizPage: React.FC = () => {
     }
   }, [user]);
 
-  useEffect(() => {
-    // Handle competition mode from location state
-    if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
-      loadCompetition(location.state.competitionId);
-      setStep('competition-lobby');
-      return;
-    }
+useEffect(() => {
+  // Session validation and competition state management
+  const validateSessionAndCompetition = async () => {
+    try {
+      // Check if session is still valid
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.warn('Session invalid, redirecting to auth');
+        navigate('/auth');
+        return;
+      }
 
-    // Check if user has an active competition
-    if (currentCompetition) {
-      // Determine step based on competition status
-      if (currentCompetition.status === 'waiting') {
+      // Handle competition mode from location state
+      if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
+        loadCompetition(location.state.competitionId);
         setStep('competition-lobby');
-      } else if (currentCompetition.status === 'active') {
-        setStep('competition-quiz');
-      } else if (currentCompetition.status === 'completed') {
-        setStep('competition-results');
+        return;
+      }
+
+      // Check if user has an active competition
+      if (currentCompetition) {
+        // Verify competition still exists and is valid
+        const { data: competitionCheck } = await supabase
+          .from('competitions')
+          .select('status')
+          .eq('id', currentCompetition.id)
+          .single();
+
+        if (!competitionCheck) {
+          // Competition no longer exists
+          clearCurrentCompetition();
+          setStep('mode-selector');
+          return;
+        }
+
+        // Determine step based on competition status
+        if (competitionCheck.status === 'waiting') {
+          setStep('competition-lobby');
+        } else if (competitionCheck.status === 'active') {
+          setStep('competition-quiz');
+        } else if (competitionCheck.status === 'completed') {
+          setStep('competition-results');
+        } else {
+          // Competition cancelled or other status
+          clearCurrentCompetition();
+          setStep('mode-selector');
+        }
+        return;
+      }
+    
+      // Determine initial step based on current state
+      if (!apiKey) {
+        setStep('api-key');
+      } else if (result) {
+        setStep('results');
+      } else if (questions.length > 0) {
+        setStep('quiz');
+        // Initialize total time if set
+        if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
+          setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
+        }
       } else {
-        // Competition cancelled or other status
-        clearCurrentCompetition();
         setStep('mode-selector');
       }
-      return;
+    } catch (error) {
+      console.error('Session validation error:', error);
+      navigate('/auth');
     }
-  
-    // Determine initial step based on current state
-    if (!apiKey) {
-      setStep('api-key');
-    } else if (result) {
-      setStep('results');
-    } else if (questions.length > 0) {
-      setStep('quiz');
-      // Initialize total time if set
-      if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
-        setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
-      }
-    } else {
-      setStep('mode-selector');
-    }
-  }, [apiKey, preferences, questions, result, location.state, currentCompetition]);
+  };
+
+  validateSessionAndCompetition();
+}, [apiKey, preferences, questions, result, location.state, currentCompetition, navigate]);
 
   // Total quiz timer effect
   useEffect(() => {

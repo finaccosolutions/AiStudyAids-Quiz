@@ -1,3 +1,4 @@
+// src/store/useCompetitionStore.ts
 import { create } from 'zustand';
 import { supabase } from '../services/supabase';
 import { 
@@ -22,6 +23,8 @@ interface CompetitionState {
   liveData: LiveCompetitionData | null;
   isLoading: boolean;
   error: string | null;
+  // Add subscription tracking
+  activeSubscriptions: Map<string, any>;
 
   // Actions
   createCompetition: (data: any) => Promise<Competition>;
@@ -55,6 +58,7 @@ interface CompetitionState {
   checkForMatches: (topic: string, difficulty: string, language: string) => Promise<void>;
   getLiveLeaderboard: (competitionId: string) => CompetitionParticipant[];
   clearCurrentCompetition: () => void;
+  cleanupSubscriptions: () => void;
 }
 
 export const useCompetitionStore = create<CompetitionState>((set, get) => ({
@@ -69,6 +73,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
   liveData: null,
   isLoading: false,
   error: null,
+  activeSubscriptions: new Map(),
 
   createCompetition: async (data) => {
     set({ isLoading: true, error: null });
@@ -142,7 +147,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         }
       }
   
-      // IMPORTANT: Set current competition in state
+      // Set current competition in state
       set(state => ({
         competitions: [competition, ...state.competitions],
         currentCompetition: competition,
@@ -269,7 +274,8 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       // Clear current competition if user left it
       const currentComp = get().currentCompetition;
       if (currentComp?.id === competitionId) {
-        set({ currentCompetition: null });
+        get().cleanupSubscriptions();
+        set({ currentCompetition: null, participants: [] });
       }
 
       set({ isLoading: false });
@@ -297,7 +303,8 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       // Clear current competition if it was cancelled
       const currentComp = get().currentCompetition;
       if (currentComp?.id === competitionId) {
-        set({ currentCompetition: null });
+        get().cleanupSubscriptions();
+        set({ currentCompetition: null, participants: [] });
       }
 
       set({ isLoading: false });
@@ -419,7 +426,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
   loadParticipants: async (competitionId) => {
     try {
-      // Load all participants including those with email invites and user profiles
+      // Enhanced query to get participant details with profiles
       const { data: participants, error } = await supabase
         .from('competition_participants')
         .select(`
@@ -433,8 +440,8 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .order('joined_at', { ascending: true });
 
       if (error) {
-        console.error('Error loading participants:', error);
-        // Fallback query without profiles if the foreign key is still not working
+        console.error('Error loading participants with profiles:', error);
+        // Fallback query without profiles
         const { data: fallbackParticipants, error: fallbackError } = await supabase
           .from('competition_participants')
           .select('*')
@@ -443,9 +450,31 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
         if (fallbackError) throw fallbackError;
 
+        // For fallback, try to get profile data separately
+        const userIds = fallbackParticipants
+          ?.filter(p => p.user_id)
+          .map(p => p.user_id) || [];
+
+        let profilesMap = new Map();
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, full_name, avatar_url')
+            .in('user_id', userIds);
+
+          if (profiles) {
+            profiles.forEach(profile => {
+              profilesMap.set(profile.user_id, profile);
+            });
+          }
+        }
+
         const formattedParticipants = (fallbackParticipants || []).map(p => ({
           ...p,
-          profile: null,
+          profile: p.user_id && profilesMap.has(p.user_id) ? {
+            full_name: profilesMap.get(p.user_id).full_name,
+            avatar_url: profilesMap.get(p.user_id).avatar_url
+          } : null,
           is_online: true,
           last_activity: new Date().toISOString()
         }));
@@ -940,11 +969,36 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
   },
 
   clearCurrentCompetition: () => {
+    get().cleanupSubscriptions();
     set({ currentCompetition: null, participants: [], chatMessages: [] });
   },
 
-  // Real-time subscriptions
+  cleanupSubscriptions: () => {
+    const { activeSubscriptions } = get();
+    activeSubscriptions.forEach((subscription, key) => {
+      console.log(`Cleaning up subscription: ${key}`);
+      if (subscription && typeof subscription.unsubscribe === 'function') {
+        subscription.unsubscribe();
+      }
+    });
+    set({ activeSubscriptions: new Map() });
+  },
+
+  // Enhanced Real-time subscriptions with better error handling
   subscribeToCompetition: (competitionId) => {
+    const { activeSubscriptions } = get();
+    
+    // Clean up existing subscription for this competition
+    const existingKey = `competition:${competitionId}`;
+    if (activeSubscriptions.has(existingKey)) {
+      const existing = activeSubscriptions.get(existingKey);
+      if (existing && typeof existing.unsubscribe === 'function') {
+        existing.unsubscribe();
+      }
+    }
+
+    console.log(`Setting up competition subscription for: ${competitionId}`);
+    
     const subscription = supabase
       .channel(`competition:${competitionId}`)
       .on('postgres_changes', 
@@ -955,6 +1009,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           filter: `id=eq.${competitionId}`
         }, 
         (payload) => {
+          console.log('Competition change detected:', payload);
           if (payload.eventType === 'UPDATE') {
             set({ currentCompetition: payload.new as Competition });
           }
@@ -970,17 +1025,50 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         (payload) => {
           console.log('Participant change detected:', payload);
           // Reload participants when any change occurs
-          get().loadParticipants(competitionId);
+          setTimeout(() => {
+            get().loadParticipants(competitionId);
+          }, 500); // Small delay to ensure database consistency
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Competition subscription status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to competition updates');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Competition subscription error');
+          // Retry subscription after a delay
+          setTimeout(() => {
+            get().subscribeToCompetition(competitionId);
+          }, 5000);
+        }
+      });
+
+    // Store subscription for cleanup
+    activeSubscriptions.set(existingKey, subscription);
+    set({ activeSubscriptions });
 
     return () => {
+      console.log(`Unsubscribing from competition: ${competitionId}`);
       subscription.unsubscribe();
+      activeSubscriptions.delete(existingKey);
+      set({ activeSubscriptions });
     };
   },
 
   subscribeToChat: (competitionId) => {
+    const { activeSubscriptions } = get();
+    
+    // Clean up existing subscription for this chat
+    const existingKey = `chat:${competitionId}`;
+    if (activeSubscriptions.has(existingKey)) {
+      const existing = activeSubscriptions.get(existingKey);
+      if (existing && typeof existing.unsubscribe === 'function') {
+        existing.unsubscribe();
+      }
+    }
+
+    console.log(`Setting up chat subscription for: ${competitionId}`);
+    
     const subscription = supabase
       .channel(`chat:${competitionId}`)
       .on('postgres_changes',
@@ -990,18 +1078,50 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           table: 'competition_chat',
           filter: `competition_id=eq.${competitionId}`
         },
-        () => {
+        (payload) => {
+          console.log('New chat message:', payload);
           get().loadChatMessages(competitionId);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Chat subscription status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to chat updates');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Chat subscription error');
+          // Retry subscription after a delay
+          setTimeout(() => {
+            get().subscribeToChat(competitionId);
+          }, 5000);
+        }
+      });
+
+    // Store subscription for cleanup
+    activeSubscriptions.set(existingKey, subscription);
+    set({ activeSubscriptions });
 
     return () => {
+      console.log(`Unsubscribing from chat: ${competitionId}`);
       subscription.unsubscribe();
+      activeSubscriptions.delete(existingKey);
+      set({ activeSubscriptions });
     };
   },
 
   subscribeToInvites: (userId) => {
+    const { activeSubscriptions } = get();
+    
+    // Clean up existing subscription for invites
+    const existingKey = `invites:${userId}`;
+    if (activeSubscriptions.has(existingKey)) {
+      const existing = activeSubscriptions.get(existingKey);
+      if (existing && typeof existing.unsubscribe === 'function') {
+        existing.unsubscribe();
+      }
+    }
+
+    console.log(`Setting up invites subscription for: ${userId}`);
+    
     const subscription = supabase
       .channel(`invites:${userId}`)
       .on('postgres_changes',
@@ -1011,14 +1131,33 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           table: 'competition_participants',
           filter: `user_id=eq.${userId}`
         },
-        () => {
+        (payload) => {
+          console.log('Invite change detected:', payload);
           get().loadPendingInvites(userId);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Invites subscription status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to invite updates');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Invites subscription error');
+          // Retry subscription after a delay
+          setTimeout(() => {
+            get().subscribeToInvites(userId);
+          }, 5000);
+        }
+      });
+
+    // Store subscription for cleanup
+    activeSubscriptions.set(existingKey, subscription);
+    set({ activeSubscriptions });
 
     return () => {
+      console.log(`Unsubscribing from invites: ${userId}`);
       subscription.unsubscribe();
+      activeSubscriptions.delete(existingKey);
+      set({ activeSubscriptions });
     };
   }
 }));

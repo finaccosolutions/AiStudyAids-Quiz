@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/components/competition/CompetitionLobby.tsx
+import React, { useState, useEffect, useRef } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../ui/Button';
@@ -29,7 +30,8 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     subscribeToChat,
     startCompetition,
     leaveCompetition,
-    cancelCompetition
+    cancelCompetition,
+    cleanupSubscriptions
   } = useCompetitionStore();
   
   const [copied, setCopied] = useState(false);
@@ -38,35 +40,136 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [isComponentMounted, setIsComponentMounted] = useState(true);
+  
+  // Refs for subscription cleanup
+  const competitionSubscriptionRef = useRef<(() => void) | null>(null);
+  const chatSubscriptionRef = useRef<(() => void) | null>(null);
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const isCreator = user?.id === competition.creator_id;
   const joinedParticipants = participants.filter(p => p.status === 'joined');
   const canStart = joinedParticipants.length >= 2;
   const userParticipant = participants.find(p => p.user_id === user?.id);
 
+  // Heartbeat to keep session alive
   useEffect(() => {
-    if (competition.id) {
-      loadParticipants(competition.id);
-      loadChatMessages(competition.id);
+    const startHeartbeat = () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
       
-      const unsubscribeCompetition = subscribeToCompetition(competition.id);
-      const unsubscribeChat = subscribeToChat(competition.id);
-      
-      return () => {
-        unsubscribeCompetition();
-        unsubscribeChat();
-      };
-    }
-  }, [competition.id]);
+      heartbeatIntervalRef.current = setInterval(async () => {
+        if (!isComponentMounted) return;
+        
+        try {
+          // Keep session alive by making a lightweight request
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            console.warn('Session expired, redirecting to auth');
+            navigate('/auth');
+            return;
+          }
+          
+          // Update participant activity
+          if (user?.id && competition.id) {
+            await supabase
+              .from('competition_participants')
+              .update({ 
+                last_activity: new Date().toISOString(),
+                is_online: true 
+              })
+              .eq('competition_id', competition.id)
+              .eq('user_id', user.id);
+          }
+        } catch (error) {
+          console.error('Heartbeat error:', error);
+        }
+      }, 30000); // Every 30 seconds
+    };
 
+    startHeartbeat();
+
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+    };
+  }, [competition.id, user?.id, isComponentMounted, navigate]);
+
+  // Component lifecycle management
   useEffect(() => {
+    setIsComponentMounted(true);
+    
+    return () => {
+      setIsComponentMounted(false);
+      // Cleanup subscriptions when component unmounts
+      if (competitionSubscriptionRef.current) {
+        competitionSubscriptionRef.current();
+      }
+      if (chatSubscriptionRef.current) {
+        chatSubscriptionRef.current();
+      }
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Enhanced subscription management
+  useEffect(() => {
+    if (!competition.id || !isComponentMounted) return;
+
+    console.log('Setting up subscriptions for competition:', competition.id);
+    
+    // Load initial data
+    loadParticipants(competition.id);
+    loadChatMessages(competition.id);
+    
+    // Set up subscriptions with proper cleanup
+    const setupSubscriptions = () => {
+      // Clean up existing subscriptions
+      if (competitionSubscriptionRef.current) {
+        competitionSubscriptionRef.current();
+      }
+      if (chatSubscriptionRef.current) {
+        chatSubscriptionRef.current();
+      }
+
+      // Set up new subscriptions
+      competitionSubscriptionRef.current = subscribeToCompetition(competition.id);
+      chatSubscriptionRef.current = subscribeToChat(competition.id);
+    };
+
+    setupSubscriptions();
+
+    // Cleanup function
+    return () => {
+      console.log('Cleaning up subscriptions for competition:', competition.id);
+      if (competitionSubscriptionRef.current) {
+        competitionSubscriptionRef.current();
+        competitionSubscriptionRef.current = null;
+      }
+      if (chatSubscriptionRef.current) {
+        chatSubscriptionRef.current();
+        chatSubscriptionRef.current = null;
+      }
+    };
+  }, [competition.id, isComponentMounted]);
+
+  // Enhanced status monitoring
+  useEffect(() => {
+    if (!isComponentMounted) return;
+    
     if (competition.status === 'active') {
       setCountdown(5);
       const timer = setInterval(() => {
         setCountdown(prev => {
           if (prev === null || prev <= 1) {
             clearInterval(timer);
-            onStartQuiz();
+            if (isComponentMounted) {
+              onStartQuiz();
+            }
             return null;
           }
           return prev - 1;
@@ -74,8 +177,28 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
       }, 1000);
       
       return () => clearInterval(timer);
+    } else if (competition.status === 'cancelled' || competition.status === 'completed') {
+      // Competition ended, redirect after a delay
+      setTimeout(() => {
+        if (isComponentMounted) {
+          navigate('/quiz');
+        }
+      }, 3000);
     }
-  }, [competition.status, onStartQuiz]);
+  }, [competition.status, onStartQuiz, isComponentMounted, navigate]);
+
+  // Periodic data refresh to ensure consistency
+  useEffect(() => {
+    if (!competition.id || !isComponentMounted) return;
+
+    const refreshInterval = setInterval(() => {
+      if (isComponentMounted) {
+        loadParticipants(competition.id);
+      }
+    }, 10000); // Refresh every 10 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [competition.id, isComponentMounted, loadParticipants]);
 
   const copyCompetitionCode = async () => {
     await navigator.clipboard.writeText(competition.competition_code);
@@ -84,42 +207,47 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   };
 
   const handleSendMessage = async () => {
-    if (chatMessage.trim() && user) {
+    if (chatMessage.trim() && user && isComponentMounted) {
       await sendChatMessage(competition.id, chatMessage.trim());
       setChatMessage('');
     }
   };
 
   const handleStartCompetition = async () => {
-    if (isCreator && canStart) {
+    if (isCreator && canStart && isComponentMounted) {
       await startCompetition(competition.id);
     }
   };
 
   const handleLeaveCompetition = async () => {
-    if (user && userParticipant) {
+    if (user && userParticipant && isComponentMounted) {
       try {
+        setIsComponentMounted(false); // Prevent further updates
         await leaveCompetition(competition.id);
         navigate('/quiz');
       } catch (error) {
         console.error('Failed to leave competition:', error);
+        setIsComponentMounted(true); // Re-enable if error
       }
     }
     setShowLeaveConfirm(false);
   };
 
   const handleCancelCompetition = async () => {
-    if (isCreator) {
+    if (isCreator && isComponentMounted) {
       try {
+        setIsComponentMounted(false); // Prevent further updates
         await cancelCompetition(competition.id);
         navigate('/quiz');
       } catch (error) {
         console.error('Failed to cancel competition:', error);
+        setIsComponentMounted(true); // Re-enable if error
       }
     }
     setShowCancelConfirm(false);
   };
 
+  // Show countdown screen
   if (countdown !== null) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative overflow-hidden">
@@ -183,6 +311,33 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
           >
             <Rocket className="w-16 h-16 mx-auto text-yellow-400" />
           </motion.div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Show cancelled/completed message
+  if (competition.status === 'cancelled' || competition.status === 'completed') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center text-white"
+        >
+          <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-red-500 to-orange-500 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-12 h-12" />
+          </div>
+          <h2 className="text-4xl font-bold mb-4">
+            Competition {competition.status === 'cancelled' ? 'Cancelled' : 'Completed'}
+          </h2>
+          <p className="text-xl opacity-80 mb-6">
+            {competition.status === 'cancelled' 
+              ? 'This competition has been cancelled by the creator.'
+              : 'This competition has ended.'
+            }
+          </p>
+          <p className="text-lg opacity-60">Redirecting you back...</p>
         </motion.div>
       </div>
     );
@@ -326,7 +481,9 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                             className="w-16 h-16 bg-gradient-to-r from-purple-400 to-indigo-400 rounded-full flex items-center justify-center shadow-lg"
                           >
                             <span className="text-white font-bold text-xl">
-                              {participant.profile?.full_name?.charAt(0) || participant.email?.charAt(0) || '?'}
+                              {participant.profile?.full_name?.charAt(0) || 
+                               participant.email?.charAt(0) || 
+                               'U'}
                             </span>
                           </motion.div>
                           {participant.user_id === competition.creator_id && (
@@ -349,7 +506,9 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-1">
                             <h4 className="font-bold text-slate-800 text-xl">
-                              {participant.profile?.full_name || participant.email || 'Anonymous'}
+                              {participant.profile?.full_name || 
+                               participant.email || 
+                               'Anonymous User'}
                             </h4>
                             {participant.user_id === competition.creator_id && (
                               <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">
