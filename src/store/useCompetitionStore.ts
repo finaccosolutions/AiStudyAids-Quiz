@@ -357,20 +357,23 @@ joinCompetition: async (code) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Remove participant from competition
+      // Clear current competition and cleanup subscriptions FIRST
+      const currentComp = get().currentCompetition;
+      if (currentComp?.id === competitionId) {
+        get().cleanupSubscriptions();
+        set({ currentCompetition: null, participants: [], chatMessages: [] });
+      }
+
+      // Then remove participant from competition
       const { error } = await supabase
         .from('competition_participants')
         .delete()
         .eq('competition_id', competitionId)
         .eq('user_id', user.id);
 
-      if (error) throw error;
-
-      // Clear current competition if user left it
-      const currentComp = get().currentCompetition;
-      if (currentComp?.id === competitionId) {
-        get().cleanupSubscriptions();
-        set({ currentCompetition: null, participants: [] });
+      if (error) {
+        console.error('Error removing participant:', error);
+        // Don't throw error here as the cleanup already happened
       }
 
       set({ isLoading: false });
@@ -386,6 +389,13 @@ joinCompetition: async (code) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      // Clear current competition and cleanup subscriptions FIRST
+      const currentComp = get().currentCompetition;
+      if (currentComp?.id === competitionId) {
+        get().cleanupSubscriptions();
+        set({ currentCompetition: null, participants: [], chatMessages: [] });
+      }
+
       // Update competition status to cancelled
       const { error } = await supabase
         .from('competitions')
@@ -393,13 +403,8 @@ joinCompetition: async (code) => {
         .eq('id', competitionId)
         .eq('creator_id', user.id); // Only creator can cancel
 
-      if (error) throw error;
-
-      // Clear current competition if it was cancelled
-      const currentComp = get().currentCompetition;
-      if (currentComp?.id === competitionId) {
-        get().cleanupSubscriptions();
-        set({ currentCompetition: null, participants: [] });
+      if (error) {
+        console.error('Error cancelling competition:', error);
       }
 
       set({ isLoading: false });
@@ -520,6 +525,13 @@ joinCompetition: async (code) => {
   },
 
 loadParticipants: async (competitionId: string) => {
+  // Check if we have a current competition and if it matches the requested one
+  const { currentCompetition } = get();
+  if (!currentCompetition || currentCompetition.id !== competitionId) {
+    console.log('No current competition or competition ID mismatch, skipping loadParticipants');
+    return;
+  }
+
   set({ isLoading: true, error: null });
   
   try {
@@ -560,7 +572,9 @@ loadParticipants: async (competitionId: string) => {
                          ['joined', 'completed'].includes(accessCheck.data.status);
 
     if (!isCreator && !isParticipant) {
-      throw new Error('Access denied to this competition');
+      console.log('Access denied - user is not creator or participant');
+      set({ participants: [], isLoading: false });
+      return;
     }
 
     // 4. Main query with profile join
