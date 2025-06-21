@@ -117,7 +117,7 @@ const QuizPage: React.FC = () => {
             .from('competitions')
             .select('status')
             .eq('id', currentCompetition.id)
-            .single();
+            .maybeSingle();
 
           if (!competitionCheck) {
             // Competition no longer exists

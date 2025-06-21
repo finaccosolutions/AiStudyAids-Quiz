@@ -564,11 +564,31 @@ loadParticipants: async (competitionId) => {
       return;
     }
 
-    // Load all participants with enhanced query
+    // Load all participants with enhanced query - explicitly list columns to avoid ambiguity
     const { data: participantsWithProfiles, error } = await supabase
       .from('competition_participants')
       .select(`
-        *,
+        id,
+        competition_id,
+        user_id,
+        email,
+        status,
+        score,
+        correct_answers,
+        time_taken,
+        answers,
+        rank,
+        points_earned,
+        joined_at,
+        completed_at,
+        created_at,
+        is_online,
+        last_activity,
+        current_question,
+        questions_answered,
+        is_ready,
+        quiz_start_time,
+        quiz_end_time,
         profiles!inner (
           full_name,
           avatar_url
@@ -582,10 +602,32 @@ loadParticipants: async (competitionId) => {
     if (error) {
       console.error('Error loading participants with profiles:', error);
       
-      // Fallback: Try without inner join
+      // Fallback: Try without inner join - explicitly list columns
       const { data: participants, error: fallbackError } = await supabase
         .from('competition_participants')
-        .select('*')
+        .select(`
+          id,
+          competition_id,
+          user_id,
+          email,
+          status,
+          score,
+          correct_answers,
+          time_taken,
+          answers,
+          rank,
+          points_earned,
+          joined_at,
+          completed_at,
+          created_at,
+          is_online,
+          last_activity,
+          current_question,
+          questions_answered,
+          is_ready,
+          quiz_start_time,
+          quiz_end_time
+        `)
         .eq('competition_id', competitionId)
         .in('status', ['joined', 'completed'])
         .order('score', { ascending: false })
