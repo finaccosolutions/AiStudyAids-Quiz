@@ -564,13 +564,13 @@ loadParticipants: async (competitionId) => {
       return;
     }
 
-    // Load all participants with enhanced query - use correct foreign key reference
+    // Load all participants with enhanced query - explicitly qualify user_id columns
     const { data: participantsWithProfiles, error } = await supabase
       .from('competition_participants')
       .select(`
         id,
         competition_id,
-        user_id,
+        competition_participants.user_id,
         email,
         status,
         score,
@@ -602,13 +602,13 @@ loadParticipants: async (competitionId) => {
     if (error) {
       console.error('Error loading participants with profiles:', error);
       
-      // Fallback: Try without inner join
+      // Fallback: Try without inner join - also qualify user_id column
       const { data: participants, error: fallbackError } = await supabase
         .from('competition_participants')
         .select(`
           id,
           competition_id,
-          user_id,
+          competition_participants.user_id,
           email,
           status,
           score,
