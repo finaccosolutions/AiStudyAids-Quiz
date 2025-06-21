@@ -211,13 +211,33 @@ CRITICAL REQUIREMENTS:
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to generate quiz: ${response.statusText}`);
+      // Try to get detailed error message from response
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage = `Gemini API error: ${errorData.error}`;
+        } else if (errorData.message) {
+          errorMessage = `API error: ${errorData.message}`;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, try to get text
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage = `API error: ${errorText}`;
+          }
+        } catch (textError) {
+          // Keep the original HTTP error message
+        }
+      }
+      throw new Error(`Failed to generate quiz: ${errorMessage}`);
     }
 
     const data = await response.json();
     
     if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      throw new Error('Invalid response format from Gemini API');
+      throw new Error('Invalid response format from Gemini API - no content generated');
     }
 
     const generatedText = data.candidates[0].content.parts[0].text;
@@ -225,14 +245,14 @@ CRITICAL REQUIREMENTS:
     // Extract JSON from the response text
     const jsonMatch = generatedText.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      throw new Error('No valid JSON found in response');
+      throw new Error('No valid JSON found in Gemini response. Please check your API key and try again.');
     }
 
     try {
       const questions = JSON.parse(jsonMatch[0]);
       
       if (!Array.isArray(questions) || questions.length === 0) {
-        throw new Error('Invalid questions format');
+        throw new Error('Invalid questions format - expected array of questions');
       }
 
       // Filter questions to ensure only requested types are included
@@ -362,10 +382,22 @@ CRITICAL REQUIREMENTS:
       }));
     } catch (error: any) {
       console.error('Parse error:', error);
-      throw new Error(`Failed to parse generated questions: ${error.message}`);
+      throw new Error(`Failed to parse generated questions: ${error.message}. Please check your API key and try again.`);
     }
   } catch (error: any) {
     console.error('Quiz generation error:', error);
+    // Provide more specific error messages based on common issues
+    if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+      throw new Error('Invalid API key. Please check your Gemini API key in settings.');
+    } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+      throw new Error('API key does not have permission to access Gemini API. Please check your API key settings.');
+    } else if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
+      throw new Error('API rate limit exceeded. Please wait a moment and try again.');
+    } else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+      throw new Error('Gemini API is temporarily unavailable. Please try again later.');
+    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+      throw new Error('Network error. Please check your internet connection and try again.');
+    }
     throw new Error(`Quiz generation failed: ${error.message}`);
   }
 };

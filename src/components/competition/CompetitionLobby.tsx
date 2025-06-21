@@ -38,6 +38,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const [chatMessage, setChatMessage] = useState('');
   const [showChat, setShowChat] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [countdownInitiated, setCountdownInitiated] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isComponentMounted, setIsComponentMounted] = useState(true);
@@ -161,17 +162,22 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     };
   }, [competition.id, isComponentMounted, loadParticipants, loadChatMessages, subscribeToCompetition, subscribeToChat]);
 
-  // Enhanced status monitoring
+  // Enhanced status monitoring with countdown flickering fix
   useEffect(() => {
     if (!isComponentMounted) return;
     
-    if (competition.status === 'active') {
+    // Only initiate countdown if competition is active AND countdown hasn't been initiated yet
+    if (competition.status === 'active' && !countdownInitiated) {
+      console.log('Initiating countdown for competition:', competition.id);
+      setCountdownInitiated(true);
       setCountdown(5);
+      
       const timer = setInterval(() => {
         setCountdown(prev => {
           if (prev === null || prev <= 1) {
             clearInterval(timer);
             if (isComponentMounted) {
+              console.log('Countdown finished, starting quiz');
               onStartQuiz();
             }
             return null;
@@ -180,9 +186,12 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
         });
       }, 1000);
       
-      return () => clearInterval(timer);
+      return () => {
+        console.log('Cleaning up countdown timer');
+        clearInterval(timer);
+      };
     }
-  }, [competition.status, onStartQuiz, isComponentMounted]);
+  }, [competition.status, countdownInitiated, onStartQuiz, isComponentMounted, competition.id]);
 
   // Periodic data refresh to ensure consistency - using centralized function
   useEffect(() => {
