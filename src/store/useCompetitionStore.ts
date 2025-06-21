@@ -110,7 +110,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           competition_id: competition.id,
           user_id: user.id,
           status: 'joined',
-          joined_at: new Date().toISOString()
+          joined_at: new Date().toISOString(),
+          is_online: true,
+          last_activity: new Date().toISOString()
         });
   
       // Send invitations if emails provided
@@ -223,7 +225,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           .from('competition_participants')
           .update({ 
             status: 'joined', 
-            joined_at: new Date().toISOString() 
+            joined_at: new Date().toISOString(),
+            is_online: true,
+            last_activity: new Date().toISOString()
           })
           .eq('id', existingParticipant.id);
 
@@ -239,7 +243,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
             competition_id: competition.id,
             user_id: user.id,
             status: 'joined',
-            joined_at: new Date().toISOString()
+            joined_at: new Date().toISOString(),
+            is_online: true,
+            last_activity: new Date().toISOString()
           });
 
         if (insertError) {
@@ -426,12 +432,14 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
   loadParticipants: async (competitionId) => {
     try {
-      // Enhanced query to get participant details with profiles
+      console.log('Loading participants for competition:', competitionId);
+      
+      // First try to get participants with profile data using the correct foreign key
       const { data: participants, error } = await supabase
         .from('competition_participants')
         .select(`
           *,
-          profiles!competition_participants_user_id_profiles_fkey (
+          profiles!competition_participants_user_id_fkey (
             full_name,
             avatar_url
           )
@@ -441,58 +449,79 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
       if (error) {
         console.error('Error loading participants with profiles:', error);
-        // Fallback query without profiles
+        
+        // Fallback: Load participants without profiles first
         const { data: fallbackParticipants, error: fallbackError } = await supabase
           .from('competition_participants')
           .select('*')
           .eq('competition_id', competitionId)
           .order('joined_at', { ascending: true });
 
-        if (fallbackError) throw fallbackError;
+        if (fallbackError) {
+          console.error('Fallback query also failed:', fallbackError);
+          throw fallbackError;
+        }
 
-        // For fallback, try to get profile data separately
+        console.log('Fallback participants loaded:', fallbackParticipants);
+
+        // Get profile data separately for users who have user_id
         const userIds = fallbackParticipants
           ?.filter(p => p.user_id)
           .map(p => p.user_id) || [];
 
         let profilesMap = new Map();
         if (userIds.length > 0) {
-          const { data: profiles } = await supabase
+          const { data: profiles, error: profileError } = await supabase
             .from('profiles')
             .select('user_id, full_name, avatar_url')
             .in('user_id', userIds);
 
-          if (profiles) {
-            profiles.forEach(profile => {
+          if (profileError) {
+            console.error('Error loading profiles:', profileError);
+          } else {
+            console.log('Profiles loaded:', profiles);
+            profiles?.forEach(profile => {
               profilesMap.set(profile.user_id, profile);
             });
           }
         }
 
-        const formattedParticipants = (fallbackParticipants || []).map(p => ({
-          ...p,
-          profile: p.user_id && profilesMap.has(p.user_id) ? {
-            full_name: profilesMap.get(p.user_id).full_name,
-            avatar_url: profilesMap.get(p.user_id).avatar_url
-          } : null,
-          is_online: true,
-          last_activity: new Date().toISOString()
-        }));
+        // Format participants with profile data
+        const formattedParticipants = (fallbackParticipants || []).map(p => {
+          const profile = p.user_id && profilesMap.has(p.user_id) 
+            ? profilesMap.get(p.user_id) 
+            : null;
+          
+          return {
+            ...p,
+            profile: profile ? {
+              full_name: profile.full_name,
+              avatar_url: profile.avatar_url
+            } : null,
+            is_online: p.is_online ?? true,
+            last_activity: p.last_activity ?? new Date().toISOString()
+          };
+        });
 
+        console.log('Formatted participants (fallback):', formattedParticipants);
         set({ participants: formattedParticipants });
         return;
       }
 
+      console.log('Participants loaded with profiles:', participants);
+
+      // Format participants from successful query
       const formattedParticipants = (participants || []).map(p => ({
         ...p,
         profile: p.profiles ? {
           full_name: p.profiles.full_name,
           avatar_url: p.profiles.avatar_url
         } : null,
-        is_online: true,
-        last_activity: new Date().toISOString()
+        is_online: p.is_online ?? true,
+        last_activity: p.last_activity ?? new Date().toISOString()
       }));
 
+      console.log('Formatted participants:', formattedParticipants);
       set({ participants: formattedParticipants });
     } catch (error: any) {
       console.error('Error in loadParticipants:', error);
@@ -510,7 +539,8 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         score,
         correct_answers: correctAnswers,
         time_taken: timeTaken,
-        last_activity: new Date().toISOString()
+        last_activity: new Date().toISOString(),
+        is_online: true
       };
 
       if (currentQuestion !== undefined) {
@@ -549,7 +579,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .from('competition_participants')
         .update({
           status: 'completed',
-          completed_at: new Date().toISOString()
+          completed_at: new Date().toISOString(),
+          last_activity: new Date().toISOString(),
+          is_online: true
         })
         .eq('competition_id', competitionId)
         .eq('user_id', user.id);
@@ -769,7 +801,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
             competition_id: competition.id,
             user_id: user.user_id,
             status: 'joined',
-            joined_at: new Date().toISOString()
+            joined_at: new Date().toISOString(),
+            is_online: true,
+            last_activity: new Date().toISOString()
           }));
 
           await supabase
@@ -936,6 +970,8 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       
       if (accept) {
         updateData.joined_at = new Date().toISOString();
+        updateData.is_online = true;
+        updateData.last_activity = new Date().toISOString();
       }
 
       const { error } = await supabase

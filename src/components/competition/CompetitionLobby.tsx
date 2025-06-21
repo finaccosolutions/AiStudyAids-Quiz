@@ -53,7 +53,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const canStart = joinedParticipants.length >= 2;
   const userParticipant = participants.find(p => p.user_id === user?.id);
 
-  // Heartbeat to keep session alive
+  // Heartbeat to keep session alive and update participant activity
   useEffect(() => {
     const startHeartbeat = () => {
       if (heartbeatIntervalRef.current) {
@@ -72,16 +72,21 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
             return;
           }
           
-          // Update participant activity
+          // Update participant activity - only update if columns exist
           if (user?.id && competition.id) {
-            await supabase
-              .from('competition_participants')
-              .update({ 
-                last_activity: new Date().toISOString(),
-                is_online: true 
-              })
-              .eq('competition_id', competition.id)
-              .eq('user_id', user.id);
+            try {
+              await supabase
+                .from('competition_participants')
+                .update({ 
+                  last_activity: new Date().toISOString(),
+                  is_online: true 
+                })
+                .eq('competition_id', competition.id)
+                .eq('user_id', user.id);
+            } catch (updateError) {
+              // Silently handle column not found errors during migration
+              console.debug('Participant activity update skipped:', updateError);
+            }
           }
         } catch (error) {
           console.error('Heartbeat error:', error);
@@ -344,6 +349,12 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     );
   }
 
+  // Debug logging for participants
+  console.log('Current participants:', participants);
+  console.log('Joined participants:', joinedParticipants);
+  console.log('Current user ID:', user?.id);
+  console.log('Competition creator ID:', competition.creator_id);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-8 relative overflow-hidden">
       {/* Background Elements */}
@@ -462,77 +473,88 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
               </CardHeader>
               <CardBody className="p-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {joinedParticipants.map((participant, index) => (
-                    <motion.div
-                      key={participant.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`bg-gradient-to-r from-white to-purple-50 p-6 rounded-2xl border-2 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden ${
-                        participant.user_id === user?.id ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-100'
-                      }`}
-                    >
-                      {/* Background Pattern */}
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-200/20 to-indigo-200/20 rounded-full blur-xl" />
-                      
-                      <div className="flex items-center space-x-4 relative z-10">
-                        <div className="relative">
-                          <motion.div
-                            whileHover={{ scale: 1.1, rotate: 5 }}
-                            className="w-16 h-16 bg-gradient-to-r from-purple-400 to-indigo-400 rounded-full flex items-center justify-center shadow-lg"
-                          >
-                            <span className="text-white font-bold text-xl">
-                              {participant.profile?.full_name?.charAt(0) || 
-                               participant.email?.charAt(0) || 
-                               'U'}
-                            </span>
-                          </motion.div>
-                          {participant.user_id === competition.creator_id && (
+                  {joinedParticipants.map((participant, index) => {
+                    // Get participant display name with better fallback logic
+                    const getParticipantName = () => {
+                      if (participant.profile?.full_name) {
+                        return participant.profile.full_name;
+                      }
+                      if (participant.email) {
+                        return participant.email.split('@')[0];
+                      }
+                      return 'Anonymous User';
+                    };
+
+                    const participantName = getParticipantName();
+                    
+                    return (
+                      <motion.div
+                        key={participant.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className={`bg-gradient-to-r from-white to-purple-50 p-6 rounded-2xl border-2 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden ${
+                          participant.user_id === user?.id ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-100'
+                        }`}
+                      >
+                        {/* Background Pattern */}
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-200/20 to-indigo-200/20 rounded-full blur-xl" />
+                        
+                        <div className="flex items-center space-x-4 relative z-10">
+                          <div className="relative">
                             <motion.div
-                              animate={{ rotate: [0, 10, -10, 0] }}
-                              transition={{ duration: 2, repeat: Infinity }}
-                              className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg"
+                              whileHover={{ scale: 1.1, rotate: 5 }}
+                              className="w-16 h-16 bg-gradient-to-r from-purple-400 to-indigo-400 rounded-full flex items-center justify-center shadow-lg"
                             >
-                              <Crown className="w-4 h-4 text-white" />
+                              <span className="text-white font-bold text-xl">
+                                {participantName.charAt(0).toUpperCase()}
+                              </span>
                             </motion.div>
-                          )}
-                          <motion.div
-                            animate={{ scale: [1, 1.2, 1] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                            className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 rounded-full border-2 border-white flex items-center justify-center"
-                          >
-                            <div className="w-2 h-2 bg-white rounded-full" />
-                          </motion.div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h4 className="font-bold text-slate-800 text-xl">
-                              {participant.profile?.full_name || 
-                               participant.email?.split('@')[0] || 
-                               'Anonymous User'}
-                            </h4>
                             {participant.user_id === competition.creator_id && (
-                              <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">
-                                CREATOR
-                              </span>
+                              <motion.div
+                                animate={{ rotate: [0, 10, -10, 0] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                                className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg"
+                              >
+                                <Crown className="w-4 h-4 text-white" />
+                              </motion.div>
                             )}
-                            {participant.user_id === user?.id && (
-                              <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full">
-                                YOU
-                              </span>
-                            )}
+                            <motion.div
+                              animate={{ scale: [1, 1.2, 1] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                              className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 rounded-full border-2 border-white flex items-center justify-center"
+                            >
+                              <div className="w-2 h-2 bg-white rounded-full" />
+                            </motion.div>
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-green-600 mt-1">
-                            <Shield className="w-4 h-4" />
-                            <span className="font-medium">Ready for battle</span>
-                          </div>
-                          <div className="flex items-center space-x-4 mt-2 text-xs text-slate-500">
-                            <span>Joined: {new Date(participant.joined_at || '').toLocaleTimeString()}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <h4 className="font-bold text-slate-800 text-xl">
+                                {participantName}
+                              </h4>
+                              {participant.user_id === competition.creator_id && (
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">
+                                  CREATOR
+                                </span>
+                              )}
+                              {participant.user_id === user?.id && (
+                                <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full">
+                                  YOU
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2 text-sm text-green-600 mt-1">
+                              <Shield className="w-4 h-4" />
+                              <span className="font-medium">Ready for battle</span>
+                            </div>
+                            <div className="flex items-center space-x-4 mt-2 text-xs text-slate-500">
+                              <span>Joined: {new Date(participant.joined_at || '').toLocaleTimeString()}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                   
                   {/* Show waiting slot only if less than max participants */}
                   {joinedParticipants.length < (competition.max_participants || 10) && (
