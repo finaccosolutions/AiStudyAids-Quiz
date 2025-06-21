@@ -41,7 +41,6 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isComponentMounted, setIsComponentMounted] = useState(true);
-  const [participantsWithProfiles, setParticipantsWithProfiles] = useState<any[]>([]);
   
   // Refs for subscription cleanup
   const competitionSubscriptionRef = useRef<(() => void) | null>(null);
@@ -49,107 +48,9 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const isCreator = user?.id === competition.creator_id;
-  const joinedParticipants = participantsWithProfiles.filter(p => p.status === 'joined');
+  const joinedParticipants = participants.filter(p => p.status === 'joined');
   const canStart = joinedParticipants.length >= 2;
-  const userParticipant = participantsWithProfiles.find(p => p.user_id === user?.id);
-
-  // Enhanced participant loading with better profile fetching
-  const loadParticipantsWithProfiles = async () => {
-    try {
-      console.log('Loading participants with profiles for competition:', competition.id);
-      
-      // First get all participants
-      const { data: participantsData, error: participantsError } = await supabase
-        .from('competition_participants')
-        .select('*')
-        .eq('competition_id', competition.id)
-        .order('joined_at', { ascending: true });
-  
-      if (participantsError) {
-        console.error('Error loading participants:', participantsError);
-        return;
-      }
-  
-      console.log('Raw participants data:', participantsData);
-  
-      if (!participantsData || participantsData.length === 0) {
-        setParticipantsWithProfiles([]);
-        return;
-      }
-  
-      // Get all unique user IDs (including creator and participants)
-      const allUserIds = new Set();
-      
-      // Add creator ID
-      allUserIds.add(competition.creator_id);
-      
-      // Add participant user IDs
-      participantsData.forEach(p => {
-        if (p.user_id) {
-          allUserIds.add(p.user_id);
-        }
-      });
-  
-      const userIds = Array.from(allUserIds);
-      let profilesData: any[] = [];
-      
-      if (userIds.length > 0) {
-        // Get profiles for all users with a more permissive query
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, avatar_url')
-          .in('user_id', userIds);
-  
-        if (profilesError) {
-          console.error('Error loading profiles:', profilesError);
-          // Continue without profiles rather than failing
-        } else {
-          profilesData = profiles || [];
-        }
-      }
-  
-      console.log('Profiles data:', profilesData);
-  
-      // Get creator profile specifically
-      const creatorProfile = profilesData.find(p => p.user_id === competition.creator_id);
-  
-      // Combine participants with their profiles
-      const participantsWithProfileData = participantsData.map(participant => {
-        const profile = profilesData.find(p => p.user_id === participant.user_id);
-        
-        let displayName = 'Anonymous User';
-        
-        // Priority order for display name
-        if (profile?.full_name) {
-          displayName = profile.full_name;
-        } else if (participant.user_id === competition.creator_id && creatorProfile?.full_name) {
-          displayName = creatorProfile.full_name;
-        } else if (participant.email) {
-          displayName = participant.email.split('@')[0];
-        } else if (participant.user_id === competition.creator_id) {
-          displayName = 'Competition Creator';
-        }
-  
-        return {
-          ...participant,
-          profile: {
-            full_name: displayName,
-            avatar_url: profile?.avatar_url || null
-          },
-          is_online: participant.is_online ?? true,
-          last_activity: participant.last_activity ?? new Date().toISOString()
-        };
-      });
-  
-      console.log('Final participants with profiles:', participantsWithProfileData);
-      setParticipantsWithProfiles(participantsWithProfileData);
-      
-    } catch (error) {
-      console.error('Error in loadParticipantsWithProfiles:', error);
-    }
-  };
-
-
+  const userParticipant = participants.find(p => p.user_id === user?.id);
 
   // Heartbeat to keep session alive and update participant activity
   useEffect(() => {
@@ -219,14 +120,14 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     };
   }, []);
 
-  // Enhanced subscription management
+  // Enhanced subscription management - using centralized loadParticipants
   useEffect(() => {
     if (!competition.id || !isComponentMounted) return;
 
     console.log('Setting up subscriptions for competition:', competition.id);
     
-    // Load initial data with enhanced profile loading
-    loadParticipantsWithProfiles();
+    // Load initial data using centralized function
+    loadParticipants(competition.id);
     loadChatMessages(competition.id);
     
     // Set up subscriptions with proper cleanup
@@ -258,7 +159,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
         chatSubscriptionRef.current = null;
       }
     };
-  }, [competition.id, isComponentMounted]);
+  }, [competition.id, isComponentMounted, loadParticipants, loadChatMessages, subscribeToCompetition, subscribeToChat]);
 
   // Enhanced status monitoring
   useEffect(() => {
@@ -283,18 +184,18 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     }
   }, [competition.status, onStartQuiz, isComponentMounted]);
 
-  // Periodic data refresh to ensure consistency
+  // Periodic data refresh to ensure consistency - using centralized function
   useEffect(() => {
     if (!competition.id || !isComponentMounted) return;
 
     const refreshInterval = setInterval(() => {
       if (isComponentMounted) {
-        loadParticipantsWithProfiles();
+        loadParticipants(competition.id);
       }
     }, 10000); // Refresh every 10 seconds for better real-time updates
 
     return () => clearInterval(refreshInterval);
-  }, [competition.id, isComponentMounted]);
+  }, [competition.id, isComponentMounted, loadParticipants]);
 
   const copyCompetitionCode = async () => {
     await navigator.clipboard.writeText(competition.competition_code);

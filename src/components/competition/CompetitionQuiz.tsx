@@ -59,91 +59,11 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const [chatMessage, setChatMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [participantsWithProfiles, setParticipantsWithProfiles] = useState<any[]>([]);
 
   const currentQuestion = questions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
-  const joinedParticipants = participantsWithProfiles.filter(p => p.status === 'joined' || p.status === 'completed');
+  const joinedParticipants = participants.filter(p => p.status === 'joined' || p.status === 'completed');
   const leaderboard = getLiveLeaderboard(competition.id);
-
-  // Load participants with profiles
-  const loadParticipantsWithProfiles = async () => {
-    try {
-      console.log('Loading participants with profiles for competition:', competition.id);
-      
-      // Get all participants
-      const { data: participantsData, error: participantsError } = await supabase
-        .from('competition_participants')
-        .select('*')
-        .eq('competition_id', competition.id)
-        .order('joined_at', { ascending: true });
-
-      if (participantsError) {
-        console.error('Error loading participants:', participantsError);
-        return;
-      }
-
-      if (!participantsData || participantsData.length === 0) {
-        setParticipantsWithProfiles([]);
-        return;
-      }
-
-      // Get all user IDs including creator
-      const allUserIds = new Set();
-      allUserIds.add(competition.creator_id);
-      participantsData.forEach(p => {
-        if (p.user_id) {
-          allUserIds.add(p.user_id);
-        }
-      });
-
-      const userIds = Array.from(allUserIds);
-      let profilesData: any[] = [];
-      
-      if (userIds.length > 0) {
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, avatar_url')
-          .in('user_id', userIds);
-
-        if (!profilesError) {
-          profilesData = profiles || [];
-        }
-      }
-
-      // Combine participants with profiles
-      const participantsWithProfileData = participantsData.map(participant => {
-        const profile = profilesData.find(p => p.user_id === participant.user_id);
-        
-        let displayName = 'Anonymous User';
-        if (profile?.full_name) {
-          displayName = profile.full_name;
-        } else if (participant.email) {
-          displayName = participant.email.split('@')[0];
-        } else if (participant.user_id === competition.creator_id) {
-          const creatorProfile = profilesData.find(p => p.user_id === competition.creator_id);
-          displayName = creatorProfile?.full_name || 'Competition Creator';
-        }
-
-        return {
-          ...participant,
-          profile: {
-            full_name: displayName,
-            avatar_url: profile?.avatar_url || null
-          },
-          is_online: participant.is_online ?? true,
-          last_activity: participant.last_activity ?? new Date().toISOString(),
-          questions_answered: Object.keys(participant.answers || {}).length,
-          current_question: currentQuestionIndex + 1
-        };
-      });
-
-      setParticipantsWithProfiles(participantsWithProfileData);
-      
-    } catch (error) {
-      console.error('Error in loadParticipantsWithProfiles:', error);
-    }
-  };
 
   // Generate questions when component mounts
   useEffect(() => {
@@ -174,10 +94,10 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     generateCompetitionQuestions();
   }, [apiKey, competition.quiz_preferences]);
 
-  // Load participants and set up subscriptions
+  // Load participants and set up subscriptions - using centralized function
   useEffect(() => {
     if (competition.id) {
-      loadParticipantsWithProfiles();
+      loadParticipants(competition.id);
       const unsubscribe = subscribeToCompetition(competition.id);
       const unsubscribeChat = subscribeToChat(competition.id);
       loadChatMessages(competition.id);
@@ -187,16 +107,16 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
         unsubscribeChat();
       };
     }
-  }, [competition.id]);
+  }, [competition.id, loadParticipants, subscribeToCompetition, subscribeToChat, loadChatMessages]);
 
-  // Refresh participants periodically
+  // Refresh participants periodically - using centralized function
   useEffect(() => {
     const interval = setInterval(() => {
-      loadParticipantsWithProfiles();
+      loadParticipants(competition.id);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [competition.id]);
+  }, [competition.id, loadParticipants]);
 
   useEffect(() => {
     setQuestionStartTime(Date.now());
@@ -594,7 +514,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                     </h3>
                     
                     <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {participantsWithProfiles.map((participant, index) => (
+                      {participants.map((participant, index) => (
                         <motion.div
                           key={participant.id}
                           initial={{ opacity: 0, x: 20 }}
@@ -677,7 +597,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                         <div className="flex justify-between">
                           <span className="text-gray-600">Rank:</span>
                           <span className="font-medium">
-                            {participantsWithProfiles.findIndex(p => p.user_id === user?.id) + 1}/{participantsWithProfiles.length}
+                            {participants.findIndex(p => p.user_id === user?.id) + 1}/{participants.length}
                           </span>
                         </div>
                       </div>
