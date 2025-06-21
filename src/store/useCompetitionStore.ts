@@ -523,104 +523,113 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
     }
   },
 
-  loadParticipants: async (competitionId) => {
-    try {
-      console.log('Loading participants for competition:', competitionId);
-      
-      // Get current user to ensure we have user context
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('No authenticated user found');
-        return;
-      }
-
-      // Enhanced query to get participants with profile data using proper joins
-      const { data: participantsWithProfiles, error } = await supabase
-        .from('competition_participants')
-        .select(`
-          *,
-          profiles!competition_participants_user_id_profiles_fkey (
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq('competition_id', competitionId)
-        .in('status', ['joined', 'completed']) // Only show joined and completed participants
-        .order('joined_at', { ascending: true });
-
-      if (error) {
-        console.error('Error loading participants with profiles:', error);
+    loadParticipants: async (competitionId) => {
+      try {
+        console.log('Loading participants for competition:', competitionId);
         
-        // Fallback: Load participants without profiles
-        const { data: participants, error: fallbackError } = await supabase
+        // Get current user to ensure we have user context
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.error('No authenticated user found');
+          return;
+        }
+    
+        // Enhanced query to get participants with profile data using proper joins
+        const { data: participantsWithProfiles, error } = await supabase
           .from('competition_participants')
-          .select('*')
+          .select(`
+            *,
+            profiles!competition_participants_user_id_profiles_fkey (
+              full_name,
+              avatar_url
+            )
+          `)
           .eq('competition_id', competitionId)
-          .in('status', ['joined', 'completed'])
-          .order('joined_at', { ascending: true });
-
-        if (fallbackError) {
-          console.error('Fallback query also failed:', fallbackError);
-          throw fallbackError;
+          .in('status', ['joined', 'completed']) // Only show joined and completed participants
+          .order('score', { ascending: false })
+          .order('time_taken', { ascending: true });
+    
+        if (error) {
+          console.error('Error loading participants with profiles:', error);
+          
+          // Fallback: Load participants without profiles
+          const { data: participants, error: fallbackError } = await supabase
+            .from('competition_participants')
+            .select('*')
+            .eq('competition_id', competitionId)
+            .in('status', ['joined', 'completed'])
+            .order('score', { ascending: false })
+            .order('time_taken', { ascending: true });
+    
+          if (fallbackError) {
+            console.error('Fallback query also failed:', fallbackError);
+            throw fallbackError;
+          }
+    
+          console.log('Using fallback participants data:', participants);
+          
+          // Format participants without profile data
+          const formattedParticipants = (participants || []).map(p => ({
+            ...p,
+            profile: {
+              full_name: p.email ? p.email.split('@')[0] : 'Anonymous User',
+              avatar_url: null
+            },
+            is_online: p.is_online ?? true,
+            last_activity: p.last_activity ?? new Date().toISOString(),
+            current_question: p.current_question ?? 0,
+            questions_answered: p.questions_answered ?? 0,
+            is_ready: p.is_ready ?? false,
+            score: p.score ?? 0,
+            correct_answers: p.correct_answers ?? 0,
+            time_taken: p.time_taken ?? 0
+          }));
+    
+          set({ participants: formattedParticipants });
+          return;
         }
-
-        console.log('Using fallback participants data:', participants);
-        
-        // Format participants without profile data
-        const formattedParticipants = (participants || []).map(p => ({
-          ...p,
-          profile: {
-            full_name: p.email ? p.email.split('@')[0] : 'Anonymous User',
-            avatar_url: null
-          },
-          is_online: p.is_online ?? true,
-          last_activity: p.last_activity ?? new Date().toISOString(),
-          current_question: p.current_question ?? 0,
-          questions_answered: p.questions_answered ?? 0,
-          is_ready: p.is_ready ?? false
-        }));
-
+    
+        console.log('Participants with profiles loaded:', participantsWithProfiles);
+    
+        // Format participants with profile data
+        const formattedParticipants = (participantsWithProfiles || []).map(p => {
+          // Get display name with better fallback logic
+          let displayName = 'Anonymous User';
+          
+          if (p.profiles?.full_name) {
+            displayName = p.profiles.full_name;
+          } else if (p.email) {
+            displayName = p.email.split('@')[0];
+          } else if (p.user_id) {
+            // For users without profiles, try to get their email from auth.users
+            displayName = 'User';
+          }
+          
+          return {
+            ...p,
+            profile: {
+              full_name: displayName,
+              avatar_url: p.profiles?.avatar_url || null
+            },
+            is_online: p.is_online ?? true,
+            last_activity: p.last_activity ?? new Date().toISOString(),
+            current_question: p.current_question ?? 0,
+            questions_answered: p.questions_answered ?? 0,
+            is_ready: p.is_ready ?? false,
+            score: p.score ?? 0,
+            correct_answers: p.correct_answers ?? 0,
+            time_taken: p.time_taken ?? 0
+          };
+        });
+    
+        console.log('Final formatted participants:', formattedParticipants);
         set({ participants: formattedParticipants });
-        return;
+      } catch (error: any) {
+        console.error('Error in loadParticipants:', error);
+        set({ error: error.message });
       }
+    },
 
-      console.log('Participants with profiles loaded:', participantsWithProfiles);
-
-      // Format participants with profile data
-      const formattedParticipants = (participantsWithProfiles || []).map(p => {
-        // Get display name with better fallback logic
-        let displayName = 'Anonymous User';
-        
-        if (p.profiles?.full_name) {
-          displayName = p.profiles.full_name;
-        } else if (p.email) {
-          displayName = p.email.split('@')[0];
-        } else if (p.user_id) {
-          // For users without profiles, try to get their email from auth.users
-          displayName = 'User';
-        }
-        
-        return {
-          ...p,
-          profile: {
-            full_name: displayName,
-            avatar_url: p.profiles?.avatar_url || null
-          },
-          is_online: p.is_online ?? true,
-          last_activity: p.last_activity ?? new Date().toISOString(),
-          current_question: p.current_question ?? 0,
-          questions_answered: p.questions_answered ?? 0,
-          is_ready: p.is_ready ?? false
-        };
-      });
-
-      console.log('Final formatted participants:', formattedParticipants);
-      set({ participants: formattedParticipants });
-    } catch (error: any) {
-      console.error('Error in loadParticipants:', error);
-      set({ error: error.message });
-    }
-  },
 
   updateParticipantProgress: async (competitionId, answers, score, correctAnswers, timeTaken, currentQuestion) => {
     try {
@@ -1143,75 +1152,76 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
   },
 
   // Enhanced Real-time subscriptions with better error handling
-  subscribeToCompetition: (competitionId) => {
-    const { activeSubscriptions } = get();
-    
-    // Clean up existing subscription for this competition
-    const existingKey = `competition:${competitionId}`;
-    if (activeSubscriptions.has(existingKey)) {
-      const existing = activeSubscriptions.get(existingKey);
-      if (existing && typeof existing.unsubscribe === 'function') {
-        existing.unsubscribe();
+    subscribeToCompetition: (competitionId) => {
+      const { activeSubscriptions } = get();
+      
+      // Clean up existing subscription for this competition
+      const existingKey = `competition:${competitionId}`;
+      if (activeSubscriptions.has(existingKey)) {
+        const existing = activeSubscriptions.get(existingKey);
+        if (existing && typeof existing.unsubscribe === 'function') {
+          existing.unsubscribe();
+        }
       }
-    }
-
-    console.log(`Setting up competition subscription for: ${competitionId}`);
     
-    const subscription = supabase
-      .channel(`competition:${competitionId}`)
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'competitions',
-          filter: `id=eq.${competitionId}`
-        }, 
-        (payload) => {
-          console.log('Competition change detected:', payload);
-          if (payload.eventType === 'UPDATE') {
-            set({ currentCompetition: payload.new as Competition });
+      console.log(`Setting up competition subscription for: ${competitionId}`);
+      
+      const subscription = supabase
+        .channel(`competition:${competitionId}`)
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'competitions',
+            filter: `id=eq.${competitionId}`
+          }, 
+          (payload) => {
+            console.log('Competition change detected:', payload);
+            if (payload.eventType === 'UPDATE') {
+              set({ currentCompetition: payload.new as Competition });
+            }
           }
-        }
-      )
-      .on('postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'competition_participants',
-          filter: `competition_id=eq.${competitionId}`
-        },
-        (payload) => {
-          console.log('Participant change detected:', payload);
-          // Reload participants when any change occurs
-          setTimeout(() => {
-            get().loadParticipants(competitionId);
-          }, 500); // Small delay to ensure database consistency
-        }
-      )
-      .subscribe((status) => {
-        console.log(`Competition subscription status: ${status}`);
-        if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to competition updates');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('Competition subscription error');
-          // Retry subscription after a delay
-          setTimeout(() => {
-            get().subscribeToCompetition(competitionId);
-          }, 5000);
-        }
-      });
-
-    // Store subscription for cleanup
-    activeSubscriptions.set(existingKey, subscription);
-    set({ activeSubscriptions });
-
-    return () => {
-      console.log(`Unsubscribing from competition: ${competitionId}`);
-      subscription.unsubscribe();
-      activeSubscriptions.delete(existingKey);
+        )
+        .on('postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'competition_participants',
+            filter: `competition_id=eq.${competitionId}`
+          },
+          (payload) => {
+            console.log('Participant change detected:', payload);
+            // Reload participants when any change occurs
+            setTimeout(() => {
+              get().loadParticipants(competitionId);
+            }, 100); // Reduced delay for faster updates
+          }
+        )
+        .subscribe((status) => {
+          console.log(`Competition subscription status: ${status}`);
+          if (status === 'SUBSCRIBED') {
+            console.log('Successfully subscribed to competition updates');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Competition subscription error');
+            // Retry subscription after a delay
+            setTimeout(() => {
+              get().subscribeToCompetition(competitionId);
+            }, 5000);
+          }
+        });
+    
+      // Store subscription for cleanup
+      activeSubscriptions.set(existingKey, subscription);
       set({ activeSubscriptions });
-    };
-  },
+    
+      return () => {
+        console.log(`Unsubscribing from competition: ${competitionId}`);
+        subscription.unsubscribe();
+        activeSubscriptions.delete(existingKey);
+        set({ activeSubscriptions });
+      };
+    },
+
 
   subscribeToChat: (competitionId) => {
     const { activeSubscriptions } = get();

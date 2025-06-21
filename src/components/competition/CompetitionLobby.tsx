@@ -125,45 +125,59 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   }, []);
 
   // Enhanced subscription management - using centralized loadParticipants
-  useEffect(() => {
-    if (!competition.id || !isComponentMounted) return;
-
-    console.log('Setting up subscriptions for competition:', competition.id);
+    useEffect(() => {
+      if (!competition.id || !isComponentMounted) return;
     
-    // Load initial data using centralized function
-    loadParticipants(competition.id);
-    loadChatMessages(competition.id);
+      console.log('Setting up subscriptions for competition:', competition.id);
+      
+      // Load initial data using centralized function
+      loadParticipants(competition.id);
+      loadChatMessages(competition.id);
+      
+      // Set up subscriptions with proper cleanup
+      const setupSubscriptions = () => {
+        // Clean up existing subscriptions
+        if (competitionSubscriptionRef.current) {
+          competitionSubscriptionRef.current();
+        }
+        if (chatSubscriptionRef.current) {
+          chatSubscriptionRef.current();
+        }
     
-    // Set up subscriptions with proper cleanup
-    const setupSubscriptions = () => {
-      // Clean up existing subscriptions
-      if (competitionSubscriptionRef.current) {
-        competitionSubscriptionRef.current();
-      }
-      if (chatSubscriptionRef.current) {
-        chatSubscriptionRef.current();
-      }
-
-      // Set up new subscriptions
-      competitionSubscriptionRef.current = subscribeToCompetition(competition.id);
-      chatSubscriptionRef.current = subscribeToChat(competition.id);
-    };
-
-    setupSubscriptions();
-
-    // Cleanup function
-    return () => {
-      console.log('Cleaning up subscriptions for competition:', competition.id);
-      if (competitionSubscriptionRef.current) {
-        competitionSubscriptionRef.current();
-        competitionSubscriptionRef.current = null;
-      }
-      if (chatSubscriptionRef.current) {
-        chatSubscriptionRef.current();
-        chatSubscriptionRef.current = null;
-      }
-    };
-  }, [competition.id, isComponentMounted, loadParticipants, loadChatMessages, subscribeToCompetition, subscribeToChat]);
+        // Set up new subscriptions
+        competitionSubscriptionRef.current = subscribeToCompetition(competition.id);
+        chatSubscriptionRef.current = subscribeToChat(competition.id);
+      };
+    
+      setupSubscriptions();
+    
+      // Cleanup function
+      return () => {
+        console.log('Cleaning up subscriptions for competition:', competition.id);
+        if (competitionSubscriptionRef.current) {
+          competitionSubscriptionRef.current();
+          competitionSubscriptionRef.current = null;
+        }
+        if (chatSubscriptionRef.current) {
+          chatSubscriptionRef.current();
+          chatSubscriptionRef.current = null;
+        }
+      };
+    }, [competition.id, isComponentMounted, loadParticipants, loadChatMessages, subscribeToCompetition, subscribeToChat]);
+    
+    // Also add this periodic refresh effect:
+    useEffect(() => {
+      if (!competition.id || !isComponentMounted) return;
+    
+      const refreshInterval = setInterval(() => {
+        if (isComponentMounted) {
+          console.log('Periodic refresh of participants');
+          loadParticipants(competition.id);
+        }
+      }, 3000); // Refresh every 3 seconds for better real-time updates
+    
+      return () => clearInterval(refreshInterval);
+    }, [competition.id, isComponentMounted, loadParticipants]);
 
   // Enhanced status monitoring with countdown flickering fix
   useEffect(() => {
