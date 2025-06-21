@@ -245,17 +245,14 @@ useEffect(() => {
 
   const handleStartCompetitionQuiz = async () => {
     if (!currentCompetition || !user || !apiKey) return;
-
+  
     try {
-      // Generate questions for competition
-      const { generateQuiz } = await import('../services/gemini');
-      const questions = await generateQuiz(apiKey, currentCompetition.quiz_preferences);
-      setCompetitionQuestions(questions);
       setStep('competition-quiz');
     } catch (error) {
-      console.error('Failed to generate competition questions:', error);
+      console.error('Failed to start competition quiz:', error);
     }
   };
+
 
   const handleCompetitionComplete = () => {
     setStep('competition-results');
