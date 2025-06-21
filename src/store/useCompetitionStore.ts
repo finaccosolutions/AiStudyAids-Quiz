@@ -434,92 +434,58 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
     try {
       console.log('Loading participants for competition:', competitionId);
       
-      // First try to get participants with profile data using the correct foreign key
+      // Load participants first
       const { data: participants, error } = await supabase
         .from('competition_participants')
-        .select(`
-          *,
-          profiles!competition_participants_user_id_fkey (
-            full_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('competition_id', competitionId)
         .order('joined_at', { ascending: true });
 
       if (error) {
-        console.error('Error loading participants with profiles:', error);
-        
-        // Fallback: Load participants without profiles first
-        const { data: fallbackParticipants, error: fallbackError } = await supabase
-          .from('competition_participants')
-          .select('*')
-          .eq('competition_id', competitionId)
-          .order('joined_at', { ascending: true });
-
-        if (fallbackError) {
-          console.error('Fallback query also failed:', fallbackError);
-          throw fallbackError;
-        }
-
-        console.log('Fallback participants loaded:', fallbackParticipants);
-
-        // Get profile data separately for users who have user_id
-        const userIds = fallbackParticipants
-          ?.filter(p => p.user_id)
-          .map(p => p.user_id) || [];
-
-        let profilesMap = new Map();
-        if (userIds.length > 0) {
-          const { data: profiles, error: profileError } = await supabase
-            .from('profiles')
-            .select('user_id, full_name, avatar_url')
-            .in('user_id', userIds);
-
-          if (profileError) {
-            console.error('Error loading profiles:', profileError);
-          } else {
-            console.log('Profiles loaded:', profiles);
-            profiles?.forEach(profile => {
-              profilesMap.set(profile.user_id, profile);
-            });
-          }
-        }
-
-        // Format participants with profile data
-        const formattedParticipants = (fallbackParticipants || []).map(p => {
-          const profile = p.user_id && profilesMap.has(p.user_id) 
-            ? profilesMap.get(p.user_id) 
-            : null;
-          
-          return {
-            ...p,
-            profile: profile ? {
-              full_name: profile.full_name,
-              avatar_url: profile.avatar_url
-            } : null,
-            is_online: p.is_online ?? true,
-            last_activity: p.last_activity ?? new Date().toISOString()
-          };
-        });
-
-        console.log('Formatted participants (fallback):', formattedParticipants);
-        set({ participants: formattedParticipants });
-        return;
+        console.error('Error loading participants:', error);
+        throw error;
       }
 
-      console.log('Participants loaded with profiles:', participants);
+      console.log('Participants loaded:', participants);
 
-      // Format participants from successful query
-      const formattedParticipants = (participants || []).map(p => ({
-        ...p,
-        profile: p.profiles ? {
-          full_name: p.profiles.full_name,
-          avatar_url: p.profiles.avatar_url
-        } : null,
-        is_online: p.is_online ?? true,
-        last_activity: p.last_activity ?? new Date().toISOString()
-      }));
+      // Get profile data separately for users who have user_id
+      const userIds = participants
+        ?.filter(p => p.user_id)
+        .map(p => p.user_id) || [];
+
+      let profilesMap = new Map();
+      if (userIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', userIds);
+
+        if (profileError) {
+          console.error('Error loading profiles:', profileError);
+        } else {
+          console.log('Profiles loaded:', profiles);
+          profiles?.forEach(profile => {
+            profilesMap.set(profile.user_id, profile);
+          });
+        }
+      }
+
+      // Format participants with profile data
+      const formattedParticipants = (participants || []).map(p => {
+        const profile = p.user_id && profilesMap.has(p.user_id) 
+          ? profilesMap.get(p.user_id) 
+          : null;
+        
+        return {
+          ...p,
+          profile: profile ? {
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url
+          } : null,
+          is_online: p.is_online ?? true,
+          last_activity: p.last_activity ?? new Date().toISOString()
+        };
+      });
 
       console.log('Formatted participants:', formattedParticipants);
       set({ participants: formattedParticipants });
@@ -859,46 +825,58 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
   loadChatMessages: async (competitionId) => {
     try {
+      // Load chat messages first
       const { data: messages, error } = await supabase
         .from('competition_chat')
-        .select(`
-          *,
-          profiles!competition_chat_user_id_profiles_fkey (
-            full_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('competition_id', competitionId)
         .order('created_at', { ascending: true });
 
       if (error) {
         console.error('Error loading chat messages:', error);
-        // Fallback without profiles
-        const { data: fallbackMessages, error: fallbackError } = await supabase
-          .from('competition_chat')
-          .select('*')
-          .eq('competition_id', competitionId)
-          .order('created_at', { ascending: true });
-
-        if (fallbackError) throw fallbackError;
-
-        const formattedMessages = (fallbackMessages || []).map(m => ({
-          ...m,
-          profile: null
-        }));
-
-        set({ chatMessages: formattedMessages });
-        return;
+        throw error;
       }
 
-      const formattedMessages = (messages || []).map(m => ({
-        ...m,
-        profile: m.profiles ? {
-          full_name: m.profiles.full_name,
-          avatar_url: m.profiles.avatar_url
-        } : null
-      }));
+      console.log('Chat messages loaded:', messages);
 
+      // Get profile data separately for users who have user_id
+      const userIds = messages
+        ?.filter(m => m.user_id)
+        .map(m => m.user_id) || [];
+
+      let profilesMap = new Map();
+      if (userIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', userIds);
+
+        if (profileError) {
+          console.error('Error loading profiles for chat:', profileError);
+        } else {
+          console.log('Profiles loaded for chat:', profiles);
+          profiles?.forEach(profile => {
+            profilesMap.set(profile.user_id, profile);
+          });
+        }
+      }
+
+      // Format messages with profile data
+      const formattedMessages = (messages || []).map(m => {
+        const profile = m.user_id && profilesMap.has(m.user_id) 
+          ? profilesMap.get(m.user_id) 
+          : null;
+        
+        return {
+          ...m,
+          profile: profile ? {
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url
+          } : null
+        };
+      });
+
+      console.log('Formatted chat messages:', formattedMessages);
       set({ chatMessages: formattedMessages });
     } catch (error: any) {
       set({ error: error.message });
