@@ -41,6 +41,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isComponentMounted, setIsComponentMounted] = useState(true);
+  const [participantsWithProfiles, setParticipantsWithProfiles] = useState<any[]>([]);
   
   // Refs for subscription cleanup
   const competitionSubscriptionRef = useRef<(() => void) | null>(null);
@@ -48,60 +49,99 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const isCreator = user?.id === competition.creator_id;
-  const joinedParticipants = participants.filter(p => p.status === 'joined');
+  const joinedParticipants = participantsWithProfiles.filter(p => p.status === 'joined');
   const canStart = joinedParticipants.length >= 2;
-  const userParticipant = participants.find(p => p.user_id === user?.id);
+  const userParticipant = participantsWithProfiles.find(p => p.user_id === user?.id);
 
   // Enhanced participant loading with better profile fetching
   const loadParticipantsWithProfiles = async () => {
     try {
       console.log('Loading participants with profiles for competition:', competition.id);
       
-      // Get participants with their profile data using a more robust query
-      const { data: participantsData, error } = await supabase
+      // First get all participants
+      const { data: participantsData, error: participantsError } = await supabase
         .from('competition_participants')
-        .select(`
-          *,
-          profiles!inner(
-            full_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('competition_id', competition.id)
         .order('joined_at', { ascending: true });
 
-      if (error) {
-        console.error('Error loading participants with profiles:', error);
-        // Fallback to basic participant loading
-        await loadParticipants(competition.id);
+      if (participantsError) {
+        console.error('Error loading participants:', participantsError);
         return;
       }
 
-      console.log('Participants with profiles loaded:', participantsData);
+      console.log('Raw participants data:', participantsData);
 
-      // Format participants with profile data
-      const formattedParticipants = (participantsData || []).map(p => {
-        const displayName = p.profiles?.full_name || p.email?.split('@')[0] || 'Anonymous User';
+      if (!participantsData || participantsData.length === 0) {
+        setParticipantsWithProfiles([]);
+        return;
+      }
+
+      // Get user IDs that have profiles
+      const userIds = participantsData
+        .filter(p => p.user_id)
+        .map(p => p.user_id);
+
+      let profilesData: any[] = [];
+      
+      if (userIds.length > 0) {
+        // Get profiles for users
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', userIds);
+
+        if (profilesError) {
+          console.error('Error loading profiles:', profilesError);
+        } else {
+          profilesData = profiles || [];
+        }
+      }
+
+      console.log('Profiles data:', profilesData);
+
+      // Also get creator profile if not already included
+      if (competition.creator_id && !userIds.includes(competition.creator_id)) {
+        const { data: creatorProfile, error: creatorError } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .eq('user_id', competition.creator_id)
+          .single();
+
+        if (!creatorError && creatorProfile) {
+          profilesData.push(creatorProfile);
+        }
+      }
+
+      // Combine participants with their profiles
+      const participantsWithProfileData = participantsData.map(participant => {
+        const profile = profilesData.find(p => p.user_id === participant.user_id);
         
+        let displayName = 'Anonymous User';
+        if (profile?.full_name) {
+          displayName = profile.full_name;
+        } else if (participant.email) {
+          displayName = participant.email.split('@')[0];
+        } else if (participant.user_id === competition.creator_id) {
+          displayName = 'Competition Creator';
+        }
+
         return {
-          ...p,
+          ...participant,
           profile: {
             full_name: displayName,
-            avatar_url: p.profiles?.avatar_url || null
+            avatar_url: profile?.avatar_url || null
           },
-          is_online: p.is_online ?? true,
-          last_activity: p.last_activity ?? new Date().toISOString()
+          is_online: participant.is_online ?? true,
+          last_activity: participant.last_activity ?? new Date().toISOString()
         };
       });
 
-      console.log('Final formatted participants:', formattedParticipants);
+      console.log('Final participants with profiles:', participantsWithProfileData);
+      setParticipantsWithProfiles(participantsWithProfileData);
       
-      // Update the store directly since we have better data
-      useCompetitionStore.setState({ participants: formattedParticipants });
     } catch (error) {
       console.error('Error in loadParticipantsWithProfiles:', error);
-      // Fallback to store method
-      await loadParticipants(competition.id);
     }
   };
 

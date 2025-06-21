@@ -9,7 +9,7 @@ import {
   CheckCircle, ArrowRight, Crown, Timer,
   Activity, Star, Award, TrendingUp,
   Brain, Eye, EyeOff, XCircle, MessageCircle,
-  Send, Sparkles, Volume2, VolumeX
+  Send, Sparkles, Volume2, VolumeX, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
@@ -113,10 +113,10 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
   // Per-question timer
   useEffect(() => {
-    if (timeLeft > 0 && !isLoading) {
+    if (timeLeft > 0 && !isLoading && competition.quiz_preferences?.timeLimitEnabled) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (timeLeft === 0 && !isLoading) {
+    } else if (timeLeft === 0 && !isLoading && competition.quiz_preferences?.timeLimitEnabled) {
       handleNextQuestion();
     }
   }, [timeLeft, isLoading]);
@@ -323,7 +323,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
             placeholder="Type your answer..."
             value={selectedAnswer}
             onChange={(e) => handleAnswerSelect(e.target.value)}
-            className="w-full p-4 text-lg border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none mt-8"
+            className="w-full p-4 text-xl border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none mt-8"
           />
         );
     }
@@ -379,16 +379,18 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
             </div>
             
             <div className="flex items-center space-x-6">
-              <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
-                timeLeft <= 10 ? 'bg-red-500 bg-opacity-20' : 'bg-white bg-opacity-10'
-              }`}>
-                <Clock className={`w-5 h-5 ${timeLeft <= 10 ? 'text-red-400' : 'text-white'}`} />
-                <span className={`font-mono text-lg font-bold ${
-                  timeLeft <= 10 ? 'text-red-400' : 'text-white'
+              {competition.quiz_preferences?.timeLimitEnabled && (
+                <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+                  timeLeft <= 10 ? 'bg-red-500 bg-opacity-20' : 'bg-white bg-opacity-10'
                 }`}>
-                  {formatTime(timeLeft)}
-                </span>
-              </div>
+                  <Clock className={`w-5 h-5 ${timeLeft <= 10 ? 'text-red-400' : 'text-white'}`} />
+                  <span className={`font-mono text-lg font-bold ${
+                    timeLeft <= 10 ? 'text-red-400' : 'text-white'
+                  }`}>
+                    {formatTime(timeLeft)}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center space-x-2">
                 <Timer className="w-5 h-5 text-cyan-400" />
                 <span className="font-mono text-lg font-bold">{formatTime(totalTimeElapsed)}</span>
@@ -456,7 +458,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-gray-600">
-                    Time per question: {competition.quiz_preferences?.timeLimit}s
+                    {competition.quiz_preferences?.timeLimitEnabled && (
+                      <span>Time per question: {competition.quiz_preferences?.timeLimit}s</span>
+                    )}
                   </div>
                   
                   <motion.div
