@@ -7,7 +7,8 @@ import {
   Trophy, Crown, Medal, Star, Clock, Target, 
   TrendingUp, Award, Zap, Users, Home, RefreshCw,
   ChevronDown, ChevronUp, BarChart3, Activity,
-  Brain, Timer, CheckCircle, XCircle, Sparkles
+  Brain, Timer, CheckCircle, XCircle, Sparkles,
+  LogOut, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
@@ -16,15 +17,17 @@ interface CompetitionResultsProps {
   competition: Competition;
   onNewCompetition: () => void;
   onBackToHome: () => void;
+  onLeave?: () => void;
 }
 
 const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   competition,
   onNewCompetition,
-  onBackToHome
+  onBackToHome,
+  onLeave
 }) => {
   const { user } = useAuthStore();
-  const { participants, userStats, loadUserStats } = useCompetitionStore();
+  const { participants, userStats, loadUserStats, leaveCompetition } = useCompetitionStore();
   const [showDetailedStats, setShowDetailedStats] = useState(false);
   const [confettiVisible, setConfettiVisible] = useState(true);
 
@@ -47,6 +50,19 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     const timer = setTimeout(() => setConfettiVisible(false), 5000);
     return () => clearTimeout(timer);
   }, [user, loadUserStats]);
+
+  const handleLeaveCompetition = async () => {
+    try {
+      await leaveCompetition(competition.id);
+      if (onLeave) {
+        onLeave();
+      } else {
+        onBackToHome();
+      }
+    } catch (error) {
+      console.error('Error leaving competition:', error);
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -504,6 +520,14 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
           >
             <Home className="w-6 h-6 mr-2" />
             Back to Home
+          </Button>
+          <Button
+            onClick={handleLeaveCompetition}
+            variant="outline"
+            className="border-2 border-red-200 text-red-600 hover:bg-red-50 px-8 py-4 text-lg font-semibold"
+          >
+            <LogOut className="w-6 h-6 mr-2" />
+            Leave Competition
           </Button>
         </motion.div>
       </div>
