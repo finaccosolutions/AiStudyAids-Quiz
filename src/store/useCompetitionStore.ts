@@ -446,12 +446,14 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         throw error;
       }
 
-      console.log('Participants loaded:', participants);
+      console.log('Raw participants loaded:', participants);
 
-      // Get profile data separately for users who have user_id
-      const userIds = participants
+      // Get all unique user IDs from participants (including creator)
+      const userIds = [...new Set(participants
         ?.filter(p => p.user_id)
-        .map(p => p.user_id) || [];
+        .map(p => p.user_id))] || [];
+
+      console.log('User IDs to fetch profiles for:', userIds);
 
       let profilesMap = new Map();
       if (userIds.length > 0) {
@@ -470,24 +472,54 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         }
       }
 
+      // Also get user emails from auth.users for fallback display names
+      let usersMap = new Map();
+      if (userIds.length > 0) {
+        try {
+          // We can't directly query auth.users, so we'll use the profile data
+          // and fall back to email from the participant data if available
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (currentUser) {
+            usersMap.set(currentUser.id, { email: currentUser.email });
+          }
+        } catch (userError) {
+          console.warn('Could not load user data:', userError);
+        }
+      }
+
       // Format participants with profile data
       const formattedParticipants = (participants || []).map(p => {
         const profile = p.user_id && profilesMap.has(p.user_id) 
           ? profilesMap.get(p.user_id) 
           : null;
         
+        const user = p.user_id && usersMap.has(p.user_id)
+          ? usersMap.get(p.user_id)
+          : null;
+        
+        // Create display name with better fallback logic
+        let displayName = 'Anonymous User';
+        if (profile?.full_name) {
+          displayName = profile.full_name;
+        } else if (p.email) {
+          displayName = p.email.split('@')[0];
+        } else if (user?.email) {
+          displayName = user.email.split('@')[0];
+        }
+        
         return {
           ...p,
-          profile: profile ? {
-            full_name: profile.full_name,
-            avatar_url: profile.avatar_url
-          } : null,
+          profile: {
+            full_name: displayName,
+            avatar_url: profile?.avatar_url || null
+          },
+          email: p.email || user?.email || null,
           is_online: p.is_online ?? true,
           last_activity: p.last_activity ?? new Date().toISOString()
         };
       });
 
-      console.log('Formatted participants:', formattedParticipants);
+      console.log('Final formatted participants:', formattedParticipants);
       set({ participants: formattedParticipants });
     } catch (error: any) {
       console.error('Error in loadParticipants:', error);
