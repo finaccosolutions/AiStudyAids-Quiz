@@ -66,7 +66,7 @@ const Header: React.FC = () => {
   ];
   
   return (
-    <header className="bg-white sticky top-0 z-50 border-b border-gray-200 shadow-sm">
+    <header className="bg-gradient-to-r from-purple-100 to-indigo-100 sticky top-0 z-50 border-b border-purple-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <Link to="/" className="flex items-center space-x-2 group">
@@ -74,7 +74,7 @@ const Header: React.FC = () => {
               <GraduationCap className="h-8 w-8 text-purple-600 transition-all duration-300 group-hover:scale-110" />
               <div className="absolute inset-0 bg-purple-500/20 rounded-full blur-xl transition-all duration-300 group-hover:blur-2xl" />
             </div>
-            <span className="text-xl font-bold text-purple-600">
+            <span className="text-xl font-bold gradient-text">
               QuizGenius
             </span>
           </Link>
@@ -84,10 +84,10 @@ const Header: React.FC = () => {
               <>
                 <Link 
                   to="/"
-                  className={`nav-link px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-1 text-gray-700 hover:text-purple-700 hover:bg-purple-50 ${
+                  className={`nav-link px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-1 ${
                     isActive('/') 
-                      ? 'text-purple-700 bg-purple-50 font-semibold' 
-                      : ''
+                      ? 'text-purple-700 bg-purple-50' 
+                      : 'hover:text-purple-700 hover:bg-purple-50/50'
                   }`}
                 >
                   <Home className="w-4 h-4" />
@@ -97,8 +97,8 @@ const Header: React.FC = () => {
                 <div className="relative" ref={menuRef}>
                   <button
                     onClick={() => setShowMenu(!showMenu)}
-                    className={`nav-link px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-1 text-gray-700 hover:text-purple-700 hover:bg-purple-50 ${
-                      showMenu ? 'text-purple-700 bg-purple-50 font-semibold' : ''
+                    className={`nav-link px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-1 ${
+                      showMenu ? 'text-purple-700 bg-purple-50' : 'hover:text-purple-700 hover:bg-purple-50/50'
                     }`}
                   >
                     <BookOpen className="w-4 h-4" />
@@ -118,8 +118,8 @@ const Header: React.FC = () => {
                           <Link
                             key={item.path}
                             to={item.path}
-                            className={`flex items-center space-x-2 px-4 py-2 hover:bg-purple-50 transition-colors text-gray-700 hover:text-purple-700 ${
-                              isActive(item.path) ? 'text-purple-700 bg-purple-50 font-semibold' : ''
+                            className={`flex items-center space-x-2 px-4 py-2 hover:bg-purple-50 transition-colors ${
+                              isActive(item.path) ? 'text-purple-700 bg-purple-50' : 'text-gray-700'
                             }`}
                             onClick={() => setShowMenu(false)}
                           >
@@ -134,10 +134,10 @@ const Header: React.FC = () => {
 
                 <Link 
                   to="/competitions"
-                  className={`nav-link px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-1 text-gray-700 hover:text-purple-700 hover:bg-purple-50 ${
+                  className={`nav-link px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-1 ${
                     isActive('/competitions') 
-                      ? 'text-purple-700 bg-purple-50 font-semibold' 
-                      : ''
+                      ? 'text-purple-700 bg-purple-50' 
+                      : 'hover:text-purple-700 hover:bg-purple-50/50'
                   }`}
                 >
                   <Trophy className="w-4 h-4" />
@@ -150,7 +150,7 @@ const Header: React.FC = () => {
           <div className="relative" ref={dropdownRef}>
             <Button
               variant="ghost"
-              className="flex items-center space-x-2 hover:bg-purple-100 group transition-all duration-300 text-gray-700"
+              className="flex items-center space-x-2 hover:bg-purple-100 group transition-all duration-300"
               onClick={() => setShowDropdown(!showDropdown)}
             >
               {isLoggedIn && user?.profile && (
@@ -158,8 +158,8 @@ const Header: React.FC = () => {
                   {user.profile.fullName}
                 </span>
               )}
-              <User className="h-5 w-5 group-hover:scale-110 transition-transform text-gray-700" />
-              <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${showDropdown ? 'rotate-180' : ''} group-hover:text-purple-600 text-gray-700`} />
+              <User className="h-5 w-5 group-hover:scale-110 transition-transform" />
+              <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${showDropdown ? 'rotate-180' : ''} group-hover:text-purple-600`} />
             </Button>
             
             <AnimatePresence>
