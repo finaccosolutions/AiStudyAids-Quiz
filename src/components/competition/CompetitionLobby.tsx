@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { supabase } from '../../services/supabase';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Users, Clock, Trophy, Copy, CheckCircle, MessageCircle, Crown, Zap, Play, UserPlus, Hash, Mail, Timer, Target, Brain, Settings, Globe, BookOpen, Award, Star, Activity, Rocket, Shield, CloudLightning as Lightning, Sparkles, X, LogOut, Trash2, AlertTriangle } from 'lucide-react';
@@ -157,7 +158,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     };
   }, [competition.id, isComponentMounted]);
 
-  // Enhanced status monitoring
+  // Enhanced status monitoring - prevent automatic navigation
   useEffect(() => {
     if (!isComponentMounted) return;
     
@@ -177,15 +178,10 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
       }, 1000);
       
       return () => clearInterval(timer);
-    } else if (competition.status === 'cancelled' || competition.status === 'completed') {
-      // Competition ended, redirect after a delay
-      setTimeout(() => {
-        if (isComponentMounted) {
-          navigate('/quiz');
-        }
-      }, 3000);
     }
-  }, [competition.status, onStartQuiz, isComponentMounted, navigate]);
+    // Remove automatic navigation for cancelled/completed competitions
+    // Let users manually navigate away
+  }, [competition.status, onStartQuiz, isComponentMounted]);
 
   // Periodic data refresh to ensure consistency
   useEffect(() => {
@@ -195,7 +191,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
       if (isComponentMounted) {
         loadParticipants(competition.id);
       }
-    }, 10000); // Refresh every 10 seconds
+    }, 5000); // Refresh every 5 seconds for better real-time updates
 
     return () => clearInterval(refreshInterval);
   }, [competition.id, isComponentMounted, loadParticipants]);
@@ -316,7 +312,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     );
   }
 
-  // Show cancelled/completed message
+  // Show cancelled/completed message - but don't auto-navigate
   if (competition.status === 'cancelled' || competition.status === 'completed') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 flex items-center justify-center">
@@ -337,7 +333,12 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
               : 'This competition has ended.'
             }
           </p>
-          <p className="text-lg opacity-60">Redirecting you back...</p>
+          <Button
+            onClick={() => navigate('/quiz')}
+            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 px-8 py-3 text-lg font-bold"
+          >
+            Back to Quiz
+          </Button>
         </motion.div>
       </div>
     );
@@ -507,7 +508,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                           <div className="flex items-center space-x-2 mb-1">
                             <h4 className="font-bold text-slate-800 text-xl">
                               {participant.profile?.full_name || 
-                               participant.email || 
+                               participant.email?.split('@')[0] || 
                                'Anonymous User'}
                             </h4>
                             {participant.user_id === competition.creator_id && (
@@ -533,24 +534,26 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                     </motion.div>
                   ))}
                   
-                  {/* Waiting for more players */}
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-gradient-to-r from-slate-50 to-slate-100 p-6 rounded-2xl border-2 border-dashed border-slate-300 flex items-center justify-center min-h-[140px] relative overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-slate-100/50 to-slate-200/50 rounded-2xl" />
-                    <div className="text-center relative z-10">
-                      <motion.div
-                        animate={{ y: [0, -5, 0] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      >
-                        <UserPlus className="w-12 h-12 mx-auto mb-3 text-slate-400" />
-                      </motion.div>
-                      <span className="text-sm font-medium text-slate-500">Waiting for warriors...</span>
-                      <p className="text-xs mt-1 text-slate-400">Share code: <strong>{competition.competition_code}</strong></p>
-                    </div>
-                  </motion.div>
+                  {/* Show waiting slot only if less than max participants */}
+                  {joinedParticipants.length < (competition.max_participants || 10) && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-gradient-to-r from-slate-50 to-slate-100 p-6 rounded-2xl border-2 border-dashed border-slate-300 flex items-center justify-center min-h-[140px] relative overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-slate-100/50 to-slate-200/50 rounded-2xl" />
+                      <div className="text-center relative z-10">
+                        <motion.div
+                          animate={{ y: [0, -5, 0] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                          <UserPlus className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                        </motion.div>
+                        <span className="text-sm font-medium text-slate-500">Waiting for warriors...</span>
+                        <p className="text-xs mt-1 text-slate-400">Share code: <strong>{competition.competition_code}</strong></p>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
                 
                 {!canStart && (
@@ -813,7 +816,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                             }`}
                           >
                             <p className="text-xs font-medium mb-1 opacity-75">
-                              {message.profile?.full_name || 'Anonymous'}
+                              {message.profile?.full_name || message.email?.split('@')[0] || 'Anonymous'}
                             </p>
                             <p className="text-sm">{message.message}</p>
                           </div>
