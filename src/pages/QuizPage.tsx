@@ -254,6 +254,7 @@ useEffect(() => {
   };
 
 
+
   const handleCompetitionComplete = () => {
     setStep('competition-results');
   };
@@ -378,16 +379,16 @@ useEffect(() => {
         );
 
       case 'competition-quiz':
-        if (!currentCompetition || competitionQuestions.length === 0) {
-          return <div>Loading quiz...</div>;
+        if (!currentCompetition) {
+          return <div>Loading competition...</div>;
         }
         return (
           <CompetitionQuiz
             competition={currentCompetition}
-            questions={competitionQuestions}
             onComplete={handleCompetitionComplete}
           />
         );
+
 
       case 'competition-results':
         if (!currentCompetition) {

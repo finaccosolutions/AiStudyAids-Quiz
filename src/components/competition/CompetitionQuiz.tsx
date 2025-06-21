@@ -18,7 +18,6 @@ import { generateQuiz } from '../../services/gemini';
 import { speechService } from '../../services/speech';
 import { supabase } from '../../services/supabase';
 
-
 interface CompetitionQuizProps {
   competition: Competition;
   onComplete: () => void;

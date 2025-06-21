@@ -54,96 +54,101 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const userParticipant = participantsWithProfiles.find(p => p.user_id === user?.id);
 
   // Enhanced participant loading with better profile fetching
-// Enhanced participant loading with better profile fetching
-const loadParticipantsWithProfiles = async () => {
-  try {
-    console.log('Loading participants with profiles for competition:', competition.id);
-    
-    // First get all participants
-    const { data: participantsData, error: participantsError } = await supabase
-      .from('competition_participants')
-      .select('*')
-      .eq('competition_id', competition.id)
-      .order('joined_at', { ascending: true });
-
-    if (participantsError) {
-      console.error('Error loading participants:', participantsError);
-      return;
-    }
-
-    console.log('Raw participants data:', participantsData);
-
-    if (!participantsData || participantsData.length === 0) {
-      setParticipantsWithProfiles([]);
-      return;
-    }
-
-    // Get user IDs that have profiles (including creator)
-    const allUserIds = new Set();
-    
-    // Add creator ID
-    allUserIds.add(competition.creator_id);
-    
-    // Add participant user IDs
-    participantsData.forEach(p => {
-      if (p.user_id) {
-        allUserIds.add(p.user_id);
-      }
-    });
-
-    const userIds = Array.from(allUserIds);
-    let profilesData: any[] = [];
-    
-    if (userIds.length > 0) {
-      // Get profiles for all users
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, avatar_url')
-        .in('user_id', userIds);
-
-      if (profilesError) {
-        console.error('Error loading profiles:', profilesError);
-      } else {
-        profilesData = profiles || [];
-      }
-    }
-
-    console.log('Profiles data:', profilesData);
-
-    // Get creator profile
-    const creatorProfile = profilesData.find(p => p.user_id === competition.creator_id);
-
-    // Combine participants with their profiles
-    const participantsWithProfileData = participantsData.map(participant => {
-      const profile = profilesData.find(p => p.user_id === participant.user_id);
+  const loadParticipantsWithProfiles = async () => {
+    try {
+      console.log('Loading participants with profiles for competition:', competition.id);
       
-      let displayName = 'Anonymous User';
-      if (profile?.full_name) {
-        displayName = profile.full_name;
-      } else if (participant.email) {
-        displayName = participant.email.split('@')[0];
-      } else if (participant.user_id === competition.creator_id) {
-        displayName = creatorProfile?.full_name || 'Competition Creator';
+      // First get all participants
+      const { data: participantsData, error: participantsError } = await supabase
+        .from('competition_participants')
+        .select('*')
+        .eq('competition_id', competition.id)
+        .order('joined_at', { ascending: true });
+  
+      if (participantsError) {
+        console.error('Error loading participants:', participantsError);
+        return;
       }
+  
+      console.log('Raw participants data:', participantsData);
+  
+      if (!participantsData || participantsData.length === 0) {
+        setParticipantsWithProfiles([]);
+        return;
+      }
+  
+      // Get all unique user IDs (including creator and participants)
+      const allUserIds = new Set();
+      
+      // Add creator ID
+      allUserIds.add(competition.creator_id);
+      
+      // Add participant user IDs
+      participantsData.forEach(p => {
+        if (p.user_id) {
+          allUserIds.add(p.user_id);
+        }
+      });
+  
+      const userIds = Array.from(allUserIds);
+      let profilesData: any[] = [];
+      
+      if (userIds.length > 0) {
+        // Get profiles for all users with a more permissive query
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', userIds);
+  
+        if (profilesError) {
+          console.error('Error loading profiles:', profilesError);
+          // Continue without profiles rather than failing
+        } else {
+          profilesData = profiles || [];
+        }
+      }
+  
+      console.log('Profiles data:', profilesData);
+  
+      // Get creator profile specifically
+      const creatorProfile = profilesData.find(p => p.user_id === competition.creator_id);
+  
+      // Combine participants with their profiles
+      const participantsWithProfileData = participantsData.map(participant => {
+        const profile = profilesData.find(p => p.user_id === participant.user_id);
+        
+        let displayName = 'Anonymous User';
+        
+        // Priority order for display name
+        if (profile?.full_name) {
+          displayName = profile.full_name;
+        } else if (participant.user_id === competition.creator_id && creatorProfile?.full_name) {
+          displayName = creatorProfile.full_name;
+        } else if (participant.email) {
+          displayName = participant.email.split('@')[0];
+        } else if (participant.user_id === competition.creator_id) {
+          displayName = 'Competition Creator';
+        }
+  
+        return {
+          ...participant,
+          profile: {
+            full_name: displayName,
+            avatar_url: profile?.avatar_url || null
+          },
+          is_online: participant.is_online ?? true,
+          last_activity: participant.last_activity ?? new Date().toISOString()
+        };
+      });
+  
+      console.log('Final participants with profiles:', participantsWithProfileData);
+      setParticipantsWithProfiles(participantsWithProfileData);
+      
+    } catch (error) {
+      console.error('Error in loadParticipantsWithProfiles:', error);
+    }
+  };
 
-      return {
-        ...participant,
-        profile: {
-          full_name: displayName,
-          avatar_url: profile?.avatar_url || null
-        },
-        is_online: participant.is_online ?? true,
-        last_activity: participant.last_activity ?? new Date().toISOString()
-      };
-    });
-
-    console.log('Final participants with profiles:', participantsWithProfileData);
-    setParticipantsWithProfiles(participantsWithProfileData);
-    
-  } catch (error) {
-    console.error('Error in loadParticipantsWithProfiles:', error);
-  }
-};
 
 
   // Heartbeat to keep session alive and update participant activity
