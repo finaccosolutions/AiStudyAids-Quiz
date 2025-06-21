@@ -434,6 +434,13 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
     try {
       console.log('Loading participants for competition:', competitionId);
       
+      // Get current user to ensure we have user context
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No authenticated user found');
+        return;
+      }
+
       // Enhanced query to get participants with profile data using proper joins
       const { data: participantsWithProfiles, error } = await supabase
         .from('competition_participants')
@@ -490,6 +497,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           displayName = p.profiles.full_name;
         } else if (p.email) {
           displayName = p.email.split('@')[0];
+        } else if (p.user_id) {
+          // For users without profiles, try to get their email from auth.users
+          displayName = 'User';
         }
         
         return {
@@ -643,7 +653,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .from('user_stats')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle(); // Changed from single() to maybeSingle()
 
       const isWin = rank === 1;
       const isLoss = rank > 1;
@@ -692,7 +702,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .from('user_stats')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle(); // Changed from single() to maybeSingle()
 
       if (error && error.code !== 'PGRST116') throw error;
 

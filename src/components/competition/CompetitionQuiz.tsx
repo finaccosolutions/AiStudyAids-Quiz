@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useQuizStore } from '../../store/useQuizStore';
 import { Button } from '../ui/Button';
 import { Card, CardBody } from '../ui/Card';
 import { 
@@ -13,19 +12,19 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
 import { Question } from '../../types';
-import { generateQuiz } from '../../services/gemini';
 
 interface CompetitionQuizProps {
   competition: Competition;
+  questions: Question[];
   onComplete: () => void;
 }
 
 const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   competition,
+  questions,
   onComplete
 }) => {
   const { user } = useAuthStore();
-  const { apiKey } = useQuizStore();
   const { 
     participants, 
     updateParticipantProgress,
@@ -34,7 +33,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     getLiveLeaderboard
   } = useCompetitionStore();
 
-  const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState<number>(
@@ -47,37 +45,11 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [selectedAnswer, setSelectedAnswer] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const currentQuestion = questions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const joinedParticipants = participants.filter(p => p.status === 'joined' || p.status === 'completed');
   const leaderboard = getLiveLeaderboard(competition.id);
-
-  // Generate questions when component mounts
-  useEffect(() => {
-    const generateCompetitionQuestions = async () => {
-      if (!apiKey || !competition.quiz_preferences) {
-        setError('Missing API key or quiz preferences');
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        const generatedQuestions = await generateQuiz(apiKey, competition.quiz_preferences);
-        setQuestions(generatedQuestions);
-        setIsLoading(false);
-      } catch (error: any) {
-        console.error('Failed to generate questions:', error);
-        setError(error.message || 'Failed to generate questions');
-        setIsLoading(false);
-      }
-    };
-
-    generateCompetitionQuestions();
-  }, [apiKey, competition.quiz_preferences]);
 
   useEffect(() => {
     if (competition.id) {
@@ -94,23 +66,21 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
   // Per-question timer
   useEffect(() => {
-    if (timeLeft > 0 && !isLoading) {
+    if (timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (timeLeft === 0 && !isLoading) {
+    } else if (timeLeft === 0) {
       handleNextQuestion();
     }
-  }, [timeLeft, isLoading]);
+  }, [timeLeft]);
 
   // Total time elapsed timer
   useEffect(() => {
-    if (!isLoading) {
-      const timer = setInterval(() => {
-        setTotalTimeElapsed(Math.floor((Date.now() - startTime) / 1000));
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [startTime, isLoading]);
+    const timer = setInterval(() => {
+      setTotalTimeElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [startTime]);
 
   const calculateScore = useCallback((questionId: number, userAnswer: string) => {
     const question = questions.find(q => q.id === questionId);
@@ -286,44 +256,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center text-white"
-        >
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-2xl font-bold mb-2">Generating Quiz Questions</h2>
-          <p className="text-white/80">Please wait while we prepare your competition...</p>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-900 via-red-800 to-red-900 flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center text-white max-w-md mx-auto p-8"
-        >
-          <XCircle className="w-16 h-16 mx-auto mb-4 text-red-400" />
-          <h2 className="text-2xl font-bold mb-4">Quiz Generation Failed</h2>
-          <p className="text-red-200 mb-6">{error}</p>
-          <Button
-            onClick={() => window.location.reload()}
-            className="bg-white text-red-900 hover:bg-red-50"
-          >
-            Try Again
-          </Button>
-        </motion.div>
-      </div>
-    );
-  }
-
   if (!questions.length) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
@@ -332,8 +264,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
           animate={{ opacity: 1, scale: 1 }}
           className="text-center text-white"
         >
+          <XCircle className="w-16 h-16 mx-auto mb-4 text-red-400" />
           <h2 className="text-2xl font-bold mb-2">No Questions Available</h2>
-          <p className="text-white/80">Unable to generate questions for this competition.</p>
+          <p className="text-white/80">Unable to load questions for this competition.</p>
         </motion.div>
       </div>
     );

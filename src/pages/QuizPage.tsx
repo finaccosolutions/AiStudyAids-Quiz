@@ -17,6 +17,7 @@ import CompetitionResults from '../components/competition/CompetitionResults';
 import CompetitionManagement from '../components/competition/CompetitionManagement';
 import { Button } from '../components/ui/Button';
 import { ArrowLeft } from 'lucide-react';
+import { Question } from '../types';
 
 const QuizPage: React.FC = () => {
   const { user, isLoggedIn } = useAuthStore();
@@ -50,7 +51,7 @@ const QuizPage: React.FC = () => {
   
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
   const [totalTimeRemaining, setTotalTimeRemaining] = useState<number | null>(null);
-  const [competitionQuestions, setCompetitionQuestions] = useState<any[]>([]);
+  const [competitionQuestions, setCompetitionQuestions] = useState<Question[]>([]);
   
   useEffect(() => {
     if (user) {
@@ -184,6 +185,7 @@ useEffect(() => {
     clearCurrentCompetition();
     setSelectedMode(null);
     setTotalTimeRemaining(null);
+    setCompetitionQuestions([]);
     setStep('mode-selector');
   };
 
@@ -261,6 +263,7 @@ useEffect(() => {
 
   const handleNewCompetition = () => {
     clearCurrentCompetition();
+    setCompetitionQuestions([]);
     setStep('mode-selector');
   };
 
