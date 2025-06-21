@@ -221,108 +221,104 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
     }
   },
 
-  joinCompetition: async (code) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+joinCompetition: async (code) => {
+  set({ isLoading: true, error: null });
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
 
-      // First, find competition by code regardless of status
-      const { data: competitions, error: compError } = await supabase
-        .from('competitions')
-        .select('*')
-        .eq('competition_code', code.toUpperCase());
+    // Find competition by code
+    const { data: competitions, error: compError } = await supabase
+      .from('competitions')
+      .select('*')
+      .eq('competition_code', code.toUpperCase());
 
-      if (compError) {
-        console.error('Database error:', compError);
-        throw new Error('Failed to search for competition. Please try again.');
+    if (compError) {
+      console.error('Database error:', compError);
+      throw new Error('Failed to search for competition. Please try again.');
+    }
+
+    if (!competitions || competitions.length === 0) {
+      throw new Error('Competition not found. Please check the code and try again.');
+    }
+
+    const competition = competitions[0];
+
+    // Check competition status
+    if (competition.status !== 'waiting') {
+      throw new Error(`This competition is not currently accepting participants (Status: ${competition.status}).`);
+    }
+
+    // Check if user is already a participant
+    const { data: existingParticipant, error: participantError } = await supabase
+      .from('competition_participants')
+      .select('*')
+      .eq('competition_id', competition.id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (participantError) {
+      console.error('Error checking existing participant:', participantError);
+      throw new Error('Failed to check participation status. Please try again.');
+    }
+
+    const updateData: any = { 
+      status: 'joined', 
+      joined_at: new Date().toISOString(),
+      is_online: true,
+      last_activity: new Date().toISOString(),
+      current_question: 0,
+      questions_answered: 0,
+      is_ready: false
+    };
+
+    if (existingParticipant) {
+      if (existingParticipant.status === 'joined') {
+        throw new Error('You are already participating in this competition');
       }
-
-      if (!competitions || competitions.length === 0) {
-        throw new Error('Competition not found. Please check the code and try again.');
-      }
-
-      const competition = competitions[0];
-
-      // Check competition status and provide specific error messages
-      if (competition.status === 'completed') {
-        throw new Error('This competition has already ended and is no longer accepting participants.');
-      }
-
-      if (competition.status === 'cancelled') {
-        throw new Error('This competition has been cancelled and is no longer available.');
-      }
-
-      if (competition.status === 'active') {
-        throw new Error('This competition is currently in progress and no longer accepting new participants.');
-      }
-
-      if (competition.status !== 'waiting') {
-        throw new Error(`This competition is not currently accepting participants (Status: ${competition.status}).`);
-      }
-
-      // Check if user is already a participant
-      const { data: existingParticipant, error: participantError } = await supabase
+      // Update status if previously declined or invited
+      const { error: updateError } = await supabase
         .from('competition_participants')
-        .select('*')
-        .eq('competition_id', competition.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
+        .update(updateData)
+        .eq('id', existingParticipant.id);
 
-      if (participantError) {
-        console.error('Error checking existing participant:', participantError);
-        throw new Error('Failed to check participation status. Please try again.');
+      if (updateError) {
+        console.error('Error updating participant status:', updateError);
+        throw new Error('Failed to join competition. Please try again.');
       }
-
-      const updateData: any = { 
-        status: 'joined', 
-        joined_at: new Date().toISOString(),
-        is_online: true,
-        last_activity: new Date().toISOString(),
-        current_question: 0,
-        questions_answered: 0,
-        is_ready: false
+    } else {
+      // Add as new participant
+      const insertData = {
+        competition_id: competition.id,
+        user_id: user.id,
+        ...updateData
       };
 
-      if (existingParticipant) {
-        if (existingParticipant.status === 'joined') {
-          throw new Error('You are already participating in this competition');
-        }
-        // Update status if previously declined or invited
-        const { error: updateError } = await supabase
-          .from('competition_participants')
-          .update(updateData)
-          .eq('id', existingParticipant.id);
+      const { error: insertError } = await supabase
+        .from('competition_participants')
+        .insert(insertData);
 
-        if (updateError) {
-          console.error('Error updating participant status:', updateError);
-          throw new Error('Failed to join competition. Please try again.');
-        }
-      } else {
-        // Add as new participant
-        const insertData = {
-          competition_id: competition.id,
-          user_id: user.id,
-          ...updateData
-        };
-
-        const { error: insertError } = await supabase
-          .from('competition_participants')
-          .insert(insertData);
-
-        if (insertError) {
-          console.error('Error inserting new participant:', insertError);
-          throw new Error('Failed to join competition. Please try again.');
-        }
+      if (insertError) {
+        console.error('Error inserting new participant:', insertError);
+        throw new Error('Failed to join competition. Please try again.');
       }
-
-      set({ currentCompetition: competition, isLoading: false });
-    } catch (error: any) {
-      console.error('Join competition error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
     }
-  },
+
+    // Set current competition and force load participants
+    set({ currentCompetition: competition, isLoading: false });
+    
+    // Force load participants after joining
+    setTimeout(() => {
+      get().loadParticipants(competition.id);
+    }, 500);
+    
+  } catch (error: any) {
+    console.error('Join competition error:', error);
+    set({ error: error.message, isLoading: false });
+    throw error;
+  }
+},
+
 
   markParticipantReady: async (competitionId) => {
     try {
@@ -523,112 +519,171 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
     }
   },
 
-    loadParticipants: async (competitionId) => {
-      try {
-        console.log('Loading participants for competition:', competitionId);
-        
-        // Get current user to ensure we have user context
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          console.error('No authenticated user found');
-          return;
-        }
+loadParticipants: async (competitionId) => {
+  try {
+    console.log('Loading participants for competition:', competitionId);
     
-        // Enhanced query to get participants with profile data using proper joins
-        const { data: participantsWithProfiles, error } = await supabase
-          .from('competition_participants')
-          .select(`
-            *,
-            profiles!competition_participants_user_id_profiles_fkey (
-              full_name,
-              avatar_url
-            )
-          `)
-          .eq('competition_id', competitionId)
-          .in('status', ['joined', 'completed']) // Only show joined and completed participants
-          .order('score', { ascending: false })
-          .order('time_taken', { ascending: true });
-    
-        if (error) {
-          console.error('Error loading participants with profiles:', error);
-          
-          // Fallback: Load participants without profiles
-          const { data: participants, error: fallbackError } = await supabase
-            .from('competition_participants')
-            .select('*')
-            .eq('competition_id', competitionId)
-            .in('status', ['joined', 'completed'])
-            .order('score', { ascending: false })
-            .order('time_taken', { ascending: true });
-    
-          if (fallbackError) {
-            console.error('Fallback query also failed:', fallbackError);
-            throw fallbackError;
-          }
-    
-          console.log('Using fallback participants data:', participants);
-          
-          // Format participants without profile data
-          const formattedParticipants = (participants || []).map(p => ({
-            ...p,
-            profile: {
-              full_name: p.email ? p.email.split('@')[0] : 'Anonymous User',
-              avatar_url: null
-            },
-            is_online: p.is_online ?? true,
-            last_activity: p.last_activity ?? new Date().toISOString(),
-            current_question: p.current_question ?? 0,
-            questions_answered: p.questions_answered ?? 0,
-            is_ready: p.is_ready ?? false,
-            score: p.score ?? 0,
-            correct_answers: p.correct_answers ?? 0,
-            time_taken: p.time_taken ?? 0
-          }));
-    
-          set({ participants: formattedParticipants });
-          return;
-        }
-    
-        console.log('Participants with profiles loaded:', participantsWithProfiles);
-    
-        // Format participants with profile data
-        const formattedParticipants = (participantsWithProfiles || []).map(p => {
-          // Get display name with better fallback logic
-          let displayName = 'Anonymous User';
-          
-          if (p.profiles?.full_name) {
-            displayName = p.profiles.full_name;
-          } else if (p.email) {
-            displayName = p.email.split('@')[0];
-          } else if (p.user_id) {
-            // For users without profiles, try to get their email from auth.users
-            displayName = 'User';
-          }
-          
-          return {
-            ...p,
-            profile: {
-              full_name: displayName,
-              avatar_url: p.profiles?.avatar_url || null
-            },
-            is_online: p.is_online ?? true,
-            last_activity: p.last_activity ?? new Date().toISOString(),
-            current_question: p.current_question ?? 0,
-            questions_answered: p.questions_answered ?? 0,
-            is_ready: p.is_ready ?? false,
-            score: p.score ?? 0,
-            correct_answers: p.correct_answers ?? 0,
-            time_taken: p.time_taken ?? 0
-          };
-        });
-    
-        console.log('Final formatted participants:', formattedParticipants);
-        set({ participants: formattedParticipants });
-      } catch (error: any) {
-        console.error('Error in loadParticipants:', error);
-        set({ error: error.message });
+    // Get current user to ensure we have user context
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('No authenticated user found');
+      return;
+    }
+
+    // First, verify the user has access to this competition
+    const { data: userAccess, error: accessError } = await supabase
+      .from('competition_participants')
+      .select('status')
+      .eq('competition_id', competitionId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (accessError && accessError.code !== 'PGRST116') {
+      console.error('Error checking user access:', accessError);
+      throw accessError;
+    }
+
+    // Also check if user is the creator
+    const { data: competition, error: compError } = await supabase
+      .from('competitions')
+      .select('creator_id')
+      .eq('id', competitionId)
+      .single();
+
+    if (compError) {
+      console.error('Error checking competition creator:', compError);
+      throw compError;
+    }
+
+    const isCreator = competition.creator_id === user.id;
+    const isParticipant = userAccess && ['joined', 'completed'].includes(userAccess.status);
+
+    if (!isCreator && !isParticipant) {
+      console.error('User does not have access to this competition');
+      set({ error: 'Access denied to this competition' });
+      return;
+    }
+
+    // Load all participants with enhanced query
+    const { data: participantsWithProfiles, error } = await supabase
+      .from('competition_participants')
+      .select(`
+        *,
+        profiles!inner (
+          full_name,
+          avatar_url
+        )
+      `)
+      .eq('competition_id', competitionId)
+      .in('status', ['joined', 'completed'])
+      .order('score', { ascending: false })
+      .order('time_taken', { ascending: true });
+
+    if (error) {
+      console.error('Error loading participants with profiles:', error);
+      
+      // Fallback: Try without inner join
+      const { data: participants, error: fallbackError } = await supabase
+        .from('competition_participants')
+        .select('*')
+        .eq('competition_id', competitionId)
+        .in('status', ['joined', 'completed'])
+        .order('score', { ascending: false })
+        .order('time_taken', { ascending: true });
+
+      if (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError);
+        throw fallbackError;
       }
-    },
+
+      console.log('Using fallback participants data:', participants);
+      
+      // For fallback, try to get profile data separately
+      const userIds = participants?.map(p => p.user_id).filter(Boolean) || [];
+      let profilesMap = new Map();
+      
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', userIds);
+        
+        if (profiles) {
+          profiles.forEach(profile => {
+            profilesMap.set(profile.user_id, profile);
+          });
+        }
+      }
+      
+      // Format participants with profile data from map
+      const formattedParticipants = (participants || []).map(p => {
+        const profile = profilesMap.get(p.user_id);
+        let displayName = 'Anonymous User';
+        
+        if (profile?.full_name) {
+          displayName = profile.full_name;
+        } else if (p.email) {
+          displayName = p.email.split('@')[0];
+        }
+        
+        return {
+          ...p,
+          profile: {
+            full_name: displayName,
+            avatar_url: profile?.avatar_url || null
+          },
+          is_online: p.is_online ?? true,
+          last_activity: p.last_activity ?? new Date().toISOString(),
+          current_question: p.current_question ?? 0,
+          questions_answered: p.questions_answered ?? 0,
+          is_ready: p.is_ready ?? false,
+          score: p.score ?? 0,
+          correct_answers: p.correct_answers ?? 0,
+          time_taken: p.time_taken ?? 0
+        };
+      });
+
+      set({ participants: formattedParticipants });
+      return;
+    }
+
+    console.log('Participants with profiles loaded:', participantsWithProfiles);
+
+    // Format participants with profile data
+    const formattedParticipants = (participantsWithProfiles || []).map(p => {
+      let displayName = 'Anonymous User';
+      
+      if (p.profiles?.full_name) {
+        displayName = p.profiles.full_name;
+      } else if (p.email) {
+        displayName = p.email.split('@')[0];
+      }
+      
+      return {
+        ...p,
+        profile: {
+          full_name: displayName,
+          avatar_url: p.profiles?.avatar_url || null
+        },
+        is_online: p.is_online ?? true,
+        last_activity: p.last_activity ?? new Date().toISOString(),
+        current_question: p.current_question ?? 0,
+        questions_answered: p.questions_answered ?? 0,
+        is_ready: p.is_ready ?? false,
+        score: p.score ?? 0,
+        correct_answers: p.correct_answers ?? 0,
+        time_taken: p.time_taken ?? 0
+      };
+    });
+
+    console.log('Final formatted participants:', formattedParticipants);
+    set({ participants: formattedParticipants });
+  } catch (error: any) {
+    console.error('Error in loadParticipants:', error);
+    set({ error: error.message });
+  }
+},
+
 
 
   updateParticipantProgress: async (competitionId, answers, score, correctAnswers, timeTaken, currentQuestion) => {
@@ -1152,75 +1207,94 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
   },
 
   // Enhanced Real-time subscriptions with better error handling
-    subscribeToCompetition: (competitionId) => {
-      const { activeSubscriptions } = get();
-      
-      // Clean up existing subscription for this competition
-      const existingKey = `competition:${competitionId}`;
-      if (activeSubscriptions.has(existingKey)) {
-        const existing = activeSubscriptions.get(existingKey);
-        if (existing && typeof existing.unsubscribe === 'function') {
-          existing.unsubscribe();
+subscribeToCompetition: (competitionId) => {
+  const { activeSubscriptions } = get();
+  
+  // Clean up existing subscription for this competition
+  const existingKey = `competition:${competitionId}`;
+  if (activeSubscriptions.has(existingKey)) {
+    const existing = activeSubscriptions.get(existingKey);
+    if (existing && typeof existing.unsubscribe === 'function') {
+      existing.unsubscribe();
+    }
+  }
+
+  console.log(`Setting up competition subscription for: ${competitionId}`);
+  
+  const subscription = supabase
+    .channel(`competition:${competitionId}`)
+    .on('postgres_changes', 
+      { 
+        event: '*', 
+        schema: 'public', 
+        table: 'competitions',
+        filter: `id=eq.${competitionId}`
+      }, 
+      (payload) => {
+        console.log('Competition change detected:', payload);
+        if (payload.eventType === 'UPDATE') {
+          set({ currentCompetition: payload.new as Competition });
         }
       }
-    
-      console.log(`Setting up competition subscription for: ${competitionId}`);
-      
-      const subscription = supabase
-        .channel(`competition:${competitionId}`)
-        .on('postgres_changes', 
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'competitions',
-            filter: `id=eq.${competitionId}`
-          }, 
-          (payload) => {
-            console.log('Competition change detected:', payload);
-            if (payload.eventType === 'UPDATE') {
-              set({ currentCompetition: payload.new as Competition });
-            }
-          }
-        )
-        .on('postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'competition_participants',
-            filter: `competition_id=eq.${competitionId}`
-          },
-          (payload) => {
-            console.log('Participant change detected:', payload);
-            // Reload participants when any change occurs
-            setTimeout(() => {
-              get().loadParticipants(competitionId);
-            }, 100); // Reduced delay for faster updates
-          }
-        )
-        .subscribe((status) => {
-          console.log(`Competition subscription status: ${status}`);
-          if (status === 'SUBSCRIBED') {
-            console.log('Successfully subscribed to competition updates');
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('Competition subscription error');
-            // Retry subscription after a delay
-            setTimeout(() => {
-              get().subscribeToCompetition(competitionId);
-            }, 5000);
-          }
-        });
-    
-      // Store subscription for cleanup
-      activeSubscriptions.set(existingKey, subscription);
-      set({ activeSubscriptions });
-    
-      return () => {
-        console.log(`Unsubscribing from competition: ${competitionId}`);
-        subscription.unsubscribe();
-        activeSubscriptions.delete(existingKey);
-        set({ activeSubscriptions });
-      };
-    },
+    )
+    .on('postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'competition_participants',
+        filter: `competition_id=eq.${competitionId}`
+      },
+      (payload) => {
+        console.log('Participant change detected:', payload);
+        // Force reload participants when any change occurs
+        setTimeout(() => {
+          get().loadParticipants(competitionId);
+        }, 500); // Increased delay to ensure database consistency
+      }
+    )
+    .on('postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'profiles'
+      },
+      (payload) => {
+        console.log('Profile change detected:', payload);
+        // Reload participants when profile changes occur
+        setTimeout(() => {
+          get().loadParticipants(competitionId);
+        }, 300);
+      }
+    )
+    .subscribe((status) => {
+      console.log(`Competition subscription status: ${status}`);
+      if (status === 'SUBSCRIBED') {
+        console.log('Successfully subscribed to competition updates');
+        // Initial load after subscription is established
+        setTimeout(() => {
+          get().loadParticipants(competitionId);
+        }, 100);
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('Competition subscription error');
+        // Retry subscription after a delay
+        setTimeout(() => {
+          get().subscribeToCompetition(competitionId);
+        }, 5000);
+      }
+    });
+
+  // Store subscription for cleanup
+  activeSubscriptions.set(existingKey, subscription);
+  set({ activeSubscriptions });
+
+  return () => {
+    console.log(`Unsubscribing from competition: ${competitionId}`);
+    subscription.unsubscribe();
+    activeSubscriptions.delete(existingKey);
+    set({ activeSubscriptions });
+  };
+},
+
 
 
   subscribeToChat: (competitionId) => {
