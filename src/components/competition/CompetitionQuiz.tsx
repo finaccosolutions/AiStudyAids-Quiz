@@ -1,38 +1,46 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useQuizStore } from '../../store/useQuizStore';
 import { Button } from '../ui/Button';
 import { Card, CardBody } from '../ui/Card';
 import { 
   Clock, Users, Trophy, Target, Zap, 
   CheckCircle, ArrowRight, Crown, Timer,
   Activity, Star, Award, TrendingUp,
-  Brain, Eye, EyeOff, XCircle
+  Brain, Eye, EyeOff, XCircle, MessageCircle,
+  Send, Sparkles, Volume2, VolumeX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
 import { Question } from '../../types';
+import { generateQuiz } from '../../services/gemini';
+import { speechService } from '../../services/speech';
 
 interface CompetitionQuizProps {
   competition: Competition;
-  questions: Question[];
   onComplete: () => void;
 }
 
 const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   competition,
-  questions,
   onComplete
 }) => {
   const { user } = useAuthStore();
+  const { apiKey } = useQuizStore();
   const { 
     participants, 
     updateParticipantProgress,
     completeCompetition,
     subscribeToCompetition,
-    getLiveLeaderboard
+    getLiveLeaderboard,
+    chatMessages,
+    loadChatMessages,
+    sendChatMessage,
+    subscribeToChat
   } = useCompetitionStore();
 
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState<number>(
@@ -45,16 +53,55 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [selectedAnswer, setSelectedAnswer] = useState('');
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const currentQuestion = questions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const joinedParticipants = participants.filter(p => p.status === 'joined' || p.status === 'completed');
   const leaderboard = getLiveLeaderboard(competition.id);
 
+  // Generate questions when component mounts
+  useEffect(() => {
+    const generateCompetitionQuestions = async () => {
+      if (!apiKey || !competition.quiz_preferences) {
+        console.error('Missing API key or quiz preferences');
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        console.log('Generating questions for competition:', competition.id);
+        
+        const generatedQuestions = await generateQuiz(apiKey, competition.quiz_preferences);
+        console.log('Generated questions:', generatedQuestions);
+        
+        setQuestions(generatedQuestions);
+        setCurrentQuestionIndex(0);
+        setAnswers({});
+        setSelectedAnswer('');
+      } catch (error) {
+        console.error('Failed to generate competition questions:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    generateCompetitionQuestions();
+  }, [apiKey, competition.quiz_preferences]);
+
   useEffect(() => {
     if (competition.id) {
       const unsubscribe = subscribeToCompetition(competition.id);
-      return unsubscribe;
+      const unsubscribeChat = subscribeToChat(competition.id);
+      loadChatMessages(competition.id);
+      
+      return () => {
+        unsubscribe();
+        unsubscribeChat();
+      };
     }
   }, [competition.id]);
 
@@ -66,21 +113,23 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
   // Per-question timer
   useEffect(() => {
-    if (timeLeft > 0) {
+    if (timeLeft > 0 && !isLoading) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (timeLeft === 0) {
+    } else if (timeLeft === 0 && !isLoading) {
       handleNextQuestion();
     }
-  }, [timeLeft]);
+  }, [timeLeft, isLoading]);
 
   // Total time elapsed timer
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTotalTimeElapsed(Math.floor((Date.now() - startTime) / 1000));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [startTime]);
+    if (!isLoading) {
+      const timer = setInterval(() => {
+        setTotalTimeElapsed(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [startTime, isLoading]);
 
   const calculateScore = useCallback((questionId: number, userAnswer: string) => {
     const question = questions.find(q => q.id === questionId);
@@ -169,6 +218,30 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     onComplete
   ]);
 
+  const handleSendMessage = async () => {
+    if (chatMessage.trim() && user) {
+      await sendChatMessage(competition.id, chatMessage.trim());
+      setChatMessage('');
+    }
+  };
+
+  const playQuestionAudio = () => {
+    if (isSpeaking) {
+      speechService.stop();
+      setIsSpeaking(false);
+    } else {
+      speechService.speak(currentQuestion.text, competition.quiz_preferences?.language || 'English');
+      setIsSpeaking(true);
+      
+      const checkSpeakingInterval = setInterval(() => {
+        if (!speechService.isSpeaking()) {
+          setIsSpeaking(false);
+          clearInterval(checkSpeakingInterval);
+        }
+      }, 100);
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -256,6 +329,22 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center text-white"
+        >
+          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 className="text-2xl font-bold mb-2">Generating Questions...</h2>
+          <p className="text-white/80">Preparing your competition quiz</p>
+        </motion.div>
+      </div>
+    );
+  }
+
   if (!questions.length) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
@@ -315,6 +404,13 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                 {showLeaderboard ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 <span className="text-sm">Leaderboard</span>
               </button>
+              <button
+                onClick={() => setShowChat(!showChat)}
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white bg-opacity-10 hover:bg-opacity-20 transition-all"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span className="text-sm">Chat</span>
+              </button>
             </div>
           </div>
         </div>
@@ -331,6 +427,16 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                     <span className="text-sm font-medium text-purple-600 bg-purple-100 px-3 py-1 rounded-full">
                       {currentQuestion.difficulty} • {currentQuestion.type}
                     </span>
+                    <button
+                      onClick={playQuestionAudio}
+                      className={`p-2 rounded-full transition-all duration-300 ${
+                        isSpeaking 
+                          ? 'bg-purple-500 text-white shadow-lg scale-110' 
+                          : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600 hover:scale-105'
+                      }`}
+                    >
+                      {isSpeaking ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                    </button>
                     <div className="w-full bg-gray-200 rounded-full h-2 mx-4">
                       <motion.div
                         className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full"
@@ -478,38 +584,79 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                         </div>
                       </div>
                     </div>
-
-                    {/* Competition Stats */}
-                    <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
-                      <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
-                        <TrendingUp className="w-4 h-4 mr-2" />
-                        Competition Stats
-                      </h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Participants:</span>
-                          <span className="font-medium">{joinedParticipants.length}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Avg Progress:</span>
-                          <span className="font-medium">
-                            {Math.round(leaderboard.reduce((acc, p) => acc + getProgressPercentage(p), 0) / leaderboard.length || 0)}%
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Top Score:</span>
-                          <span className="font-medium">
-                            {leaderboard[0]?.score.toFixed(1) || '0'} pts
-                          </span>
-                        </div>
-                      </div>
-                    </div>
                   </CardBody>
                 </Card>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+
+        {/* Chat Panel */}
+        <AnimatePresence>
+          {showChat && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-8"
+            >
+              <Card className="bg-white bg-opacity-95 backdrop-blur-sm border-0 shadow-2xl">
+                <CardBody className="p-0">
+                  <div className="h-60 overflow-y-auto p-4 space-y-3 bg-gradient-to-br from-slate-50 to-indigo-50">
+                    {chatMessages.length === 0 ? (
+                      <div className="text-center text-slate-500 py-8">
+                        <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No messages yet</p>
+                      </div>
+                    ) : (
+                      chatMessages.map((message) => (
+                        <motion.div
+                          key={message.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`flex ${message.user_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
+                              message.user_id === user?.id
+                                ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white'
+                                : 'bg-white text-slate-800 border border-slate-200'
+                            }`}
+                          >
+                            <p className="text-xs font-medium mb-1 opacity-75">
+                              {message.profile?.full_name || 'Anonymous'}
+                            </p>
+                            <p>{message.message}</p>
+                          </div>
+                        </motion.div>
+                      ))
+                    )}
+                  </div>
+                  <div className="p-4 border-t border-slate-200 bg-white">
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={chatMessage}
+                        onChange={(e) => setChatMessage(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                        placeholder="Type a message..."
+                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                      />
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!chatMessage.trim()}
+                        size="sm"
+                        className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
+                      >
+                        <Send className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

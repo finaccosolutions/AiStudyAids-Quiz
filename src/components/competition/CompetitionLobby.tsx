@@ -1,4 +1,3 @@
-// src/components/competition/CompetitionLobby.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -53,6 +52,59 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const canStart = joinedParticipants.length >= 2;
   const userParticipant = participants.find(p => p.user_id === user?.id);
 
+  // Enhanced participant loading with better profile fetching
+  const loadParticipantsWithProfiles = async () => {
+    try {
+      console.log('Loading participants with profiles for competition:', competition.id);
+      
+      // Get participants with their profile data using a more robust query
+      const { data: participantsData, error } = await supabase
+        .from('competition_participants')
+        .select(`
+          *,
+          profiles!inner(
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('competition_id', competition.id)
+        .order('joined_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading participants with profiles:', error);
+        // Fallback to basic participant loading
+        await loadParticipants(competition.id);
+        return;
+      }
+
+      console.log('Participants with profiles loaded:', participantsData);
+
+      // Format participants with profile data
+      const formattedParticipants = (participantsData || []).map(p => {
+        const displayName = p.profiles?.full_name || p.email?.split('@')[0] || 'Anonymous User';
+        
+        return {
+          ...p,
+          profile: {
+            full_name: displayName,
+            avatar_url: p.profiles?.avatar_url || null
+          },
+          is_online: p.is_online ?? true,
+          last_activity: p.last_activity ?? new Date().toISOString()
+        };
+      });
+
+      console.log('Final formatted participants:', formattedParticipants);
+      
+      // Update the store directly since we have better data
+      useCompetitionStore.setState({ participants: formattedParticipants });
+    } catch (error) {
+      console.error('Error in loadParticipantsWithProfiles:', error);
+      // Fallback to store method
+      await loadParticipants(competition.id);
+    }
+  };
+
   // Heartbeat to keep session alive and update participant activity
   useEffect(() => {
     const startHeartbeat = () => {
@@ -72,7 +124,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
             return;
           }
           
-          // Update participant activity - only update if columns exist
+          // Update participant activity
           if (user?.id && competition.id) {
             try {
               await supabase
@@ -84,7 +136,6 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                 .eq('competition_id', competition.id)
                 .eq('user_id', user.id);
             } catch (updateError) {
-              // Silently handle column not found errors during migration
               console.debug('Participant activity update skipped:', updateError);
             }
           }
@@ -128,8 +179,8 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
 
     console.log('Setting up subscriptions for competition:', competition.id);
     
-    // Load initial data
-    loadParticipants(competition.id);
+    // Load initial data with enhanced profile loading
+    loadParticipantsWithProfiles();
     loadChatMessages(competition.id);
     
     // Set up subscriptions with proper cleanup
@@ -163,7 +214,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     };
   }, [competition.id, isComponentMounted]);
 
-  // Enhanced status monitoring - prevent automatic navigation
+  // Enhanced status monitoring
   useEffect(() => {
     if (!isComponentMounted) return;
     
@@ -184,8 +235,6 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
       
       return () => clearInterval(timer);
     }
-    // Remove automatic navigation for cancelled/completed competitions
-    // Let users manually navigate away
   }, [competition.status, onStartQuiz, isComponentMounted]);
 
   // Periodic data refresh to ensure consistency
@@ -194,12 +243,12 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
 
     const refreshInterval = setInterval(() => {
       if (isComponentMounted) {
-        loadParticipants(competition.id);
+        loadParticipantsWithProfiles();
       }
-    }, 5000); // Refresh every 5 seconds for better real-time updates
+    }, 10000); // Refresh every 10 seconds for better real-time updates
 
     return () => clearInterval(refreshInterval);
-  }, [competition.id, isComponentMounted, loadParticipants]);
+  }, [competition.id, isComponentMounted]);
 
   const copyCompetitionCode = async () => {
     await navigator.clipboard.writeText(competition.competition_code);
@@ -223,12 +272,12 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const handleLeaveCompetition = async () => {
     if (user && userParticipant && isComponentMounted) {
       try {
-        setIsComponentMounted(false); // Prevent further updates
+        setIsComponentMounted(false);
         await leaveCompetition(competition.id);
         navigate('/quiz');
       } catch (error) {
         console.error('Failed to leave competition:', error);
-        setIsComponentMounted(true); // Re-enable if error
+        setIsComponentMounted(true);
       }
     }
     setShowLeaveConfirm(false);
@@ -237,12 +286,12 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const handleCancelCompetition = async () => {
     if (isCreator && isComponentMounted) {
       try {
-        setIsComponentMounted(false); // Prevent further updates
+        setIsComponentMounted(false);
         await cancelCompetition(competition.id);
         navigate('/quiz');
       } catch (error) {
         console.error('Failed to cancel competition:', error);
-        setIsComponentMounted(true); // Re-enable if error
+        setIsComponentMounted(true);
       }
     }
     setShowCancelConfirm(false);
@@ -317,7 +366,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     );
   }
 
-  // Show cancelled/completed message - but don't auto-navigate
+  // Show cancelled/completed message
   if (competition.status === 'cancelled' || competition.status === 'completed') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 flex items-center justify-center">
@@ -348,12 +397,6 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
       </div>
     );
   }
-
-  // Debug logging for participants
-  console.log('Current participants:', participants);
-  console.log('Joined participants:', joinedParticipants);
-  console.log('Current user ID:', user?.id);
-  console.log('Competition creator ID:', competition.creator_id);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-8 relative overflow-hidden">
@@ -474,18 +517,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
               <CardBody className="p-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {joinedParticipants.map((participant, index) => {
-                    // Get participant display name with better fallback logic
-                    const getParticipantName = () => {
-                      if (participant.profile?.full_name) {
-                        return participant.profile.full_name;
-                      }
-                      if (participant.email) {
-                        return participant.email.split('@')[0];
-                      }
-                      return 'Anonymous User';
-                    };
-
-                    const participantName = getParticipantName();
+                    const participantName = participant.profile?.full_name || 'Anonymous User';
                     
                     return (
                       <motion.div
@@ -747,44 +779,6 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
               </CardBody>
             </Card>
 
-            {/* Competition Stats */}
-            <Card className="shadow-2xl border-2 border-indigo-100">
-              <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50">
-                <h3 className="text-xl font-bold text-slate-800 flex items-center">
-                  <Activity className="w-6 h-6 mr-2 text-indigo-600" />
-                  Battle Stats
-                </h3>
-              </CardHeader>
-              <CardBody className="p-6">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Warriors:</span>
-                    <span className="font-bold text-2xl text-purple-600">{joinedParticipants.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Status:</span>
-                    <span className={`font-bold capitalize text-lg ${
-                      competition.status === 'waiting' ? 'text-yellow-600' :
-                      competition.status === 'active' ? 'text-green-600' :
-                      'text-blue-600'
-                    }`}>
-                      {competition.status}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Created:</span>
-                    <span className="font-medium text-slate-800">
-                      {new Date(competition.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Type:</span>
-                    <span className="font-medium text-slate-800 capitalize">{competition.type}</span>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-
             {/* Chat Toggle */}
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Button
@@ -838,7 +832,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                             }`}
                           >
                             <p className="text-xs font-medium mb-1 opacity-75">
-                              {message.profile?.full_name || message.email?.split('@')[0] || 'Anonymous'}
+                              {message.profile?.full_name || 'Anonymous'}
                             </p>
                             <p className="text-sm">{message.message}</p>
                           </div>
