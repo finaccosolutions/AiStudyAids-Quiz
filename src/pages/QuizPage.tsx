@@ -16,8 +16,10 @@ import CompetitionQuiz from '../components/competition/CompetitionQuiz';
 import CompetitionResults from '../components/competition/CompetitionResults';
 import CompetitionManagement from '../components/competition/CompetitionManagement';
 import { Button } from '../components/ui/Button';
-import { ArrowLeft } from 'lucide-react';
+import { Card, CardBody } from '../components/ui/Card';
+import { ArrowLeft, Trophy, Users, Clock } from 'lucide-react';
 import { Question } from '../types';
+import { motion } from 'framer-motion';
 
 const QuizPage: React.FC = () => {
   const { user, isLoggedIn } = useAuthStore();
@@ -34,6 +36,8 @@ const QuizPage: React.FC = () => {
     currentCompetition,
     loadCompetition,
     loadUserCompetitions,
+    loadUserActiveCompetitions,
+    userActiveCompetitions,
     participants,
     loadParticipants,
     clearCurrentCompetition
@@ -46,7 +50,7 @@ const QuizPage: React.FC = () => {
     'api-key' | 'mode-selector' | 'solo-preferences' | 'create-competition' | 
     'join-competition' | 'random-match' | 'quiz' | 'results' | 
     'competition-lobby' | 'competition-quiz' | 'competition-results' |
-    'competition-management'
+    'competition-management' | 'active-competitions-selector'
   >('api-key');
   
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
@@ -61,79 +65,104 @@ const QuizPage: React.FC = () => {
     }
   }, [user]);
 
-useEffect(() => {
-  // Session validation and competition state management
-  const validateSessionAndCompetition = async () => {
-    try {
-      // Check if session is still valid
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        console.warn('Session invalid, redirecting to auth');
-        navigate('/auth');
-        return;
-      }
-
-      // Handle competition mode from location state
-      if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
-        loadCompetition(location.state.competitionId);
-        setStep('competition-lobby');
-        return;
-      }
-
-      // Check if user has an active competition
-      if (currentCompetition) {
-        // Verify competition still exists and is valid
-        const { data: competitionCheck } = await supabase
-          .from('competitions')
-          .select('status')
-          .eq('id', currentCompetition.id)
-          .single();
-
-        if (!competitionCheck) {
-          // Competition no longer exists
-          clearCurrentCompetition();
-          setStep('mode-selector');
+  useEffect(() => {
+    // Session validation and competition state management
+    const validateSessionAndCompetition = async () => {
+      try {
+        // Check if session is still valid
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+          console.warn('Session invalid, redirecting to auth');
+          navigate('/auth');
           return;
         }
 
-        // Determine step based on competition status
-        if (competitionCheck.status === 'waiting') {
+        // Handle competition mode from location state
+        if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
+          loadCompetition(location.state.competitionId);
           setStep('competition-lobby');
-        } else if (competitionCheck.status === 'active') {
-          setStep('competition-quiz');
-        } else if (competitionCheck.status === 'completed') {
-          setStep('competition-results');
+          return;
+        }
+
+        // Check if user has active competitions first
+        if (user) {
+          const activeCompetitions = await loadUserActiveCompetitions(user.id);
+          
+          if (activeCompetitions.length > 0) {
+            if (activeCompetitions.length === 1) {
+              // Auto-redirect to the single active competition
+              const competition = activeCompetitions[0];
+              loadCompetition(competition.id);
+              
+              // Determine step based on competition status
+              if (competition.status === 'waiting') {
+                setStep('competition-lobby');
+              } else if (competition.status === 'active') {
+                setStep('competition-quiz');
+              }
+              return;
+            } else {
+              // Multiple active competitions - let user choose
+              setStep('active-competitions-selector');
+              return;
+            }
+          }
+        }
+
+        // Check if user has an active competition in current state
+        if (currentCompetition) {
+          // Verify competition still exists and is valid
+          const { data: competitionCheck } = await supabase
+            .from('competitions')
+            .select('status')
+            .eq('id', currentCompetition.id)
+            .single();
+
+          if (!competitionCheck) {
+            // Competition no longer exists
+            clearCurrentCompetition();
+            setStep('mode-selector');
+            return;
+          }
+
+          // Determine step based on competition status
+          if (competitionCheck.status === 'waiting') {
+            setStep('competition-lobby');
+          } else if (competitionCheck.status === 'active') {
+            setStep('competition-quiz');
+          } else if (competitionCheck.status === 'completed') {
+            setStep('competition-results');
+          } else {
+            // Competition cancelled or other status
+            clearCurrentCompetition();
+            setStep('mode-selector');
+          }
+          return;
+        }
+      
+        // Determine initial step based on current state
+        if (!apiKey) {
+          setStep('api-key');
+        } else if (result) {
+          setStep('results');
+        } else if (questions.length > 0) {
+          setStep('quiz');
+          // Initialize total time if set
+          if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
+            setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
+          }
         } else {
-          // Competition cancelled or other status
-          clearCurrentCompetition();
           setStep('mode-selector');
         }
-        return;
+      } catch (error) {
+        console.error('Session validation error:', error);
+        navigate('/auth');
       }
-    
-      // Determine initial step based on current state
-      if (!apiKey) {
-        setStep('api-key');
-      } else if (result) {
-        setStep('results');
-      } else if (questions.length > 0) {
-        setStep('quiz');
-        // Initialize total time if set
-        if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
-          setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
-        }
-      } else {
-        setStep('mode-selector');
-      }
-    } catch (error) {
-      console.error('Session validation error:', error);
-      navigate('/auth');
-    }
-  };
+    };
 
-  validateSessionAndCompetition();
-}, [apiKey, preferences, questions, result, location.state, currentCompetition, navigate]);
+    validateSessionAndCompetition();
+  }, [apiKey, preferences, questions, result, location.state, currentCompetition, navigate, user]);
 
   // Total quiz timer effect
   useEffect(() => {
@@ -253,8 +282,6 @@ useEffect(() => {
     }
   };
 
-
-
   const handleCompetitionComplete = () => {
     setStep('competition-results');
   };
@@ -274,6 +301,17 @@ useEffect(() => {
     // Navigate to competition lobby
     setStep('competition-lobby');
   };
+
+  const handleSelectActiveCompetition = (competition: any) => {
+    loadCompetition(competition.id);
+    
+    // Determine step based on competition status
+    if (competition.status === 'waiting') {
+      setStep('competition-lobby');
+    } else if (competition.status === 'active') {
+      setStep('competition-quiz');
+    }
+  };
   
   const renderContent = () => {
     if (!user) return null;
@@ -281,6 +319,89 @@ useEffect(() => {
     switch (step) {
       case 'api-key':
         return <ApiKeyForm userId={user.id} onSave={handleApiKeySaved} />;
+
+      case 'active-competitions-selector':
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-8">
+            <div className="max-w-4xl mx-auto px-4">
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center mb-8"
+              >
+                <div className="flex items-center justify-center mb-6">
+                  <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mr-4 shadow-xl">
+                    <Trophy className="w-8 h-8 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-4xl font-bold text-gray-800">Active Competitions</h1>
+                    <p className="text-gray-600 text-lg">You have multiple active competitions. Choose one to continue:</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              <div className="space-y-4 mb-8">
+                {userActiveCompetitions.map((competition, index) => (
+                  <motion.div
+                    key={competition.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer border-2 border-gray-200 hover:border-purple-300"
+                          onClick={() => handleSelectActiveCompetition(competition)}>
+                      <CardBody className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center">
+                              <Trophy className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-800">{competition.title}</h3>
+                              <p className="text-gray-600">{competition.description}</p>
+                              <div className="flex items-center space-x-4 mt-2 text-sm">
+                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                  competition.status === 'waiting' 
+                                    ? 'bg-yellow-100 text-yellow-700' 
+                                    : 'bg-green-100 text-green-700'
+                                }`}>
+                                  {competition.status === 'waiting' ? 'Waiting for participants' : 'Active'}
+                                </span>
+                                <span className="flex items-center text-gray-500">
+                                  <Users className="w-4 h-4 mr-1" />
+                                  {competition.participant_count || 0} participants
+                                </span>
+                                <span className="flex items-center text-gray-500">
+                                  <Clock className="w-4 h-4 mr-1" />
+                                  Created {new Date(competition.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-purple-600">#{competition.competition_code}</div>
+                            <div className="text-sm text-gray-500">Competition Code</div>
+                          </div>
+                        </div>
+                      </CardBody>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+
+              <div className="text-center">
+                <Button
+                  variant="outline"
+                  onClick={handleBackToModeSelector}
+                  className="border-2 border-gray-300 text-gray-600 hover:bg-gray-50 px-6 py-3"
+                >
+                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  Start New Quiz Instead
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
       
       case 'mode-selector':
         return (
@@ -388,7 +509,6 @@ useEffect(() => {
             onComplete={handleCompetitionComplete}
           />
         );
-
 
       case 'competition-results':
         if (!currentCompetition) {

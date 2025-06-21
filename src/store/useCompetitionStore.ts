@@ -25,6 +25,8 @@ interface CompetitionState {
   error: string | null;
   // Add subscription tracking
   activeSubscriptions: Map<string, any>;
+  // Add user's active competitions
+  userActiveCompetitions: Competition[];
 
   // Actions
   createCompetition: (data: any) => Promise<Competition>;
@@ -33,10 +35,12 @@ interface CompetitionState {
   cancelCompetition: (competitionId: string) => Promise<void>;
   deleteCompetition: (competitionId: string) => Promise<void>;
   loadUserCompetitions: (userId: string) => Promise<void>;
+  loadUserActiveCompetitions: (userId: string) => Promise<Competition[]>;
   inviteParticipants: (competitionId: string, emails: string[]) => Promise<void>;
   loadCompetition: (id: string) => Promise<void>;
   loadParticipants: (competitionId: string) => Promise<void>;
   updateParticipantProgress: (competitionId: string, answers: any, score: number, correctAnswers: number, timeTaken: number, currentQuestion?: number) => Promise<void>;
+  markParticipantReady: (competitionId: string) => Promise<void>;
   completeCompetition: (competitionId: string) => Promise<void>;
   loadUserStats: (userId: string) => Promise<void>;
   joinRandomQueue: (data: { topic: string; difficulty: string; language: string }) => Promise<void>;
@@ -74,6 +78,53 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
   isLoading: false,
   error: null,
   activeSubscriptions: new Map(),
+  userActiveCompetitions: [],
+
+  loadUserActiveCompetitions: async (userId) => {
+    try {
+      // Load competitions where user is participant and status is waiting or active
+      const { data: participantData, error: participantError } = await supabase
+        .from('competition_participants')
+        .select(`
+          competition_id,
+          status,
+          competitions!inner(*)
+        `)
+        .eq('user_id', userId)
+        .in('status', ['joined'])
+        .in('competitions.status', ['waiting', 'active']);
+
+      if (participantError) throw participantError;
+
+      // Load competitions where user is creator and status is waiting or active
+      const { data: createdCompetitions, error: createdError } = await supabase
+        .from('competitions')
+        .select('*')
+        .eq('creator_id', userId)
+        .in('status', ['waiting', 'active']);
+
+      if (createdError) throw createdError;
+
+      // Extract competitions from participant data
+      const participantCompetitions = (participantData || []).map(p => p.competitions);
+
+      // Combine and deduplicate competitions
+      const allActiveCompetitions = [...(createdCompetitions || []), ...participantCompetitions];
+      const uniqueActiveCompetitions = allActiveCompetitions.filter((comp, index, self) => 
+        index === self.findIndex(c => c.id === comp.id)
+      );
+
+      // Sort by created_at descending
+      uniqueActiveCompetitions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      set({ userActiveCompetitions: uniqueActiveCompetitions });
+      return uniqueActiveCompetitions;
+    } catch (error: any) {
+      console.error('Error loading user active competitions:', error);
+      set({ error: error.message });
+      return [];
+    }
+  },
 
   createCompetition: async (data) => {
     set({ isLoading: true, error: null });
@@ -92,7 +143,8 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         type: data.type || 'private',
         max_participants: 999,
         quiz_preferences: data.quizPreferences,
-        status: 'waiting'
+        status: 'waiting',
+        participant_count: 1 // Creator is automatically a participant
       };
   
       const { data: competition, error } = await supabase
@@ -103,23 +155,18 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
   
       if (error) throw error;
   
-      // Add creator as participant with safe column handling
+      // Add creator as participant
       const participantData: any = {
         competition_id: competition.id,
         user_id: user.id,
         status: 'joined',
         joined_at: new Date().toISOString(),
         is_online: true,
-        last_activity: new Date().toISOString()
+        last_activity: new Date().toISOString(),
+        current_question: 0,
+        questions_answered: 0,
+        is_ready: false
       };
-
-      // Only add progress columns if they exist in the schema
-      try {
-        participantData.current_question = 0;
-        participantData.questions_answered = 0;
-      } catch (e) {
-        console.warn('Progress columns not available yet');
-      }
 
       await supabase
         .from('competition_participants')
@@ -230,16 +277,11 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         status: 'joined', 
         joined_at: new Date().toISOString(),
         is_online: true,
-        last_activity: new Date().toISOString()
+        last_activity: new Date().toISOString(),
+        current_question: 0,
+        questions_answered: 0,
+        is_ready: false
       };
-
-      // Only add progress columns if they exist
-      try {
-        updateData.current_question = 0;
-        updateData.questions_answered = 0;
-      } catch (e) {
-        console.warn('Progress columns not available yet');
-      }
 
       if (existingParticipant) {
         if (existingParticipant.status === 'joined') {
@@ -278,6 +320,37 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
       console.error('Join competition error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
+    }
+  },
+
+  markParticipantReady: async (competitionId) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('competition_participants')
+        .update({ 
+          is_ready: true,
+          quiz_start_time: new Date().toISOString(),
+          last_activity: new Date().toISOString()
+        })
+        .eq('competition_id', competitionId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Update local state
+      set(state => ({
+        participants: state.participants.map(p => 
+          p.user_id === user.id 
+            ? { ...p, is_ready: true, quiz_start_time: new Date().toISOString() }
+            : p
+        )
+      }));
+    } catch (error: any) {
+      console.error('Error marking participant ready:', error);
+      set({ error: error.message });
     }
   },
 
@@ -500,7 +573,8 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           is_online: p.is_online ?? true,
           last_activity: p.last_activity ?? new Date().toISOString(),
           current_question: p.current_question ?? 0,
-          questions_answered: p.questions_answered ?? 0
+          questions_answered: p.questions_answered ?? 0,
+          is_ready: p.is_ready ?? false
         }));
 
         set({ participants: formattedParticipants });
@@ -532,7 +606,8 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
           is_online: p.is_online ?? true,
           last_activity: p.last_activity ?? new Date().toISOString(),
           current_question: p.current_question ?? 0,
-          questions_answered: p.questions_answered ?? 0
+          questions_answered: p.questions_answered ?? 0,
+          is_ready: p.is_ready ?? false
         };
       });
 
@@ -558,14 +633,10 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         is_online: true
       };
 
-      // Only add progress columns if they exist and currentQuestion is provided
+      // Add progress tracking
       if (currentQuestion !== undefined) {
-        try {
-          updateData.current_question = currentQuestion;
-          updateData.questions_answered = Object.keys(answers).length;
-        } catch (e) {
-          console.warn('Progress columns not available, skipping progress update');
-        }
+        updateData.current_question = currentQuestion;
+        updateData.questions_answered = Object.keys(answers).length;
       }
 
       const { error } = await supabase
@@ -601,6 +672,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
+          quiz_end_time: new Date().toISOString(),
           last_activity: new Date().toISOString(),
           is_online: true
         })
@@ -609,17 +681,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
       if (error) throw error;
 
-      // Check if all participants have completed
-      const { data: activeParticipants } = await supabase
-        .from('competition_participants')
-        .select('status')
-        .eq('competition_id', competitionId)
-        .eq('status', 'joined');
-
-      if (!activeParticipants || activeParticipants.length === 0) {
-        // All participants completed, finalize competition
-        await get().finalizeCompetition(competitionId);
-      }
+      // The database trigger will handle competition finalization
     } catch (error: any) {
       set({ error: error.message });
     }
@@ -627,50 +689,8 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
   finalizeCompetition: async (competitionId) => {
     try {
-      // Calculate rankings
-      const { data: participants } = await supabase
-        .from('competition_participants')
-        .select('*')
-        .eq('competition_id', competitionId)
-        .eq('status', 'completed')
-        .order('score', { ascending: false })
-        .order('time_taken', { ascending: true });
-
-      if (participants) {
-        // Update rankings and points
-        for (let i = 0; i < participants.length; i++) {
-          const participant = participants[i];
-          const rank = i + 1;
-          let points = 0;
-
-          // Enhanced points system
-          const totalParticipants = participants.length;
-          if (rank === 1) points = Math.max(100, totalParticipants * 10);
-          else if (rank === 2) points = Math.max(75, totalParticipants * 7);
-          else if (rank === 3) points = Math.max(50, totalParticipants * 5);
-          else if (rank <= totalParticipants * 0.5) points = Math.max(25, totalParticipants * 2);
-          else points = Math.max(10, totalParticipants);
-
-          await supabase
-            .from('competition_participants')
-            .update({ rank, points_earned: points })
-            .eq('id', participant.id);
-
-          // Update user stats
-          if (participant.user_id) {
-            await get().updateUserStats(participant.user_id, rank, points, participant.time_taken);
-          }
-        }
-
-        // Mark competition as completed
-        await supabase
-          .from('competitions')
-          .update({ 
-            status: 'completed',
-            end_time: new Date().toISOString()
-          })
-          .eq('id', competitionId);
-      }
+      // This is now handled by database triggers
+      console.log('Competition finalization handled by database triggers');
     } catch (error: any) {
       set({ error: error.message });
     }
@@ -682,7 +702,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .from('user_stats')
         .select('*')
         .eq('user_id', userId)
-        .maybeSingle(); // Changed from single() to maybeSingle()
+        .maybeSingle();
 
       const isWin = rank === 1;
       const isLoss = rank > 1;
@@ -731,7 +751,7 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         .from('user_stats')
         .select('*')
         .eq('user_id', userId)
-        .maybeSingle(); // Changed from single() to maybeSingle()
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
 
@@ -818,26 +838,17 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
         if (competition) {
           // Add all waiting users as participants
-          const participants = waitingUsers.map(user => {
-            const participantData: any = {
-              competition_id: competition.id,
-              user_id: user.user_id,
-              status: 'joined',
-              joined_at: new Date().toISOString(),
-              is_online: true,
-              last_activity: new Date().toISOString()
-            };
-
-            // Only add progress columns if they exist
-            try {
-              participantData.current_question = 0;
-              participantData.questions_answered = 0;
-            } catch (e) {
-              console.warn('Progress columns not available yet');
-            }
-
-            return participantData;
-          });
+          const participants = waitingUsers.map(user => ({
+            competition_id: competition.id,
+            user_id: user.user_id,
+            status: 'joined',
+            joined_at: new Date().toISOString(),
+            is_online: true,
+            last_activity: new Date().toISOString(),
+            current_question: 0,
+            questions_answered: 0,
+            is_ready: false
+          }));
 
           await supabase
             .from('competition_participants')
@@ -1042,14 +1053,9 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
         updateData.joined_at = new Date().toISOString();
         updateData.is_online = true;
         updateData.last_activity = new Date().toISOString();
-        
-        // Only add progress columns if they exist
-        try {
-          updateData.current_question = 0;
-          updateData.questions_answered = 0;
-        } catch (e) {
-          console.warn('Progress columns not available yet');
-        }
+        updateData.current_question = 0;
+        updateData.questions_answered = 0;
+        updateData.is_ready = false;
       }
 
       const { error } = await supabase
