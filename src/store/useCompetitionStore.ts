@@ -519,58 +519,57 @@ joinCompetition: async (code) => {
     }
   },
 
-loadParticipants: async (competitionId) => {
+loadParticipants: async (competitionId: string) => {
+  set({ isLoading: true, error: null });
+  
   try {
     console.log('Loading participants for competition:', competitionId);
-    
-    // Get current user to ensure we have user context
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.error('No authenticated user found');
-      return;
+
+    // 1. Verify user authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      throw new Error(authError?.message || 'User not authenticated');
     }
 
-    // First, verify the user has access to this competition
-    const { data: userAccess, error: accessError } = await supabase
-      .from('competition_participants')
-      .select('status')
-      .eq('competition_id', competitionId)
-      .eq('user_id', user.id)
-      .maybeSingle();
+    // 2. Check competition access (parallel requests)
+    const [accessCheck, competitionCheck] = await Promise.all([
+      supabase
+        .from('competition_participants')
+        .select('status')
+        .eq('competition_id', competitionId)
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      supabase
+        .from('competitions')
+        .select('creator_id, status')
+        .eq('id', competitionId)
+        .single()
+    ]);
 
-    if (accessError && accessError.code !== 'PGRST116') {
-      console.error('Error checking user access:', accessError);
-      throw accessError;
+    // Handle potential errors
+    if (accessCheck.error && accessCheck.error.code !== 'PGRST116') {
+      throw accessCheck.error;
+    }
+    if (competitionCheck.error) {
+      throw competitionCheck.error;
     }
 
-    // Also check if user is the creator
-    const { data: competition, error: compError } = await supabase
-      .from('competitions')
-      .select('creator_id')
-      .eq('id', competitionId)
-      .single();
-
-    if (compError) {
-      console.error('Error checking competition creator:', compError);
-      throw compError;
-    }
-
-    const isCreator = competition.creator_id === user.id;
-    const isParticipant = userAccess && ['joined', 'completed'].includes(userAccess.status);
+    // 3. Verify access rights
+    const isCreator = competitionCheck.data?.creator_id === user.id;
+    const isParticipant = accessCheck.data?.status && 
+                         ['joined', 'completed'].includes(accessCheck.data.status);
 
     if (!isCreator && !isParticipant) {
-      console.error('User does not have access to this competition');
-      set({ error: 'Access denied to this competition' });
-      return;
+      throw new Error('Access denied to this competition');
     }
 
-    // Load all participants with explicit column references
-    const { data: participantsWithProfiles, error } = await supabase
+    // 4. Main query with profile join
+    const { data: participantsWithProfiles, error: joinError } = await supabase
       .from('competition_participants')
       .select(`
         id,
         competition_id,
-        competition_participants.user_id,
+        user_id,
         email,
         status,
         score,
@@ -589,120 +588,101 @@ loadParticipants: async (competitionId) => {
         is_ready,
         quiz_start_time,
         quiz_end_time,
-        profiles:user_id (full_name, avatar_url)
+        profiles:user_id (
+          full_name,
+          avatar_url
+        )
       `)
       .eq('competition_id', competitionId)
       .in('status', ['joined', 'completed'])
       .order('score', { ascending: false })
       .order('time_taken', { ascending: true });
 
-    if (error) {
-      console.error('Error loading participants with profiles:', error);
-      
-      // Fallback: Try without profile join
-      const { data: participants, error: fallbackError } = await supabase
-        .from('competition_participants')
-        .select(`
-          id,
-          competition_id,
-          user_id,
-          email,
-          status,
-          score,
-          correct_answers,
-          time_taken,
-          answers,
-          rank,
-          points_earned,
-          joined_at,
-          completed_at,
-          created_at,
-          is_online,
-          last_activity,
-          current_question,
-          questions_answered,
-          is_ready,
-          quiz_start_time,
-          quiz_end_time
-        `)
-        .eq('competition_id', competitionId)
-        .in('status', ['joined', 'completed'])
-        .order('score', { ascending: false })
-        .order('time_taken', { ascending: true });
+    // 5. Handle successful join query
+    if (!joinError && participantsWithProfiles) {
+      const formattedParticipants = participantsWithProfiles.map(p => ({
+        ...p,
+        profile: {
+          full_name: p.profiles?.full_name || p.email?.split('@')[0] || 'Anonymous',
+          avatar_url: p.profiles?.avatar_url || null
+        },
+        is_online: p.is_online ?? true,
+        last_activity: p.last_activity ?? new Date().toISOString(),
+        current_question: p.current_question ?? 0,
+        questions_answered: p.questions_answered ?? 0,
+        is_ready: p.is_ready ?? false,
+        score: p.score ?? 0,
+        correct_answers: p.correct_answers ?? 0,
+        time_taken: p.time_taken ?? 0
+      }));
 
-      if (fallbackError) {
-        console.error('Fallback query also failed:', fallbackError);
-        throw fallbackError;
-      }
-
-      console.log('Using fallback participants data:', participants);
-      
-      // For fallback, try to get profile data separately
-      const userIds = participants?.map(p => p.user_id).filter(Boolean) || [];
-      let profilesMap = new Map();
-      
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, avatar_url')
-          .in('user_id', userIds);
-        
-        if (profiles) {
-          profiles.forEach(profile => {
-            profilesMap.set(profile.user_id, profile);
-          });
-        }
-      }
-      
-      // Format participants with profile data from map
-      const formattedParticipants = (participants || []).map(p => {
-        const profile = profilesMap.get(p.user_id);
-        let displayName = 'Anonymous User';
-        
-        if (profile?.full_name) {
-          displayName = profile.full_name;
-        } else if (p.email) {
-          displayName = p.email.split('@')[0];
-        }
-        
-        return {
-          ...p,
-          profile: {
-            full_name: displayName,
-            avatar_url: profile?.avatar_url || null
-          },
-          is_online: p.is_online ?? true,
-          last_activity: p.last_activity ?? new Date().toISOString(),
-          current_question: p.current_question ?? 0,
-          questions_answered: p.questions_answered ?? 0,
-          is_ready: p.is_ready ?? false,
-          score: p.score ?? 0,
-          correct_answers: p.correct_answers ?? 0,
-          time_taken: p.time_taken ?? 0
-        };
+      set({ 
+        participants: formattedParticipants,
+        isLoading: false 
       });
-
-      set({ participants: formattedParticipants });
       return;
     }
 
-    console.log('Participants with profiles loaded:', participantsWithProfiles);
+    console.warn('Join query failed, falling back to separate queries:', joinError);
 
-    // Format participants with profile data
-    const formattedParticipants = (participantsWithProfiles || []).map(p => {
-      let displayName = 'Anonymous User';
-      
-      if (p.profiles?.full_name) {
-        displayName = p.profiles.full_name;
-      } else if (p.email) {
-        displayName = p.email.split('@')[0];
-      }
-      
+    // 6. Fallback: Load participants without profiles
+    const { data: participants, error: participantsError } = await supabase
+      .from('competition_participants')
+      .select(`
+        id,
+        competition_id,
+        user_id,
+        email,
+        status,
+        score,
+        correct_answers,
+        time_taken,
+        answers,
+        rank,
+        points_earned,
+        joined_at,
+        completed_at,
+        created_at,
+        is_online,
+        last_activity,
+        current_question,
+        questions_answered,
+        is_ready,
+        quiz_start_time,
+        quiz_end_time
+      `)
+      .eq('competition_id', competitionId)
+      .in('status', ['joined', 'completed'])
+      .order('score', { ascending: false })
+      .order('time_taken', { ascending: true });
+
+    if (participantsError) {
+      throw participantsError;
+    }
+
+    // 7. Load profiles separately if needed
+    const userIds = participants?.map(p => p.user_id).filter(Boolean) as string[];
+    let profilesMap = new Map<string, { full_name?: string; avatar_url?: string }>();
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, avatar_url')
+        .in('user_id', userIds);
+
+      profiles?.forEach(profile => {
+        profilesMap.set(profile.user_id, profile);
+      });
+    }
+
+    // 8. Format final participants data
+    const formattedParticipants = (participants || []).map(p => {
+      const profile = profilesMap.get(p.user_id);
       return {
         ...p,
         profile: {
-          full_name: displayName,
-          avatar_url: p.profiles?.avatar_url || null
+          full_name: profile?.full_name || p.email?.split('@')[0] || 'Anonymous',
+          avatar_url: profile?.avatar_url || null
         },
         is_online: p.is_online ?? true,
         last_activity: p.last_activity ?? new Date().toISOString(),
@@ -715,11 +695,18 @@ loadParticipants: async (competitionId) => {
       };
     });
 
-    console.log('Final formatted participants:', formattedParticipants);
-    set({ participants: formattedParticipants });
+    set({ 
+      participants: formattedParticipants,
+      isLoading: false 
+    });
+
   } catch (error: any) {
     console.error('Error in loadParticipants:', error);
-    set({ error: error.message });
+    set({ 
+      error: error.message,
+      isLoading: false,
+      participants: [] 
+    });
   }
 },
 
