@@ -13,11 +13,13 @@ import { useNavigate } from 'react-router-dom';
 interface CompetitionLobbyProps {
   competition: Competition;
   onStartQuiz: () => void;
+  onLeave?: () => void;
 }
 
 const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({ 
   competition, 
-  onStartQuiz 
+  onStartQuiz,
+  onLeave 
 }) => {
   const { user } = useAuthStore();
   const { apiKey } = useQuizStore();
@@ -253,7 +255,8 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
       try {
         setIsComponentMounted(false);
         await leaveCompetition(competition.id);
-        navigate('/quiz');
+        // Navigate to preferences page instead of quiz page
+        navigate('/preferences');
       } catch (error) {
         console.error('Failed to leave competition:', error);
         setIsComponentMounted(true);
@@ -267,7 +270,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
       try {
         setIsComponentMounted(false);
         await cancelCompetition(competition.id);
-        navigate('/quiz');
+        navigate('/preferences');
       } catch (error) {
         console.error('Failed to cancel competition:', error);
         setIsComponentMounted(true);
@@ -367,7 +370,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
             }
           </p>
           <Button
-            onClick={() => navigate('/quiz')}
+            onClick={() => navigate('/preferences')}
             className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 px-8 py-3 text-lg font-bold"
           >
             Back to Quiz
