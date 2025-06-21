@@ -17,7 +17,7 @@ import CompetitionResults from '../components/competition/CompetitionResults';
 import CompetitionManagement from '../components/competition/CompetitionManagement';
 import { Button } from '../components/ui/Button';
 import { Card, CardBody } from '../components/ui/Card';
-import { ArrowLeft, Trophy, Users, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trophy, Users, Clock } from 'lucide-react';
 import { Question } from '../types';
 import { motion } from 'framer-motion';
 
@@ -47,16 +47,15 @@ const QuizPage: React.FC = () => {
   const location = useLocation();
   
   const [step, setStep] = useState<
-    'loading' | 'api-key' | 'mode-selector' | 'solo-preferences' | 'create-competition' | 
+    'api-key' | 'mode-selector' | 'solo-preferences' | 'create-competition' | 
     'join-competition' | 'random-match' | 'quiz' | 'results' | 
     'competition-lobby' | 'competition-quiz' | 'competition-results' |
     'competition-management' | 'active-competitions-selector'
-  >('loading');
+  >('api-key');
   
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
   const [totalTimeRemaining, setTotalTimeRemaining] = useState<number | null>(null);
   const [competitionQuestions, setCompetitionQuestions] = useState<Question[]>([]);
-  const [isInitializing, setIsInitializing] = useState(true);
   
   useEffect(() => {
     if (user) {
@@ -69,10 +68,6 @@ const QuizPage: React.FC = () => {
   useEffect(() => {
     // Session validation and competition state management
     const validateSessionAndCompetition = async () => {
-      if (!user) return;
-      
-      setIsInitializing(true);
-      
       try {
         // Check if session is still valid
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -87,32 +82,31 @@ const QuizPage: React.FC = () => {
         if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
           loadCompetition(location.state.competitionId);
           setStep('competition-lobby');
-          setIsInitializing(false);
           return;
         }
 
         // Check if user has active competitions first
-        const activeCompetitions = await loadUserActiveCompetitions(user.id);
-        
-        if (activeCompetitions.length > 0) {
-          if (activeCompetitions.length === 1) {
-            // Auto-redirect to the single active competition
-            const competition = activeCompetitions[0];
-            loadCompetition(competition.id);
-            
-            // Determine step based on competition status
-            if (competition.status === 'waiting') {
-              setStep('competition-lobby');
-            } else if (competition.status === 'active') {
-              setStep('competition-quiz');
+        if (user) {
+          const activeCompetitions = await loadUserActiveCompetitions(user.id);
+          
+          if (activeCompetitions.length > 0) {
+            if (activeCompetitions.length === 1) {
+              // Auto-redirect to the single active competition
+              const competition = activeCompetitions[0];
+              loadCompetition(competition.id);
+              
+              // Determine step based on competition status
+              if (competition.status === 'waiting') {
+                setStep('competition-lobby');
+              } else if (competition.status === 'active') {
+                setStep('competition-quiz');
+              }
+              return;
+            } else {
+              // Multiple active competitions - let user choose
+              setStep('active-competitions-selector');
+              return;
             }
-            setIsInitializing(false);
-            return;
-          } else {
-            // Multiple active competitions - let user choose
-            setStep('active-competitions-selector');
-            setIsInitializing(false);
-            return;
           }
         }
 
@@ -129,7 +123,6 @@ const QuizPage: React.FC = () => {
             // Competition no longer exists
             clearCurrentCompetition();
             setStep('mode-selector');
-            setIsInitializing(false);
             return;
           }
 
@@ -145,7 +138,6 @@ const QuizPage: React.FC = () => {
             clearCurrentCompetition();
             setStep('mode-selector');
           }
-          setIsInitializing(false);
           return;
         }
       
@@ -166,8 +158,6 @@ const QuizPage: React.FC = () => {
       } catch (error) {
         console.error('Session validation error:', error);
         navigate('/auth');
-      } finally {
-        setIsInitializing(false);
       }
     };
 
@@ -195,25 +185,6 @@ const QuizPage: React.FC = () => {
   
   if (!isLoggedIn) {
     return <Navigate to="/auth" />;
-  }
-
-  // Show loading screen while initializing
-  if (isInitializing) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
-          <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Loader2 className="w-8 h-8 text-white animate-spin" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Loading Quiz</h2>
-          <p className="text-gray-600">Please wait while we prepare your experience...</p>
-        </motion.div>
-      </div>
-    );
   }
   
   const handleApiKeySaved = () => {
