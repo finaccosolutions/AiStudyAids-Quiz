@@ -564,7 +564,7 @@ loadParticipants: async (competitionId) => {
       return;
     }
 
-    // Load all participants with enhanced query - remove table prefix from user_id
+    // Load all participants with enhanced query - use correct foreign key reference
     const { data: participantsWithProfiles, error } = await supabase
       .from('competition_participants')
       .select(`
@@ -589,8 +589,7 @@ loadParticipants: async (competitionId) => {
         is_ready,
         quiz_start_time,
         quiz_end_time,
-        profiles!competition_participants_user_id_fkey (
-          user_id,
+        profiles!competition_participants_user_id_profiles_fkey (
           full_name,
           avatar_url
         )
@@ -603,7 +602,7 @@ loadParticipants: async (competitionId) => {
     if (error) {
       console.error('Error loading participants with profiles:', error);
       
-      // Fallback: Try without inner join - remove table prefix from user_id
+      // Fallback: Try without inner join
       const { data: participants, error: fallbackError } = await supabase
         .from('competition_participants')
         .select(`
