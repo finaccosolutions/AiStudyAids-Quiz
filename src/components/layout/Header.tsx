@@ -60,10 +60,10 @@ const Header: React.FC = () => {
     { path: '/progress', icon: LineChart, label: 'Progress' },
   ];
 
-  const profileMenuItems = [
-    { path: '/profile', icon: User, label: 'My Profile' },
-    { path: '/api-settings', icon: Key, label: 'API Settings' },
-  ];
+    const profileMenuItems = [
+      { path: '/profile', icon: User, label: 'My Profile' },
+      { path: '/api-settings', icon: Key, label: 'API Settings' },
+    ];
   
   return (
     <header className="bg-white sticky top-0 z-50 border-b border-gray-200 shadow-sm">

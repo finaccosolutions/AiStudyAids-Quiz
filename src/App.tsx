@@ -74,8 +74,14 @@ function App() {
               </ProtectedRoute>
             }
           />
-
-
+          <Route
+            path="api-settings"
+            element={
+              <ProtectedRoute>
+                <ApiSettingsPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="question-bank"
             element={

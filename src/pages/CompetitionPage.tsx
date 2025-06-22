@@ -1,7 +1,7 @@
-// src/pages/CompetitionPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useCompetitionStore } from '../store/useCompetitionStore';
+import { useQuizStore } from '../store/useQuizStore';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
@@ -12,15 +12,18 @@ import {
   Trophy, BarChart3, Settings, Users, Target, 
   Crown, Star, TrendingUp, Zap, Globe, Activity,
   Rocket, Shield, Award, Medal, Timer, Brain,
-  Sparkles, ArrowRight, Play, Plus
+  Sparkles, ArrowRight, Play, Plus, BookOpen,
+  FileQuestion, PenTool, NotebookText, Calendar,
+  LineChart, CheckCircle, Clock, Flame
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CompetitionPage: React.FC = () => {
   const { user, isLoggedIn } = useAuthStore();
   const { userStats, loadUserStats } = useCompetitionStore();
+  const { preferences } = useQuizStore();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'stats' | 'management'>('leaderboard');
+  const [activeTab, setActiveTab] = useState<'overview' | 'leaderboard' | 'stats' | 'management'>('overview');
 
   useEffect(() => {
     if (user) {
@@ -33,6 +36,13 @@ const CompetitionPage: React.FC = () => {
   }
 
   const tabs = [
+    {
+      id: 'overview',
+      label: 'Quiz Hub',
+      icon: Rocket,
+      description: 'Your complete quiz and competition dashboard',
+      color: 'from-blue-500 to-indigo-500'
+    },
     {
       id: 'leaderboard',
       label: 'Global Leaderboard',
@@ -92,24 +102,241 @@ const CompetitionPage: React.FC = () => {
     }
   ];
 
-  const quickActions = [
+  const soloQuizActions = [
     {
-      title: 'Start Competing',
-      description: 'Join or create competitions',
-      icon: Rocket,
-      action: () => navigate('/quiz'),
-      color: 'from-blue-500 to-indigo-500',
-      hoverColor: 'hover:from-blue-600 hover:to-indigo-600'
+      title: 'AI Quiz',
+      description: 'Generate personalized quizzes with intelligent questions',
+      icon: Brain,
+      path: '/quiz',
+      color: 'from-violet-500 to-purple-500',
+      stats: preferences ? `${preferences.questionCount} questions` : 'Not configured'
     },
+    {
+      title: 'Question Bank',
+      description: 'Generate comprehensive question banks from text or PDFs',
+      icon: FileQuestion,
+      path: '/question-bank',
+      color: 'from-blue-500 to-cyan-500',
+      stats: 'Coming soon'
+    },
+    {
+      title: 'Answer Evaluation',
+      description: 'Get detailed feedback on your written answers',
+      icon: PenTool,
+      path: '/answer-evaluation',
+      color: 'from-green-500 to-emerald-500',
+      stats: 'AI-powered'
+    },
+    {
+      title: 'Smart Notes',
+      description: 'Generate summaries and interactive study materials',
+      icon: NotebookText,
+      path: '/notes',
+      color: 'from-purple-500 to-indigo-500',
+      stats: 'Multiple formats'
+    },
+    {
+      title: 'Study Planner',
+      description: 'Create personalized study schedules',
+      icon: Calendar,
+      path: '/study-plan',
+      color: 'from-orange-500 to-amber-500',
+      stats: 'Optimized'
+    },
+    {
+      title: 'Progress Tracker',
+      description: 'Monitor your learning journey with analytics',
+      icon: LineChart,
+      path: '/progress',
+      color: 'from-rose-500 to-pink-500',
+      stats: 'Detailed insights'
+    }
+  ];
+
+  const competitionActions = [
     {
       title: 'Create Competition',
       description: 'Challenge friends and colleagues',
       icon: Plus,
-      action: () => navigate('/preferences'),
+      action: () => navigate('/quiz'),
       color: 'from-purple-500 to-pink-500',
-      hoverColor: 'hover:from-purple-600 hover:to-pink-600'
+      stats: 'Invite friends'
+    },
+    {
+      title: 'Join Competition',
+      description: 'Enter with a 6-digit code',
+      icon: Users,
+      action: () => navigate('/quiz'),
+      color: 'from-green-500 to-emerald-500',
+      stats: 'Quick join'
+    },
+    {
+      title: 'Random Match',
+      description: 'Find opponents globally',
+      icon: Zap,
+      action: () => navigate('/quiz'),
+      color: 'from-orange-500 to-red-500',
+      stats: 'Global players'
     }
   ];
+
+  const renderOverview = () => (
+    <div className="space-y-8">
+      {/* Solo Quiz Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <Card className="shadow-xl border-2 border-blue-100 overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                <Brain className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-slate-800">Solo Learning</h3>
+                <p className="text-slate-600">AI-powered study tools for individual learning</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardBody className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {soloQuizActions.map((action, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 + index * 0.1 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Card className="h-full overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                        onClick={() => navigate(action.path)}>
+                    <CardBody className="p-6 relative">
+                      <div className={`absolute inset-0 bg-gradient-to-br ${action.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
+                      <div className="relative z-10">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className={`w-12 h-12 bg-gradient-to-r ${action.color} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                            <action.icon className="w-6 h-6 text-white" />
+                          </div>
+                          <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                            {action.stats}
+                          </span>
+                        </div>
+                        <h4 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-purple-600 transition-colors duration-300">
+                          {action.title}
+                        </h4>
+                        <p className="text-slate-600 text-sm leading-relaxed">{action.description}</p>
+                      </div>
+                    </CardBody>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      </motion.div>
+
+      {/* Competition Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <Card className="shadow-xl border-2 border-purple-100 overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center">
+                <Trophy className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-slate-800">Competitive Learning</h3>
+                <p className="text-slate-600">Challenge others and climb the leaderboards</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardBody className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {competitionActions.map((action, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + index * 0.1 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Card className="h-full overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                        onClick={action.action}>
+                    <CardBody className="p-6 relative">
+                      <div className={`absolute inset-0 bg-gradient-to-br ${action.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
+                      <div className="relative z-10">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className={`w-12 h-12 bg-gradient-to-r ${action.color} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                            <action.icon className="w-6 h-6 text-white" />
+                          </div>
+                          <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                            {action.stats}
+                          </span>
+                        </div>
+                        <h4 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-purple-600 transition-colors duration-300">
+                          {action.title}
+                        </h4>
+                        <p className="text-slate-600 text-sm leading-relaxed">{action.description}</p>
+                      </div>
+                    </CardBody>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      </motion.div>
+
+      {/* Recent Activity */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+      >
+        <Card className="shadow-xl border-2 border-gray-100">
+          <CardHeader className="bg-gradient-to-r from-gray-50 to-slate-50">
+            <h3 className="text-2xl font-bold text-slate-800 flex items-center">
+              <Activity className="w-7 h-7 mr-3 text-slate-600" />
+              Recent Activity
+            </h3>
+          </CardHeader>
+          <CardBody className="p-6">
+            <div className="space-y-4">
+              {[
+                { icon: CheckCircle, text: 'Completed Computer Science quiz', time: '2 hours ago', color: 'text-green-600' },
+                { icon: Trophy, text: 'Won Mathematics competition', time: '1 day ago', color: 'text-yellow-600' },
+                { icon: Clock, text: 'Started Physics study plan', time: '3 days ago', color: 'text-blue-600' },
+                { icon: Flame, text: 'Achieved 7-day streak', time: '1 week ago', color: 'text-orange-600' }
+              ].map((activity, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.7 + index * 0.1 }}
+                  className="flex items-center space-x-4 p-4 bg-white rounded-xl border border-gray-200 hover:shadow-md transition-all duration-300"
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center bg-gray-100`}>
+                    <activity.icon className={`w-5 h-5 ${activity.color}`} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-800">{activity.text}</p>
+                    <p className="text-sm text-gray-500">{activity.time}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      </motion.div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -129,14 +356,14 @@ const CompetitionPage: React.FC = () => {
               transition={{ duration: 4, repeat: Infinity }}
               className="relative w-20 h-20 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-3xl flex items-center justify-center mr-6 shadow-2xl"
             >
-              <Trophy className="w-10 h-10 text-white" />
+              <Rocket className="w-10 h-10 text-white" />
               <div className="absolute inset-0 bg-gradient-to-r from-purple-400/50 to-indigo-400/50 rounded-3xl blur-xl animate-pulse" />
             </motion.div>
             <div>
               <h1 className="text-5xl font-bold bg-gradient-to-r from-slate-800 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-                Competition Hub
+                Quiz Hub
               </h1>
-              <p className="text-xl text-slate-600">Your gateway to competitive learning</p>
+              <p className="text-xl text-slate-600">Your complete learning and competition center</p>
             </div>
           </div>
         </motion.div>
@@ -176,41 +403,6 @@ const CompetitionPage: React.FC = () => {
           ))}
         </motion.div>
 
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
-        >
-          {quickActions.map((action, index) => (
-            <motion.div
-              key={index}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Card className="overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer group"
-                    onClick={action.action}>
-                <CardBody className="p-6 lg:p-8 relative">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${action.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
-                  <div className="flex items-center space-x-6 relative z-10">
-                    <div className={`w-16 h-16 lg:w-20 lg:h-20 bg-gradient-to-r ${action.color} rounded-2xl flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform duration-300`}>
-                      <action.icon className="w-8 h-8 lg:w-10 lg:h-10 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mb-2 group-hover:text-purple-600 transition-colors duration-300">
-                        {action.title}
-                      </h3>
-                      <p className="text-slate-600 text-base lg:text-lg">{action.description}</p>
-                    </div>
-                    <ArrowRight className="w-6 h-6 text-slate-400 group-hover:text-purple-600 group-hover:translate-x-2 transition-all duration-300" />
-                  </div>
-                </CardBody>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
-
         {/* Tab Navigation */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -220,7 +412,7 @@ const CompetitionPage: React.FC = () => {
         >
           <Card className="shadow-xl border-0 overflow-hidden">
             <CardBody className="p-0">
-              <div className="grid grid-cols-1 lg:grid-cols-3">
+              <div className="grid grid-cols-1 lg:grid-cols-4">
                 {tabs.map((tab, index) => (
                   <motion.button
                     key={tab.id}
@@ -274,6 +466,7 @@ const CompetitionPage: React.FC = () => {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
           >
+            {activeTab === 'overview' && renderOverview()}
             {activeTab === 'leaderboard' && <GlobalLeaderboard />}
             {activeTab === 'stats' && user && <CompetitionStats userId={user.id} />}
             {activeTab === 'management' && user && <CompetitionManagement userId={user.id} />}
