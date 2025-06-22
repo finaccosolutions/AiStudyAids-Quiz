@@ -44,35 +44,36 @@ export const saveApiKey = async (userId: string, apiKey: string) => {
   }
 };
 
-// Quiz preferences functions
-export const getQuizPreferences = async (userId: string): Promise<QuizPreferences | null> => {
-  const { data, error } = await supabase
-    .from('quiz_preferences')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error) throw error;
-
-  if (!data) return null;
-
-  return {
-    course: data.course || '',
-    topic: data.topic || '',
-    subtopic: data.subtopic || '',
-    questionCount: data.question_count || 5,
-    questionTypes: data.question_types || ['multiple-choice'],
-    language: data.language || 'English',
-    difficulty: data.difficulty || 'medium',
-    timeLimit: data.time_limit,
-    totalTimeLimit: data.total_time_limit,
-    timeLimitEnabled: data.time_limit_enabled || false,
-    negativeMarking: data.negative_marking || false,
-    negativeMarks: data.negative_marks || 0,
-    mode: data.mode || 'practice',
-    answerMode: data.mode === 'practice' ? 'immediate' : 'end'
+  // Quiz preferences functions
+  export const getQuizPreferences = async (userId: string): Promise<QuizPreferences | null> => {
+    const { data, error } = await supabase
+      .from('quiz_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+  
+    if (error) throw error;
+  
+    if (!data) return null;
+  
+    return {
+      course: data.course || '',
+      topic: data.topic || '',
+      subtopic: data.subtopic || '',
+      questionCount: data.question_count || 5,
+      questionTypes: data.question_types || ['multiple-choice'],
+      language: data.language || 'English',
+      difficulty: data.difficulty || 'medium',
+      timeLimit: data.time_limit,
+      totalTimeLimit: data.total_time_limit,
+      timeLimitEnabled: data.time_limit_enabled || false,
+      negativeMarking: data.negative_marking || false,
+      negativeMarks: data.negative_marks || 0,
+      mode: data.mode || 'practice',
+      answerMode: data.mode === 'practice' ? 'immediate' : 'end'
+    };
   };
-};
+
 
 export const saveQuizPreferences = async (userId: string, preferences: QuizPreferences) => {
   // First try to update existing preferences
@@ -91,8 +92,8 @@ export const saveQuizPreferences = async (userId: string, preferences: QuizPrefe
     question_types: preferences.questionTypes || ['multiple-choice'],
     language: preferences.language || 'English',
     difficulty: preferences.difficulty || 'medium',
-    time_limit: preferences.timeLimit,
-    total_time_limit: preferences.totalTimeLimit,
+    time_limit: preferences.timeLimitEnabled ? preferences.timeLimit : null,
+    total_time_limit: preferences.timeLimitEnabled ? preferences.totalTimeLimit : null,
     time_limit_enabled: preferences.timeLimitEnabled || false,
     negative_marking: preferences.negativeMarking || false,
     negative_marks: preferences.negativeMarks || 0,
@@ -100,18 +101,17 @@ export const saveQuizPreferences = async (userId: string, preferences: QuizPrefe
   };
 
   if (existingPrefs) {
-    // Update existing preferences
     return supabase
       .from('quiz_preferences')
       .update(prefsData)
       .eq('user_id', userId);
   } else {
-    // Insert new preferences
     return supabase
       .from('quiz_preferences')
       .insert(prefsData);
   }
 };
+
 
 // Auth functions
 export const signUp = async (

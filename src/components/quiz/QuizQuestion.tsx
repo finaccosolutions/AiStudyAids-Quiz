@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Question } from '../../types';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card, CardBody, CardFooter } from '../ui/Card';
-import { ArrowLeft, ArrowRight, CheckCircle, Volume2, VolumeX, BookOpen, Clock, Sparkles, Target, Zap, Star } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Volume2, VolumeX, BookOpen, Clock, Sparkles, Target, Zap, Star, Activity, Rocket, Shield, CloudLightning as Lightning, X, LogOut, AlertTriangle } from 'lucide-react';
 import { speechService } from '../../services/speech';
 import { motion, AnimatePresence } from 'framer-motion';
 import { evaluateTextAnswer } from '../../services/gemini';
@@ -26,6 +26,9 @@ interface QuizQuestionProps {
   totalTimeRemaining?: number | null;
   mode: 'practice' | 'exam';
   answerMode: 'immediate' | 'end';
+  onQuitQuiz?: () => void;
+  totalTimeElapsed?: number;
+  showQuitButton?: boolean;
 }
 
 const QuizQuestion: React.FC<QuizQuestionProps> = ({
@@ -51,6 +54,8 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   const [sequenceOrder, setSequenceOrder] = useState<string[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+  const [totalElapsed, setTotalElapsed] = useState(totalTimeElapsed || 0);
   const [timeLeft, setTimeLeft] = useState<number | null>(() => {
     if (!timeLimitEnabled || totalTimeLimit) return null;
     
@@ -111,6 +116,16 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
     }
     return () => clearInterval(timer);
   }, [timeLeft]);
+
+  // Total elapsed time tracker
+useEffect(() => {
+  const timer = setInterval(() => {
+    setTotalElapsed(prev => prev + 1);
+  }, 1000);
+  
+  return () => clearInterval(timer);
+}, []);
+
 
   const handleNext = useCallback(() => {
     onAnswer(selectedAnswer);
@@ -744,79 +759,180 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
       className="w-full"
     >
       <Card className="w-full transform transition-all duration-300 hover:shadow-2xl bg-gradient-to-br from-white to-purple-50 border-2 border-purple-100 overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500" />
+          {/* Add animated background elements */}
+  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse" />
+  <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-200/20 to-cyan-200/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+  
+  {/* Existing content with relative z-index */}
+  <div className="relative z-10">
+    {/* Your existing card content */}
+  </div>
         
         <CardBody className="space-y-6 p-4 sm:p-8">
-          <div className="flex flex-wrap gap-4 sm:flex-nowrap justify-between items-start">
-            <div className="flex flex-wrap gap-x-4 gap-y-2 sm:flex-nowrap items-center space-x-0 sm:space-x-6">
-              <motion.div 
-                className="text-sm sm:text-lg font-bold text-gray-600 bg-gradient-to-r from-purple-100 to-indigo-100 px-3 sm:px-4 py-2 rounded-full"
-                whileHover={{ scale: 1.05 }}
+{/* Enhanced Header with better time display and quit option */}
+<div className="flex flex-wrap gap-4 sm:flex-nowrap justify-between items-start">
+  <div className="flex flex-wrap gap-x-4 gap-y-2 sm:flex-nowrap items-center space-x-0 sm:space-x-6">
+    <motion.div 
+      className="text-sm sm:text-lg font-bold text-gray-600 bg-gradient-to-r from-purple-100 to-indigo-100 px-3 sm:px-4 py-2 rounded-full"
+      whileHover={{ scale: 1.05 }}
+    >
+      Question {questionNumber} of {totalQuestions}
+    </motion.div>
+    <motion.span 
+      className={`text-xs sm:text-sm font-bold capitalize px-3 sm:px-4 py-2 rounded-full border-2 ${getDifficultyColor()}`}
+      whileHover={{ scale: 1.05 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+    >
+      {question.difficulty}
+    </motion.span>
+    
+    {/* Time Display Section */}
+    <div className="flex items-center space-x-3">
+      {/* Question Time Limit */}
+      {timeLimitEnabled && timeLeft !== null && (
+        <motion.div 
+          className={`flex items-center space-x-2 text-sm sm:text-lg font-bold px-3 sm:px-4 py-2 rounded-full ${
+            timeLeft <= 10 
+              ? 'bg-red-100 text-red-600 border-2 border-red-300' 
+              : 'bg-blue-100 text-blue-600 border-2 border-blue-300'
+          }`}
+          animate={timeLeft <= 10 ? { scale: [1, 1.05, 1] } : {}}
+          transition={{ duration: 1, repeat: timeLeft <= 10 ? Infinity : 0 }}
+        >
+          <Clock className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+          <span>{formatTime(timeLeft)}</span>
+          <span className="text-xs opacity-75">left</span>
+        </motion.div>
+      )}
+      
+      {/* Total Time Remaining */}
+      {totalTimeRemaining !== null && (
+        <motion.div 
+          className={`flex items-center space-x-2 text-sm sm:text-lg font-bold px-3 sm:px-4 py-2 rounded-full ${
+            totalTimeRemaining <= 60 
+              ? 'bg-red-100 text-red-600 border-2 border-red-300' 
+              : 'bg-orange-100 text-orange-600 border-2 border-orange-300'
+          }`}
+          animate={totalTimeRemaining <= 60 ? { scale: [1, 1.05, 1] } : {}}
+          transition={{ duration: 1, repeat: totalTimeRemaining <= 60 ? Infinity : 0 }}
+        >
+          <Activity className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+          <span>{formatTime(totalTimeRemaining)}</span>
+          <span className="text-xs opacity-75">total</span>
+        </motion.div>
+      )}
+      
+      {/* Total Elapsed Time */}
+      <motion.div 
+        className="flex items-center space-x-2 bg-green-100 text-green-600 border-2 border-green-300 text-sm sm:text-lg font-bold px-3 sm:px-4 py-2 rounded-full"
+        whileHover={{ scale: 1.05 }}
+      >
+        <Rocket className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+        <span>{formatTime(totalElapsed)}</span>
+        <span className="text-xs opacity-75">elapsed</span>
+      </motion.div>
+    </div>
+  </div>
+  
+  <div className="flex items-center space-x-3">
+    <motion.button
+      type="button"
+      onClick={() => setShowExplanation(!showExplanation)}
+      className={`p-2 sm:p-3 rounded-full transition-all duration-300 ${
+        showExplanation 
+          ? 'bg-purple-500 text-white shadow-lg scale-110' 
+          : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600 hover:scale-105'
+      }`}
+      aria-label="Show explanation"
+      disabled={!hasAnswered || (mode === 'exam' && answerMode === 'end')}
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.95 }}
+    >
+      <BookOpen className="w-4 h-4 sm:w-6 sm:h-6" />
+    </motion.button>
+    
+    <motion.button
+      type="button"
+      onClick={playQuestionAudio}
+      className={`p-2 sm:p-3 rounded-full transition-all duration-300 ${
+        isSpeaking 
+          ? 'bg-purple-500 text-white shadow-lg scale-110' 
+          : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600 hover:scale-105'
+      }`}
+      aria-label={isSpeaking ? 'Stop speaking' : 'Speak question'}
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.95 }}
+    >
+      {isSpeaking ? (
+        <VolumeX className="w-4 h-4 sm:w-6 sm:h-6" />
+      ) : (
+        <Volume2 className="w-4 h-4 sm:w-6 sm:h-6" />
+      )}
+    </motion.button>
+    
+    {/* Quit Quiz Button */}
+    {showQuitButton && (
+      <motion.button
+        type="button"
+        onClick={() => setShowQuitConfirm(true)}
+        className="p-2 sm:p-3 rounded-full bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 transition-all duration-300"
+        aria-label="Quit quiz"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <LogOut className="w-4 h-4 sm:w-6 sm:h-6" />
+      </motion.button>
+    )}
+            {/* Quit Confirmation Modal */}
+        <AnimatePresence>
+          {showQuitConfirm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl"
               >
-                Question {questionNumber} of {totalQuestions}
+                <div className="flex items-center mb-4">
+                  <AlertTriangle className="w-6 h-6 text-red-500 mr-3" />
+                  <h3 className="text-lg font-bold text-gray-800">Quit Quiz?</h3>
+                </div>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to quit this quiz? Your progress will be lost.
+                </p>
+                <div className="flex space-x-3">
+                  <Button
+                    onClick={() => setShowQuitConfirm(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Continue Quiz
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowQuitConfirm(false);
+                      onQuitQuiz?.();
+                    }}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Quit
+                  </Button>
+                </div>
               </motion.div>
-              <motion.span 
-                className={`text-xs sm:text-sm font-bold capitalize px-3 sm:px-4 py-2 rounded-full border-2 ${getDifficultyColor()}`}
-                whileHover={{ scale: 1.05 }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              >
-                {question.difficulty}
-              </motion.span>
-              {timeLimitEnabled && (timeLeft !== null || totalTimeRemaining !== null) && (
-                <motion.div 
-                  className={`flex items-center space-x-2 text-sm sm:text-lg font-bold px-3 sm:px-4 py-2 rounded-full ${
-                    (timeLeft !== null && timeLeft <= 10) || (totalTimeRemaining !== null && totalTimeRemaining <= 10) 
-                      ? 'bg-red-100 text-red-600 border-2 border-red-300' 
-                      : 'bg-blue-100 text-blue-600 border-2 border-blue-300'
-                  }`}
-                  animate={(timeLeft !== null && timeLeft <= 10) || (totalTimeRemaining !== null && totalTimeRemaining <= 10) 
-                    ? { scale: [1, 1.05, 1] } : {}}
-                  transition={{ duration: 1, repeat: ((timeLeft !== null && timeLeft <= 10) || (totalTimeRemaining !== null && totalTimeRemaining <= 10)) ? Infinity : 0 }}
-                >
-                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                  <span>
-                    {timeLeft !== null ? formatTime(timeLeft) : 
-                     totalTimeRemaining !== null ? formatTime(totalTimeRemaining) : ''}
-                  </span>
-                </motion.div>
-              )}
-            </div>
-            <div className="flex items-center space-x-3">
-              <motion.button
-                type="button"
-                onClick={() => setShowExplanation(!showExplanation)}
-                className={`p-2 sm:p-3 rounded-full transition-all duration-300 ${
-                  showExplanation 
-                    ? 'bg-purple-500 text-white shadow-lg scale-110' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600 hover:scale-105'
-                }`}
-                aria-label="Show explanation"
-                disabled={!hasAnswered || (mode === 'exam' && answerMode === 'end')}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <BookOpen className="w-4 h-4 sm:w-6 sm:h-6" />
-              </motion.button>
-              <motion.button
-                type="button"
-                onClick={playQuestionAudio}
-                className={`p-2 sm:p-3 rounded-full transition-all duration-300 ${
-                  isSpeaking 
-                    ? 'bg-purple-500 text-white shadow-lg scale-110' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600 hover:scale-105'
-                }`}
-                aria-label={isSpeaking ? 'Stop speaking' : 'Speak question'}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                {isSpeaking ? (
-                  <VolumeX className="w-4 h-4 sm:w-6 sm:h-6" />
-                ) : (
-                  <Volume2 className="w-4 h-4 sm:w-6 sm:h-6" />
-                )}
-              </motion.button>
-            </div>
-          </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+  </div>
+  
+</div>
+
           
           <div className="py-4 sm:py-6">
             <motion.h3 

@@ -600,24 +600,28 @@ const handleCreateCompetitionSuccess = useCallback(() => {
                 Back to Quiz Modes
               </Button>
             </div>
-            <QuizQuestion
-              question={currentQuestion}
-              questionNumber={currentQuestionIndex + 1}
-              totalQuestions={questions.length}
-              userAnswer={answers[currentQuestion.id]}
-              onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)}
-              onPrevious={handlePrevious}
-              onNext={handleNext}
-              isLastQuestion={currentQuestionIndex === questions.length - 1}
-              onFinish={handleFinishQuiz}
-              language={preferences.language || 'en'}
-              timeLimitEnabled={preferences.timeLimitEnabled || false}
-              timeLimit={preferences.timeLimit}
-              totalTimeLimit={preferences.totalTimeLimit}
-              totalTimeRemaining={totalTimeRemaining}
-              mode={preferences.mode || 'practice'}
-              answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
-            />
+              <QuizQuestion
+                question={currentQuestion}
+                questionNumber={currentQuestionIndex + 1}
+                totalQuestions={questions.length}
+                userAnswer={answers[currentQuestion.id]}
+                onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)}
+                onPrevious={handlePrevious}
+                onNext={handleNext}
+                isLastQuestion={currentQuestionIndex === questions.length - 1}
+                onFinish={handleFinishQuiz}
+                language={preferences.language || 'en'}
+                timeLimitEnabled={preferences.timeLimitEnabled || false}
+                timeLimit={preferences.timeLimit}
+                totalTimeLimit={preferences.totalTimeLimit}
+                totalTimeRemaining={totalTimeRemaining}
+                mode={preferences.mode || 'practice'}
+                answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
+                onQuitQuiz={handleBackToModeSelector}
+                totalTimeElapsed={Math.floor((Date.now() - Date.now()) / 1000)} // You'll need to track this properly
+                showQuitButton={true}
+              />
+
           </div>
         );
       
