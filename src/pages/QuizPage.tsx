@@ -618,7 +618,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
                 mode={preferences.mode || 'practice'}
                 answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
                 onQuitQuiz={handleBackToModeSelector}
-                totalTimeElapsed={Math.floor((Date.now() - Date.now()) / 1000)} // You'll need to track this properly
+                totalTimeElapsed={Math.floor((Date.now() - Date.now()) / 1000)} // You'll need to track this properly 
                 showQuitButton={true}
               />
 
