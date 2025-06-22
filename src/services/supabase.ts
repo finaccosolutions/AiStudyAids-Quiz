@@ -83,22 +83,23 @@ export const saveQuizPreferences = async (userId: string, preferences: QuizPrefe
     .eq('user_id', userId)
     .maybeSingle();
 
-  const prefsData = {
-    user_id: userId,
-    course: preferences.course || '',
-    topic: preferences.topic || '',
-    subtopic: preferences.subtopic || '',
-    question_count: preferences.questionCount || 5,
-    question_types: preferences.questionTypes || ['multiple-choice'],
-    language: preferences.language || 'English',
-    difficulty: preferences.difficulty || 'medium',
-    time_limit: preferences.timeLimitEnabled ? preferences.timeLimit : null,
-    total_time_limit: preferences.timeLimitEnabled ? preferences.totalTimeLimit : null,
-    time_limit_enabled: preferences.timeLimitEnabled || false,
-    negative_marking: preferences.negativeMarking || false,
-    negative_marks: preferences.negativeMarks || 0,
-    mode: preferences.mode || 'practice'
-  };
+    const prefsData = {
+      user_id: userId,
+      course: preferences.course || '',
+      topic: preferences.topic || '',
+      subtopic: preferences.subtopic || '',
+      question_count: preferences.questionCount || 5,
+      question_types: preferences.questionTypes || ['multiple-choice'],
+      language: preferences.language || 'English',
+      difficulty: preferences.difficulty || 'medium',
+      time_limit: preferences.timeLimitEnabled && preferences.timeLimit ? preferences.timeLimit : null,
+      total_time_limit: preferences.timeLimitEnabled && preferences.totalTimeLimit ? preferences.totalTimeLimit : null,
+      time_limit_enabled: preferences.timeLimitEnabled || false,
+      negative_marking: preferences.negativeMarking || false,
+      negative_marks: preferences.negativeMarks || 0,
+      mode: preferences.mode || 'practice'
+    };
+
 
   if (existingPrefs) {
     return supabase
