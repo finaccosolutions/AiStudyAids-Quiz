@@ -104,18 +104,15 @@ useEffect(() => {
         
         if (activeCompetitions.length > 0) {
           if (activeCompetitions.length === 1) {
-            // Auto-redirect to the single active competition
             const competition = activeCompetitions[0];
             loadCompetition(competition.id);
             
-            // Determine step based on competition status
             const newStep = competition.status === 'waiting' ? 'competition-lobby' : 
                           competition.status === 'active' ? 'competition-quiz' : 'competition-lobby';
             setStep(newStep);
             currentStepRef.current = newStep;
             return;
           } else {
-            // Multiple active competitions - let user choose
             setStep('active-competitions-selector');
             currentStepRef.current = 'active-competitions-selector';
             return;
@@ -125,7 +122,6 @@ useEffect(() => {
 
       // Check if user has an active competition in current state
       if (currentCompetition) {
-        // Verify competition still exists and is valid
         const { data: competitionCheck } = await supabase
           .from('competitions')
           .select('status')
@@ -133,15 +129,12 @@ useEffect(() => {
           .maybeSingle();
 
         if (!competitionCheck) {
-          // Competition no longer exists
-          console.log('Competition no longer exists, clearing current competition');
           clearCurrentCompetition();
           setStep('mode-selector');
           currentStepRef.current = 'mode-selector';
           return;
         }
 
-        // Determine step based on competition status
         const newStep = competitionCheck.status === 'waiting' ? 'competition-lobby' :
                       competitionCheck.status === 'active' ? 'competition-quiz' :
                       competitionCheck.status === 'completed' ? 'competition-results' : 'mode-selector';
@@ -163,9 +156,10 @@ useEffect(() => {
         return;
       }
       
-      if (result) {
+      // CRITICAL FIX: Check result first, then questions
+      if (result && result.questions && result.questions.length > 0) {
         newStep = 'results';
-      } else if (questions.length > 0) {
+      } else if (questions.length > 0 && !result) {
         newStep = 'quiz';
         // Initialize total time if set
         if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
@@ -177,42 +171,57 @@ useEffect(() => {
       
       // Only update if step actually changed
       if (currentStepRef.current !== newStep) {
+        console.log(`Step changing from ${currentStepRef.current} to ${newStep}`);
         setStep(newStep as any);
         currentStepRef.current = newStep;
       }
     } catch (error: any) {
       console.error('Step determination error:', error);
-      // Don't navigate to auth on competition-related errors
       if (!error.message?.includes('Competition') && !error.message?.includes('competition')) {
         navigate('/auth');
       }
     }
   };
 
-  // Use a timeout to prevent rapid state changes
   const timeoutId = setTimeout(determineStep, 100);
   return () => clearTimeout(timeoutId);
-}, [questions, result, location.state, currentCompetition, navigate, user, isInitializedRef.current, isGeneratingQuiz]);
+}, [questions, result, location.state, currentCompetition, navigate, user, isInitializedRef.current, isGeneratingQuiz, preferences]);
 
 
+    const handleFinishQuiz = useCallback(() => {
+      console.log('Finishing quiz...');
+      finishQuiz();
+      // Force step change to results
+      setStep('results');
+      currentStepRef.current = 'results';
+      setTotalTimeRemaining(null);
+    }, [finishQuiz]);
+
+  
   // Total quiz timer effect
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (totalTimeRemaining !== null && totalTimeRemaining > 0 && step === 'quiz') {
-      timer = setInterval(() => {
-        setTotalTimeRemaining(prev => {
-          if (prev === null || prev <= 0) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (totalTimeRemaining === 0) {
-      handleFinishQuiz();
+useEffect(() => {
+  let timer: NodeJS.Timeout;
+  if (totalTimeRemaining !== null && totalTimeRemaining > 0 && step === 'quiz' && questions.length > 0) {
+    timer = setInterval(() => {
+      setTotalTimeRemaining(prev => {
+        if (prev === null || prev <= 1) {
+          // Auto-finish quiz when time runs out
+          setTimeout(() => {
+            handleFinishQuiz();
+          }, 100);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+  return () => {
+    if (timer) {
+      clearInterval(timer);
     }
-    return () => clearInterval(timer);
-  }, [totalTimeRemaining, step]);
+  };
+}, [totalTimeRemaining, step, questions.length, handleFinishQuiz]);
+
   
   if (!isLoggedIn) {
     return <Navigate to="/auth" />;
@@ -270,13 +279,8 @@ useEffect(() => {
       }
     }, [user, generateQuiz, apiKey]);
 
-  
-  const handleFinishQuiz = useCallback(() => {
-    finishQuiz();
-    setStep('results');
-    currentStepRef.current = 'results';
-    setTotalTimeRemaining(null);
-  }, [finishQuiz]);
+
+
   
   const handleNewQuiz = useCallback(() => {
     resetQuiz();

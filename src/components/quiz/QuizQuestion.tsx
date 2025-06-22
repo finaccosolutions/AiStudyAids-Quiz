@@ -93,35 +93,37 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   }, [userAnswer, question.id, timeLimit, totalTimeLimit, timeLimitEnabled]);
 
   // Per-question timer effect
+// Per-question timer effect
 useEffect(() => {
-  let timer: NodeJS.Timeout;
+  if (!timeLimitEnabled || !timeLimit || timeLeft === null) return;
   
-  if (timeLeft !== null && timeLeft > 0) {
+  let timer: NodeJS.Timeout;
+  if (timeLeft > 0) {
     timer = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev === null || prev <= 0) {
-          clearInterval(timer);
+        if (prev === null || prev <= 1) {
+          // Auto-move to next question when time runs out
+          setTimeout(() => {
+            if (isLastQuestion) {
+              onFinish();
+            } else {
+              onNext();
+            }
+          }, 100);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-  } else if (timeLeft === 0) {
-    // Auto-submit when time expires
-    if (!hasAnswered) {
-      handleAnswerSubmit();
-    }
-    setTimeout(() => {
-      if (isLastQuestion) {
-        handleFinish();
-      } else {
-        handleNext();
-      }
-    }, 1000);
   }
   
-  return () => clearInterval(timer);
-}, [timeLeft, hasAnswered]);
+  return () => {
+    if (timer) {
+      clearInterval(timer);
+    }
+  };
+}, [timeLeft, timeLimitEnabled, timeLimit, isLastQuestion, onNext, onFinish]);
+
 
   // Total elapsed time tracker
   useEffect(() => {
