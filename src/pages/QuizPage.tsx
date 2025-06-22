@@ -50,15 +50,12 @@ const QuizPage: React.FC = () => {
   const isInitializedRef = useRef(false);
   const currentStepRef = useRef<string>('api-key');
   
-const [step, setStep] = useState<
-  'api-key' | 'mode-selector' | 'solo-preferences' | 'create-competition' | 
-  'join-competition' | 'random-match' | 'quiz' | 'results' | 
-  'competition-lobby' | 'competition-quiz' | 'competition-results' |
-  'competition-management' | 'active-competitions-selector'
->('mode-selector'); // Change from 'api-key' to 'mode-selector'
-
-// Add a new state for tracking quiz generation
-const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [step, setStep] = useState<
+    'api-key' | 'mode-selector' | 'solo-preferences' | 'create-competition' | 
+    'join-competition' | 'random-match' | 'quiz' | 'results' | 
+    'competition-lobby' | 'competition-quiz' | 'competition-results' |
+    'competition-management' | 'active-competitions-selector'
+  >('api-key');
   
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
   const [totalTimeRemaining, setTotalTimeRemaining] = useState<number | null>(null);
@@ -84,144 +81,126 @@ const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
     initializeQuizPage();
   }, [user, loadApiKey, loadPreferences, loadUserCompetitions]);
 
-// Separate effect for step determination to prevent loops
-useEffect(() => {
-  if (!isInitializedRef.current) return;
+  // Separate effect for step determination to prevent loops
+  useEffect(() => {
+    if (!isInitializedRef.current) return;
 
-  const determineStep = async () => {
-    try {
-      // Handle competition mode from location state
-      if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
-        loadCompetition(location.state.competitionId);
-        setStep('competition-lobby');
-        currentStepRef.current = 'competition-lobby';
-        return;
-      }
-
-      // Check if user has active competitions first
-      if (user) {
-        const activeCompetitions = await loadUserActiveCompetitions(user.id);
-        
-        if (activeCompetitions.length > 0) {
-          if (activeCompetitions.length === 1) {
-            const competition = activeCompetitions[0];
-            loadCompetition(competition.id);
-            
-            const newStep = competition.status === 'waiting' ? 'competition-lobby' : 
-                          competition.status === 'active' ? 'competition-quiz' : 'competition-lobby';
-            setStep(newStep);
-            currentStepRef.current = newStep;
-            return;
-          } else {
-            setStep('active-competitions-selector');
-            currentStepRef.current = 'active-competitions-selector';
-            return;
-          }
-        }
-      }
-
-      // Check if user has an active competition in current state
-      if (currentCompetition) {
-        const { data: competitionCheck } = await supabase
-          .from('competitions')
-          .select('status')
-          .eq('id', currentCompetition.id)
-          .maybeSingle();
-
-        if (!competitionCheck) {
-          clearCurrentCompetition();
-          setStep('mode-selector');
-          currentStepRef.current = 'mode-selector';
+    const determineStep = async () => {
+      try {
+        // Handle competition mode from location state
+        if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
+          loadCompetition(location.state.competitionId);
+          setStep('competition-lobby');
+          currentStepRef.current = 'competition-lobby';
           return;
         }
 
-        const newStep = competitionCheck.status === 'waiting' ? 'competition-lobby' :
-                      competitionCheck.status === 'active' ? 'competition-quiz' :
-                      competitionCheck.status === 'completed' ? 'competition-results' : 'mode-selector';
-        
-        if (newStep === 'mode-selector') {
-          clearCurrentCompetition();
+        // Check if user has active competitions first
+        if (user) {
+          const activeCompetitions = await loadUserActiveCompetitions(user.id);
+          
+          if (activeCompetitions.length > 0) {
+            if (activeCompetitions.length === 1) {
+              // Auto-redirect to the single active competition
+              const competition = activeCompetitions[0];
+              loadCompetition(competition.id);
+              
+              // Determine step based on competition status
+              const newStep = competition.status === 'waiting' ? 'competition-lobby' : 
+                            competition.status === 'active' ? 'competition-quiz' : 'competition-lobby';
+              setStep(newStep);
+              currentStepRef.current = newStep;
+              return;
+            } else {
+              // Multiple active competitions - let user choose
+              setStep('active-competitions-selector');
+              currentStepRef.current = 'active-competitions-selector';
+              return;
+            }
+          }
+        }
+
+        // Check if user has an active competition in current state
+        if (currentCompetition) {
+          // Verify competition still exists and is valid
+          const { data: competitionCheck } = await supabase
+            .from('competitions')
+            .select('status')
+            .eq('id', currentCompetition.id)
+            .maybeSingle();
+
+          if (!competitionCheck) {
+            // Competition no longer exists
+            clearCurrentCompetition();
+            setStep('mode-selector');
+            currentStepRef.current = 'mode-selector';
+            return;
+          }
+
+          // Determine step based on competition status
+          const newStep = competitionCheck.status === 'waiting' ? 'competition-lobby' :
+                        competitionCheck.status === 'active' ? 'competition-quiz' :
+                        competitionCheck.status === 'completed' ? 'competition-results' : 'mode-selector';
+          
+          if (newStep === 'mode-selector') {
+            clearCurrentCompetition();
+          }
+          
+          setStep(newStep);
+          currentStepRef.current = newStep;
+          return;
+        }
+      
+        // Determine initial step based on current state
+        let newStep: string;
+        if (!apiKey) {
+          newStep = 'api-key';
+        } else if (result) {
+          newStep = 'results';
+        } else if (questions.length > 0) {
+          newStep = 'quiz';
+          // Initialize total time if set
+          if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
+            setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
+          }
+        } else {
+          newStep = 'mode-selector';
         }
         
-        setStep(newStep);
-        currentStepRef.current = newStep;
-        return;
-      }
-    
-      // Determine initial step based on current state
-      let newStep: string;
-      
-      // If quiz is being generated, stay on current step
-      if (isGeneratingQuiz) {
-        return;
-      }
-      
-      // CRITICAL FIX: Check result first, then questions
-      if (result && result.questions && result.questions.length > 0) {
-        newStep = 'results';
-      } else if (questions.length > 0 && !result) {
-        newStep = 'quiz';
-        // Initialize total time if set
-        if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
-          setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
+        // Only update if step actually changed
+        if (currentStepRef.current !== newStep) {
+          setStep(newStep as any);
+          currentStepRef.current = newStep;
         }
-      } else {
-        newStep = 'mode-selector';
-      }
-      
-      // Only update if step actually changed
-      if (currentStepRef.current !== newStep) {
-        console.log(`Step changing from ${currentStepRef.current} to ${newStep}`);
-        setStep(newStep as any);
-        currentStepRef.current = newStep;
-      }
-    } catch (error: any) {
-      console.error('Step determination error:', error);
-      if (!error.message?.includes('Competition') && !error.message?.includes('competition')) {
+      } catch (error) {
+        console.error('Step determination error:', error);
         navigate('/auth');
       }
-    }
-  };
+    };
 
-  const timeoutId = setTimeout(determineStep, 100);
-  return () => clearTimeout(timeoutId);
-}, [questions, result, location.state, currentCompetition, navigate, user, isInitializedRef.current, isGeneratingQuiz, preferences]);
+    // Use a timeout to prevent rapid state changes
+    const timeoutId = setTimeout(determineStep, 100);
+    return () => clearTimeout(timeoutId);
+  }, [apiKey, preferences, questions, result, location.state, currentCompetition, navigate, user, isInitializedRef.current]);
 
-
-    const handleFinishQuiz = useCallback(() => {
-      console.log('Finishing quiz...');
-      finishQuiz();
-      // Force step change to results
-      setStep('results');
-      currentStepRef.current = 'results';
-      setTotalTimeRemaining(null);
-    }, [finishQuiz]);
-
-  
   // Total quiz timer effect
-useEffect(() => {
-  let timer: NodeJS.Timeout;
-  if (totalTimeRemaining !== null && totalTimeRemaining > 0 && step === 'quiz' && questions.length > 0) {
-    timer = setInterval(() => {
-      setTotalTimeRemaining(prev => {
-        if (prev === null || prev <= 1) {
-          // Auto-finish quiz when time runs out
-          setTimeout(() => {
-            handleFinishQuiz();
-          }, 100);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }
-  return () => {
-    if (timer) {
-      clearInterval(timer);
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (totalTimeRemaining !== null && totalTimeRemaining > 0 && step === 'quiz') {
+      timer = setInterval(() => {
+        setTotalTimeRemaining(prev => {
+          if (prev === null || prev <= 0) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else if (totalTimeRemaining === 0) {
+      handleFinishQuiz();
     }
-  };
-}, [totalTimeRemaining, step, questions.length, handleFinishQuiz]);
-
+    return () => clearInterval(timer);
+  }, [totalTimeRemaining, step]);
   
   if (!isLoggedIn) {
     return <Navigate to="/auth" />;
@@ -256,31 +235,19 @@ useEffect(() => {
     currentStepRef.current = 'competition-management';
   }, []);
   
-    const handleStartSoloQuiz = useCallback(async () => {
-      if (!user) return;
-      
-      // Check if API key is required and available
-      if (!apiKey) {
-        setStep('api-key');
-        currentStepRef.current = 'api-key';
-        return;
-      }
-      
-      setIsGeneratingQuiz(true);
-      try {
-        await generateQuiz(user.id);
-        setStep('quiz');
-        currentStepRef.current = 'quiz';
-      } catch (error) {
-        console.error('Failed to generate quiz:', error);
-        // Stay on preferences page if quiz generation fails
-      } finally {
-        setIsGeneratingQuiz(false);
-      }
-    }, [user, generateQuiz, apiKey]);
-
-
-
+  const handleStartSoloQuiz = useCallback(async () => {
+    if (!user) return;
+    await generateQuiz(user.id);
+    setStep('quiz');
+    currentStepRef.current = 'quiz';
+  }, [user, generateQuiz]);
+  
+  const handleFinishQuiz = useCallback(() => {
+    finishQuiz();
+    setStep('results');
+    currentStepRef.current = 'results';
+    setTotalTimeRemaining(null);
+  }, [finishQuiz]);
   
   const handleNewQuiz = useCallback(() => {
     resetQuiz();
@@ -343,10 +310,10 @@ useEffect(() => {
     navigate('/');
   }, [navigate]);
 
-const handleCreateCompetitionSuccess = useCallback(() => {
-  setStep('competition-lobby');
-  currentStepRef.current = 'competition-lobby';
-}, []);
+  const handleCreateCompetitionSuccess = useCallback(() => {
+    setStep('competition-lobby');
+    currentStepRef.current = 'competition-lobby';
+  }, []);
 
   const handleSelectActiveCompetition = useCallback((competition: any) => {
     loadCompetition(competition.id);
@@ -472,69 +439,47 @@ const handleCreateCompetitionSuccess = useCallback(() => {
           </div>
         );
 
-        case 'solo-preferences':
-          return (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between mb-6">
-                <Button
-                  variant="ghost"
-                  onClick={handleBackToModeSelector}
-                  className="text-gray-600 hover:text-gray-800"
-                  disabled={isGeneratingQuiz}
-                >
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  Back to Quiz Modes
-                </Button>
-              </div>
-              {isGeneratingQuiz ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                    <p className="text-lg text-gray-600">Generating your quiz...</p>
-                  </div>
-                </div>
-              ) : (
-                <QuizPreferencesForm
-                  userId={user.id}
-                  initialPreferences={preferences || defaultPreferences}
-                  onSave={handleStartSoloQuiz}
-                />
-              )}
+      case 'solo-preferences':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between mb-6">
+              <Button
+                variant="ghost"
+                onClick={handleBackToModeSelector}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back to Quiz Modes
+              </Button>
             </div>
-          );
+            <QuizPreferencesForm
+              userId={user.id}
+              initialPreferences={preferences || defaultPreferences}
+              onSave={handleStartSoloQuiz}
+            />
+          </div>
+        );
 
-
-          case 'create-competition':
-            return (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between mb-6">
-                  <Button
-                    variant="ghost"
-                    onClick={handleBackToModeSelector}
-                    className="text-gray-600 hover:text-gray-800"
-                    disabled={isGeneratingQuiz}
-                  >
-                    <ArrowLeft className="w-5 h-5 mr-2" />
-                    Back to Quiz Modes
-                  </Button>
-                </div>
-                {isGeneratingQuiz ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                      <p className="text-lg text-gray-600">Creating your competition...</p>
-                    </div>
-                  </div>
-                ) : (
-                  <QuizPreferencesForm
-                    userId={user.id}
-                    initialPreferences={preferences || defaultPreferences}
-                    onStartCompetition={handleCreateCompetitionSuccess}
-                  />
-                )}
-              </div>
-            );
-
+      case 'create-competition':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between mb-6">
+              <Button
+                variant="ghost"
+                onClick={handleBackToModeSelector}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back to Quiz Modes
+              </Button>
+            </div>
+            <QuizPreferencesForm
+              userId={user.id}
+              initialPreferences={preferences || defaultPreferences}
+              onStartCompetition={handleCreateCompetitionSuccess}
+            />
+          </div>
+        );
 
       case 'join-competition':
         return (
@@ -608,28 +553,24 @@ const handleCreateCompetitionSuccess = useCallback(() => {
                 Back to Quiz Modes
               </Button>
             </div>
-              <QuizQuestion
-                question={currentQuestion}
-                questionNumber={currentQuestionIndex + 1}
-                totalQuestions={questions.length}
-                userAnswer={answers[currentQuestion.id]}
-                onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)}
-                onPrevious={handlePrevious}
-                onNext={handleNext}
-                isLastQuestion={currentQuestionIndex === questions.length - 1}
-                onFinish={handleFinishQuiz}
-                language={preferences.language || 'en'}
-                timeLimitEnabled={preferences.timeLimitEnabled || false}
-                timeLimit={preferences.timeLimit}
-                totalTimeLimit={preferences.totalTimeLimit}
-                totalTimeRemaining={totalTimeRemaining}
-                mode={preferences.mode || 'practice'}
-                answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
-                onQuitQuiz={handleBackToModeSelector}
-                totalTimeElapsed={Math.floor((Date.now() - Date.now()) / 1000)} // You'll need to track this properly 
-                showQuitButton={true}
-              />
-
+            <QuizQuestion
+              question={currentQuestion}
+              questionNumber={currentQuestionIndex + 1}
+              totalQuestions={questions.length}
+              userAnswer={answers[currentQuestion.id]}
+              onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)}
+              onPrevious={handlePrevious}
+              onNext={handleNext}
+              isLastQuestion={currentQuestionIndex === questions.length - 1}
+              onFinish={handleFinishQuiz}
+              language={preferences.language || 'en'}
+              timeLimitEnabled={preferences.timeLimitEnabled || false}
+              timeLimit={preferences.timeLimit}
+              totalTimeLimit={preferences.totalTimeLimit}
+              totalTimeRemaining={totalTimeRemaining}
+              mode={preferences.mode || 'practice'}
+              answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
+            />
           </div>
         );
       
