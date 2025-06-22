@@ -48,9 +48,6 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   totalTimeRemaining,
   mode,
   answerMode,
-  totalTimeElapsed = 0,
-  showQuitButton,
-  onQuitQuiz 
 }) => {
   const [selectedAnswer, setSelectedAnswer] = useState(userAnswer || '');
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
@@ -58,13 +55,14 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
-  const [totalElapsed, setTotalElapsed] = useState(totalTimeElapsed);
+  const [totalElapsed, setTotalElapsed] = useState(totalTimeElapsed || 0);
   const [timeLeft, setTimeLeft] = useState<number | null>(() => {
-    if (!timeLimitEnabled) return null;
-    // Use totalTimeRemaining if available, otherwise use per-question timeLimit
-    return totalTimeRemaining !== undefined && totalTimeRemaining !== null 
-      ? totalTimeRemaining 
-      : (timeLimit && timeLimit !== 'none' ? parseInt(timeLimit) : null);
+    if (!timeLimitEnabled || totalTimeLimit) return null;
+    
+    if (timeLimit && timeLimit !== 'none') {
+      return parseInt(timeLimit);
+    }
+    return null;
   });
   const [hasAnswered, setHasAnswered] = useState(false);
   const [answerEvaluation, setAnswerEvaluation] = useState<{
@@ -93,44 +91,41 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   }, [userAnswer, question.id, timeLimit, totalTimeLimit, timeLimitEnabled]);
 
   // Per-question timer effect
-useEffect(() => {
-  let timer: NodeJS.Timeout;
-  
-  if (timeLeft !== null && timeLeft > 0) {
-    timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev === null || prev <= 0) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  } else if (timeLeft === 0) {
-    // Auto-submit when time expires
-    if (!hasAnswered) {
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (timeLeft !== null && timeLeft > 0) {
+      timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev === null || prev <= 0) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else if (timeLeft === 0) {
+      // Auto-submit and move to next question when per-question time expires
       handleAnswerSubmit();
+      setTimeout(() => {
+        if (isLastQuestion) {
+          handleFinish();
+        } else {
+          handleNext();
+        }
+      }, 100);
     }
-    setTimeout(() => {
-      if (isLastQuestion) {
-        handleFinish();
-      } else {
-        handleNext();
-      }
-    }, 1000);
-  }
-  
-  return () => clearInterval(timer);
-}, [timeLeft, hasAnswered]);
+    return () => clearInterval(timer);
+  }, [timeLeft]);
 
   // Total elapsed time tracker
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTotalElapsed(prev => prev + 1);
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, []);
+useEffect(() => {
+  const timer = setInterval(() => {
+    setTotalElapsed(prev => prev + 1);
+  }, 1000);
+  
+  return () => clearInterval(timer);
+}, []);
+
 
   const handleNext = useCallback(() => {
     onAnswer(selectedAnswer);
@@ -177,8 +172,6 @@ useEffect(() => {
       setShowExplanation(true);
     }
   }, [question, apiKey, selectedAnswer, language, mode, answerMode]);
-
- 
   
   const playQuestionAudio = () => {
     if (isSpeaking) {
@@ -205,8 +198,7 @@ useEffect(() => {
       default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
   };
-
-
+  
   const isAnswerCorrect = () => {
     if (answerEvaluation) {
       return answerEvaluation.isCorrect;
@@ -223,7 +215,6 @@ useEffect(() => {
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
-
 
   const handleMultiSelectToggle = (option: string) => {
     const newSelection = selectedOptions.includes(option)
@@ -250,15 +241,21 @@ useEffect(() => {
     }
   };
 
+  // Enhanced explanation formatting function
   const formatExplanation = (text: string) => {
     if (!text) return text;
     
     return text
+      // Bold text: **text** or *text*
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      // Code blocks: `code`
       .replace(/`([^`]+)`/g, '<code class="bg-purple-100 text-purple-800 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+      // Line breaks
       .replace(/\n/g, '<br>')
+      // Numbered lists
       .replace(/^\d+\.\s/gm, '<span class="font-semibold text-purple-600">$&</span>')
+      // Bullet points
       .replace(/^[-•]\s/gm, '<span class="text-purple-600">• </span>');
   };
   
@@ -591,60 +588,6 @@ useEffect(() => {
           </motion.div>
         );
 
-        case 'quiz':
-  if (currentQuestionIndex < 0 || currentQuestionIndex >= questions.length) {
-    return null;
-  }
-  
-  const currentQuestion = questions[currentQuestionIndex];
-  if (!currentQuestion || !preferences) {
-    return null;
-  }
-
-  // Initialize total time if not already set and preferences allow it
-  useEffect(() => {
-    if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit && totalTimeRemaining === null) {
-      setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
-    }
-  }, [preferences, totalTimeRemaining]);
-  
-  return (
-    <div className="max-w-4xl mx-auto px-2 sm:px-4">
-      <div className="flex justify-between items-center mb-4">
-        <Button
-          variant="ghost"
-          onClick={handleBackToModeSelector}
-          className="text-gray-600 hover:text-gray-800"
-        >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Back to Quiz Modes
-        </Button>
-      </div>
-      <QuizQuestion
-        question={currentQuestion}
-        questionNumber={currentQuestionIndex + 1}
-        totalQuestions={questions.length}
-        userAnswer={answers[currentQuestion.id]}
-        onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        isLastQuestion={currentQuestionIndex === questions.length - 1}
-        onFinish={handleFinishQuiz}
-        language={preferences.language || 'en'}
-        timeLimitEnabled={preferences.timeLimitEnabled || false}
-        timeLimit={preferences.timeLimit}
-        totalTimeLimit={preferences.totalTimeLimit}
-        totalTimeRemaining={totalTimeRemaining}
-        mode={preferences.mode || 'practice'}
-        answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
-        onQuitQuiz={handleBackToModeSelector}
-        totalTimeElapsed={Math.floor((Date.now() - Date.now()) / 1000)} // You'll need to track this properly 
-        showQuitButton={true}
-      />
-    </div>
-  );
-
-
       case 'situation':
         return (
           <motion.div 
@@ -809,357 +752,338 @@ useEffect(() => {
   };
   
   return (
-    <div className="relative">
-      {/* Floating decorative elements */}
-      <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-1/4 left-1/2 w-64 h-64 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
-
-      {/* Main content */}
-      <div className="relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full"
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="w-full"
+    >
+      <Card className="w-full transform transition-all duration-300 hover:shadow-2xl bg-gradient-to-br from-white to-purple-50 border-2 border-purple-100 overflow-hidden">
+          {/* Add animated background elements */}
+  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse" />
+  <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-200/20 to-cyan-200/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+  
+  {/* Existing content with relative z-index */}
+  <div className="relative z-10">
+    {/* Your existing card content */}
+  </div>
+        
+        <CardBody className="space-y-6 p-4 sm:p-8">
+{/* Enhanced Header with better time display and quit option */}
+<div className="flex flex-wrap gap-4 sm:flex-nowrap justify-between items-start">
+  <div className="flex flex-wrap gap-x-4 gap-y-2 sm:flex-nowrap items-center space-x-0 sm:space-x-6">
+    <motion.div 
+      className="text-sm sm:text-lg font-bold text-gray-600 bg-gradient-to-r from-purple-100 to-indigo-100 px-3 sm:px-4 py-2 rounded-full"
+      whileHover={{ scale: 1.05 }}
+    >
+      Question {questionNumber} of {totalQuestions}
+    </motion.div>
+    <motion.span 
+      className={`text-xs sm:text-sm font-bold capitalize px-3 sm:px-4 py-2 rounded-full border-2 ${getDifficultyColor()}`}
+      whileHover={{ scale: 1.05 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+    >
+      {question.difficulty}
+    </motion.span>
+    
+    {/* Time Display Section */}
+    <div className="flex items-center space-x-3">
+      {/* Question Time Limit */}
+      {timeLimitEnabled && timeLeft !== null && (
+        <motion.div 
+          className={`flex items-center space-x-2 text-sm sm:text-lg font-bold px-3 sm:px-4 py-2 rounded-full ${
+            timeLeft <= 10 
+              ? 'bg-red-100 text-red-600 border-2 border-red-300' 
+              : 'bg-blue-100 text-blue-600 border-2 border-blue-300'
+          }`}
+          animate={timeLeft <= 10 ? { scale: [1, 1.05, 1] } : {}}
+          transition={{ duration: 1, repeat: timeLeft <= 10 ? Infinity : 0 }}
         >
-          <Card className="w-full transform transition-all duration-300 hover:shadow-2xl bg-gradient-to-br from-white to-purple-50 border-2 border-purple-100 overflow-hidden">
-            {/* Animated background elements */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-200/20 to-cyan-200/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+          <Clock className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+          <span>{formatTime(timeLeft)}</span>
+          <span className="text-xs opacity-75">left</span>
+        </motion.div>
+      )}
+      
+      {/* Total Time Remaining */}
+      {totalTimeRemaining !== null && (
+        <motion.div 
+          className={`flex items-center space-x-2 text-sm sm:text-lg font-bold px-3 sm:px-4 py-2 rounded-full ${
+            totalTimeRemaining <= 60 
+              ? 'bg-red-100 text-red-600 border-2 border-red-300' 
+              : 'bg-orange-100 text-orange-600 border-2 border-orange-300'
+          }`}
+          animate={totalTimeRemaining <= 60 ? { scale: [1, 1.05, 1] } : {}}
+          transition={{ duration: 1, repeat: totalTimeRemaining <= 60 ? Infinity : 0 }}
+        >
+          <Activity className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+          <span>{formatTime(totalTimeRemaining)}</span>
+          <span className="text-xs opacity-75">total</span>
+        </motion.div>
+      )}
+      
+      {/* Total Elapsed Time */}
+      <motion.div 
+        className="flex items-center space-x-2 bg-green-100 text-green-600 border-2 border-green-300 text-sm sm:text-lg font-bold px-3 sm:px-4 py-2 rounded-full"
+        whileHover={{ scale: 1.05 }}
+      >
+        <Rocket className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+        <span>{formatTime(totalElapsed)}</span>
+        <span className="text-xs opacity-75">elapsed</span>
+      </motion.div>
+    </div>
+  </div>
+  
+  <div className="flex items-center space-x-3">
+    <motion.button
+      type="button"
+      onClick={() => setShowExplanation(!showExplanation)}
+      className={`p-2 sm:p-3 rounded-full transition-all duration-300 ${
+        showExplanation 
+          ? 'bg-purple-500 text-white shadow-lg scale-110' 
+          : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600 hover:scale-105'
+      }`}
+      aria-label="Show explanation"
+      disabled={!hasAnswered || (mode === 'exam' && answerMode === 'end')}
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.95 }}
+    >
+      <BookOpen className="w-4 h-4 sm:w-6 sm:h-6" />
+    </motion.button>
+    
+    <motion.button
+      type="button"
+      onClick={playQuestionAudio}
+      className={`p-2 sm:p-3 rounded-full transition-all duration-300 ${
+        isSpeaking 
+          ? 'bg-purple-500 text-white shadow-lg scale-110' 
+          : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600 hover:scale-105'
+      }`}
+      aria-label={isSpeaking ? 'Stop speaking' : 'Speak question'}
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.95 }}
+    >
+      {isSpeaking ? (
+        <VolumeX className="w-4 h-4 sm:w-6 sm:h-6" />
+      ) : (
+        <Volume2 className="w-4 h-4 sm:w-6 sm:h-6" />
+      )}
+    </motion.button>
+    
+    {/* Quit Quiz Button */}
+    {showQuitButton && (
+      <motion.button
+        type="button"
+        onClick={() => setShowQuitConfirm(true)}
+        className="p-2 sm:p-3 rounded-full bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 transition-all duration-300"
+        aria-label="Quit quiz"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <LogOut className="w-4 h-4 sm:w-6 sm:h-6" />
+      </motion.button>
+    )}
+            {/* Quit Confirmation Modal */}
+        <AnimatePresence>
+          {showQuitConfirm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl"
+              >
+                <div className="flex items-center mb-4">
+                  <AlertTriangle className="w-6 h-6 text-red-500 mr-3" />
+                  <h3 className="text-lg font-bold text-gray-800">Quit Quiz?</h3>
+                </div>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to quit this quiz? Your progress will be lost.
+                </p>
+                <div className="flex space-x-3">
+                  <Button
+                    onClick={() => setShowQuitConfirm(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Continue Quiz
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowQuitConfirm(false);
+                      onQuitQuiz?.();
+                    }}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Quit
+                  </Button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+  </div>
+  
+</div>
+
+          
+          <div className="py-4 sm:py-6">
+            <motion.h3 
+              className="text-lg sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6 leading-relaxed break-words"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              {question.text}
+            </motion.h3>
+            {renderQuestionContent()}
             
-            <CardBody className="space-y-6 p-4 sm:p-8 relative z-10">
-              {/* Enhanced Header with better time display and quit option */}
-              <div className="flex flex-wrap gap-4 sm:flex-nowrap justify-between items-start">
-                <div className="flex flex-wrap gap-x-4 gap-y-2 sm:flex-nowrap items-center space-x-0 sm:space-x-6">
-                  <motion.div 
-                    className="text-sm sm:text-lg font-bold text-gray-600 bg-gradient-to-r from-purple-100 to-indigo-100 px-3 sm:px-4 py-2 rounded-full"
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    Question {questionNumber} of {totalQuestions}
-                  </motion.div>
-                  <motion.span 
-                    className={`text-xs sm:text-sm font-bold capitalize px-3 sm:px-4 py-2 rounded-full border-2 ${getDifficultyColor()}`}
-                    whileHover={{ scale: 1.05 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  >
-                    {question.difficulty}
-                  </motion.span>
-                  
-                  {/* Time Display Section */}
-                  <div className="flex items-center space-x-3">
-                    {/* Question or Total Time Limit */}
-                    {timeLeft !== null && (
-                      <motion.div 
-                        className={`flex items-center space-x-2 text-sm sm:text-lg font-bold px-3 sm:px-4 py-2 rounded-full ${
-                          timeLeft <= 10 
-                            ? 'bg-red-100 text-red-600 border-2 border-red-300' 
-                            : 'bg-blue-100 text-blue-600 border-2 border-blue-300'
-                        }`}
-                        animate={timeLeft <= 10 ? { scale: [1, 1.05, 1] } : {}}
-                        transition={{ duration: 1, repeat: timeLeft <= 10 ? Infinity : 0 }}
-                      >
-                        <Clock className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                        <span>{formatTime(timeLeft)}</span>
-                        <span className="text-xs opacity-75">
-                          {totalTimeRemaining !== null ? 'total' : 'left'}
-                        </span>
-                      </motion.div>
-                    )}
-                    
-                    {/* Elapsed Time */}
-                    <motion.div 
-                      className="flex items-center space-x-2 bg-green-100 text-green-600 border-2 border-green-300 text-sm sm:text-lg font-bold px-3 sm:px-4 py-2 rounded-full"
-                      whileHover={{ scale: 1.05 }}
-                    >
-                      <Rocket className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                      <span>{formatTime(totalElapsed)}</span>
-                      <span className="text-xs opacity-75">elapsed</span>
-                    </motion.div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  <motion.button
-                    type="button"
-                    onClick={() => setShowExplanation(!showExplanation)}
-                    className={`p-2 sm:p-3 rounded-full transition-all duration-300 ${
-                      showExplanation 
-                        ? 'bg-purple-500 text-white shadow-lg scale-110' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600 hover:scale-105'
-                    }`}
-                    aria-label="Show explanation"
-                    disabled={!hasAnswered || (mode === 'exam' && answerMode === 'end')}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <BookOpen className="w-4 h-4 sm:w-6 sm:h-6" />
-                  </motion.button>
-                  
-                  <motion.button
-                    type="button"
-                    onClick={playQuestionAudio}
-                    className={`p-2 sm:p-3 rounded-full transition-all duration-300 ${
-                      isSpeaking 
-                        ? 'bg-purple-500 text-white shadow-lg scale-110' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600 hover:scale-105'
-                    }`}
-                    aria-label={isSpeaking ? 'Stop speaking' : 'Speak question'}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {isSpeaking ? (
-                      <VolumeX className="w-4 h-4 sm:w-6 sm:h-6" />
-                    ) : (
-                      <Volume2 className="w-4 h-4 sm:w-6 sm:h-6" />
-                    )}
-                  </motion.button>
-
-                  {/* Time Display Section */}
-                {(timeLimitEnabled || totalTimeRemaining !== null) && (
-                  <div className="flex items-center justify-center space-x-6 mb-6">
-                    {timeLimitEnabled && timeLimit && (
-                      <div className="flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-xl border border-purple-200">
-                        <Timer className="w-5 h-5 text-purple-600" />
-                        <span className="text-sm font-medium text-gray-700">Per Question:</span>
-                        <span className={`font-bold text-lg ${
-                          timeLeft <= 10 ? 'text-red-600' : 'text-purple-600'
-                        }`}>
-                          {formatTime(timeLeft)}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {totalTimeRemaining !== null && (
-                      <div className="flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-xl border border-blue-200">
-                        <Clock className="w-5 h-5 text-blue-600" />
-                        <span className="text-sm font-medium text-gray-700">Total Time:</span>
-                        <span className={`font-bold text-lg ${
-                          totalTimeRemaining <= 60 ? 'text-red-600' : 'text-blue-600'
-                        }`}>
-                          {formatTime(totalTimeRemaining)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                  
-                  {/* Quit Quiz Button */}
-                  {showQuitButton && (
-                    <motion.button
-                      type="button"
-                      onClick={() => setShowQuitConfirm(true)}
-                      className="p-2 sm:p-3 rounded-full bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 transition-all duration-300"
-                      aria-label="Quit quiz"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <LogOut className="w-4 h-4 sm:w-6 sm:h-6" />
-                    </motion.button>
-                  )}
-                </div>
-              </div>
-
-              <div className="py-4 sm:py-6">
-                <motion.h3 
-                  className="text-lg sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6 leading-relaxed break-words"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                >
-                  {question.text}
-                </motion.h3>
-                {renderQuestionContent()}
-                
-                <AnimatePresence>
-                  {showExplanation && question.explanation && hasAnswered && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0, y: -20 }}
-                      animate={{ opacity: 1, height: 'auto', y: 0 }}
-                      exit={{ opacity: 0, height: 0, y: -20 }}
-                      transition={{ duration: 0.5, ease: "easeInOut" }}
-                      className="mt-6 sm:mt-8 overflow-hidden"
-                    >
-                      <div className={`p-6 sm:p-8 rounded-2xl border-2 shadow-xl ${
-                        answerEvaluation ? 
-                          (answerEvaluation.isCorrect ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200' : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200') :
-                          (isAnswerCorrect() ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200' : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200')
-                      }`}>
-                        <div className="flex items-center mb-4">
-                          <motion.div
-                            initial={{ scale: 0, rotate: -180 }}
-                            animate={{ scale: 1, rotate: 0 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mr-3 sm:mr-4 flex-shrink-0 ${
-                              answerEvaluation ? 
-                                (answerEvaluation.isCorrect ? 'bg-emerald-500' : 'bg-red-500') :
-                                (isAnswerCorrect() ? 'bg-emerald-500' : 'bg-red-500')
-                            }`}
-                          >
-                            {(answerEvaluation ? answerEvaluation.isCorrect : isAnswerCorrect()) ? (
-                              <CheckCircle className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
-                            ) : (
-                              <span className="text-white font-bold text-lg sm:text-xl">✕</span>
-                            )}
-                          </motion.div>
-                          <div>
-                            <h4 className={`text-lg sm:text-2xl font-bold ${
-                              answerEvaluation ? 
-                                (answerEvaluation.isCorrect ? 'text-emerald-800' : 'text-red-800') :
-                                (isAnswerCorrect() ? 'text-emerald-800' : 'text-red-800')
-                            }`}>
-                              {answerEvaluation ? 
-                                (answerEvaluation.isCorrect ? 'Correct!' : 'Needs Improvement') :
-                                (isAnswerCorrect() ? 'Correct!' : 'Incorrect')
-                              }
-                            </h4>
-                            <p className={`text-sm sm:text-lg ${
-                              answerEvaluation ? 
-                                (answerEvaluation.isCorrect ? 'text-emerald-600' : 'text-red-600') :
-                                (isAnswerCorrect() ? 'text-emerald-600' : 'text-red-600')
-                            }`}>
-                              {answerEvaluation ? 
-                                (answerEvaluation.isCorrect ? 'Excellent work!' : 'Keep practicing!') :
-                                (isAnswerCorrect() ? 'Well done!' : 'Review the explanation below')
-                              }
-                            </p>
-                          </div>
-                        </div>
-                        <div 
-                          className="text-gray-700 text-sm sm:text-lg leading-relaxed prose prose-lg max-w-none"
-                          dangerouslySetInnerHTML={{ __html: formatExplanation(question.explanation) }}
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              
-              <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 shadow-inner">
+            <AnimatePresence>
+              {showExplanation && question.explanation && hasAnswered && (
                 <motion.div
-                  className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 sm:h-3 rounded-full shadow-lg"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(questionNumber / totalQuestions) * 100}%` }}
-                  transition={{ duration: 0.8, ease: "easeInOut" }}
-                />
-              </div>
-            </CardBody>
-            
-            <CardFooter className="flex flex-col sm:flex-row justify-between bg-gradient-to-r from-gray-50 to-purple-50 border-t border-purple-100 p-4 sm:p-6 gap-3 sm:gap-0">
+                  initial={{ opacity: 0, height: 0, y: -20 }}
+                  animate={{ opacity: 1, height: 'auto', y: 0 }}
+                  exit={{ opacity: 0, height: 0, y: -20 }}
+                  transition={{ duration: 0.5, ease: "easeInOut" }}
+                  className="mt-6 sm:mt-8 overflow-hidden"
+                >
+                  <div className={`p-6 sm:p-8 rounded-2xl border-2 shadow-xl ${
+                    answerEvaluation ? 
+                      (answerEvaluation.isCorrect ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200' : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200') :
+                      (isAnswerCorrect() ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200' : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200')
+                  }`}>
+                    <div className="flex items-center mb-4">
+                      <motion.div
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mr-3 sm:mr-4 flex-shrink-0 ${
+                          answerEvaluation ? 
+                            (answerEvaluation.isCorrect ? 'bg-emerald-500' : 'bg-red-500') :
+                            (isAnswerCorrect() ? 'bg-emerald-500' : 'bg-red-500')
+                        }`}
+                      >
+                        {(answerEvaluation ? answerEvaluation.isCorrect : isAnswerCorrect()) ? (
+                          <CheckCircle className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
+                        ) : (
+                          <span className="text-white font-bold text-lg sm:text-xl">✕</span>
+                        )}
+                      </motion.div>
+                      <div>
+                        <h4 className={`text-lg sm:text-2xl font-bold ${
+                          answerEvaluation ? 
+                            (answerEvaluation.isCorrect ? 'text-emerald-800' : 'text-red-800') :
+                            (isAnswerCorrect() ? 'text-emerald-800' : 'text-red-800')
+                        }`}>
+                          {answerEvaluation ? 
+                            (answerEvaluation.isCorrect ? 'Correct!' : 'Needs Improvement') :
+                            (isAnswerCorrect() ? 'Correct!' : 'Incorrect')
+                          }
+                        </h4>
+                        <p className={`text-sm sm:text-lg ${
+                          answerEvaluation ? 
+                            (answerEvaluation.isCorrect ? 'text-emerald-600' : 'text-red-600') :
+                            (isAnswerCorrect() ? 'text-emerald-600' : 'text-red-600')
+                        }`}>
+                          {answerEvaluation ? 
+                            (answerEvaluation.isCorrect ? 'Excellent work!' : 'Keep practicing!') :
+                            (isAnswerCorrect() ? 'Well done!' : 'Review the explanation below')
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div 
+                      className="text-gray-700 text-sm sm:text-lg leading-relaxed prose prose-lg max-w-none"
+                      dangerouslySetInnerHTML={{ __html: formatExplanation(question.explanation) }}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          
+          <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 shadow-inner">
+            <motion.div
+              className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 sm:h-3 rounded-full shadow-lg"
+              initial={{ width: 0 }}
+              animate={{ width: `${(questionNumber / totalQuestions) * 100}%` }}
+              transition={{ duration: 0.8, ease: "easeInOut" }}
+            />
+          </div>
+        </CardBody>
+        
+        <CardFooter className="flex flex-col sm:flex-row justify-between bg-gradient-to-r from-gray-50 to-purple-50 border-t border-purple-100 p-4 sm:p-6 gap-3 sm:gap-0">
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={questionNumber === 1}
+              className="hover:bg-purple-50 transition-all duration-300 border-2 border-purple-200 text-purple-600 font-semibold px-4 sm:px-6 py-3 w-full sm:w-auto"
+            >
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              Previous
+            </Button>
+          </motion.div>
+          
+          {!hasAnswered ? (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
+              <Button
+                type="button"
+                onClick={handleAnswerSubmit}
+                disabled={!selectedAnswer && question.type !== 'multi-select' && question.type !== 'sequence'}
+                className="gradient-bg hover:opacity-90 transition-all duration-300 font-bold px-6 sm:px-8 py-3 text-base sm:text-lg shadow-lg w-full sm:w-auto"
+              >
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                Submit Answer
+              </Button>
+            </motion.div>
+          ) : (
+            isLastQuestion ? (
+              <motion.div 
+                whileHover={{ scale: 1.05 }} 
+                whileTap={{ scale: 0.95 }}
+                className="relative w-full sm:w-auto"
+              >
+                <Button
+                  type="button"
+                  onClick={handleFinish}
+                  className="gradient-bg hover:opacity-90 transition-all duration-300 transform font-bold px-6 sm:px-8 py-3 text-base sm:text-lg shadow-xl w-full sm:w-auto"
+                >
+                  <motion.div
+                    animate={{ rotate: [0, 10, -10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="mr-2"
+                  >
+                    🎉
+                  </motion.div>
+                  Finish Quiz
+                </Button>
+              </motion.div>
+            ) : (
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={questionNumber === 1}
-                  className="hover:bg-purple-50 transition-all duration-300 border-2 border-purple-200 text-purple-600 font-semibold px-4 sm:px-6 py-3 w-full sm:w-auto"
+                  onClick={handleNext}
+                  className="gradient-bg hover:opacity-90 transition-all duration-300 transform font-bold px-6 sm:px-8 py-3 text-base sm:text-lg shadow-lg w-full sm:w-auto"
                 >
-                  <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                  Previous
+                  Next
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
                 </Button>
               </motion.div>
-              
-              {!hasAnswered ? (
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
-                  <Button
-                    type="button"
-                    onClick={handleAnswerSubmit}
-                    disabled={!selectedAnswer && question.type !== 'multi-select' && question.type !== 'sequence'}
-                    className="gradient-bg hover:opacity-90 transition-all duration-300 font-bold px-6 sm:px-8 py-3 text-base sm:text-lg shadow-lg w-full sm:w-auto"
-                  >
-                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                    Submit Answer
-                  </Button>
-                </motion.div>
-              ) : (
-                isLastQuestion ? (
-                  <motion.div 
-                    whileHover={{ scale: 1.05 }} 
-                    whileTap={{ scale: 0.95 }}
-                    className="relative w-full sm:w-auto"
-                  >
-                    <Button
-                      type="button"
-                      onClick={handleFinish}
-                      className="gradient-bg hover:opacity-90 transition-all duration-300 transform font-bold px-6 sm:px-8 py-3 text-base sm:text-lg shadow-xl w-full sm:w-auto"
-                    >
-                      <motion.div
-                        animate={{ rotate: [0, 10, -10, 0] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="mr-2"
-                      >
-                        🎉
-                      </motion.div>
-                      Finish Quiz
-                    </Button>
-                  </motion.div>
-                ) : (
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
-                    <Button
-                      type="button"
-                      onClick={handleNext}
-                      className="gradient-bg hover:opacity-90 transition-all duration-300 transform font-bold px-6 sm:px-8 py-3 text-base sm:text-lg shadow-lg w-full sm:w-auto"
-                    >
-                      Next
-                      <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
-                    </Button>
-                  </motion.div>
-                )
-              )}
-            </CardFooter>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Quit Confirmation Modal */}
-      <AnimatePresence>
-        {showQuitConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl"
-            >
-              <div className="flex items-center mb-4">
-                <AlertTriangle className="w-6 h-6 text-red-500 mr-3" />
-                <h3 className="text-lg font-bold text-gray-800">Quit Quiz?</h3>
-              </div>
-              <p className="text-gray-600 mb-6">
-                Are you sure you want to quit this quiz? Your progress will be lost.
-              </p>
-              <div className="flex space-x-3">
-                <Button
-                  onClick={() => setShowQuitConfirm(false)}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  Continue Quiz
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowQuitConfirm(false);
-                    onQuitQuiz?.();
-                  }}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Quit
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+            )
+          )}
+        </CardFooter>
+      </Card>
+    </motion.div>
   );
 };
 
-export default QuizQuestion;
+export default QuizQuestion; 

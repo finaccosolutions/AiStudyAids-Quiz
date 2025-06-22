@@ -184,38 +184,33 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
     }
   ];
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsLoading(true);
-  
-  try {
-    const preferencesToSave = {
-      ...formData,
-      // Ensure time settings are properly formatted
-      timeLimit: formData.timeLimitEnabled ? formData.timeLimit : null,
-      totalTimeLimit: formData.timeLimitEnabled ? formData.totalTimeLimit : null,
-      timeLimitEnabled: formData.timeLimitEnabled,
-      // Convert string values to proper format if needed
-      timeLimit: formData.timeLimitEnabled && formData.timeLimit ? 
-        formData.timeLimit.toString() : null,
-      totalTimeLimit: formData.timeLimitEnabled && formData.totalTimeLimit ? 
-        formData.totalTimeLimit.toString() : null
-    };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    await savePreferences(userId, preferencesToSave);
-    
-    if (onSave) {
-      onSave();
-    } else if (onStartCompetition) {
-      onStartCompetition();
+    try {
+      await savePreferences(userId, preferences);
+      
+      if (isCompetitionMode && onStartCompetition) {
+        setIsCreatingCompetition(true);
+        
+        const competition = await createCompetition({
+          title: competitionData.title || `${preferences.course} Quiz Challenge`,
+          description: competitionData.description || `Test your knowledge in ${preferences.course}`,
+          type: 'private',
+          quizPreferences: preferences,
+          emails: competitionData.emails
+        });
+        
+        onStartCompetition();
+      } else if (onSave) {
+        onSave();
+      }
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    } finally {
+      setIsCreatingCompetition(false);
     }
-  } catch (error) {
-    console.error('Failed to save preferences:', error);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
+  };
 
   const handleQuestionTypeToggle = (type: string) => {
     setPreferences(prev => ({

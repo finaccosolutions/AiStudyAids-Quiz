@@ -92,13 +92,11 @@ export const saveQuizPreferences = async (userId: string, preferences: QuizPrefe
     question_types: preferences.questionTypes || ['multiple-choice'],
     language: preferences.language || 'English',
     difficulty: preferences.difficulty || 'medium',
+    time_limit: preferences.timeLimitEnabled ? preferences.timeLimit : null,
+    total_time_limit: preferences.timeLimitEnabled ? preferences.totalTimeLimit : null,
     time_limit_enabled: preferences.timeLimitEnabled || false,
-    time_limit: preferences.timeLimitEnabled && preferences.timeLimit ? 
-      preferences.timeLimit.toString() : null,
-    total_time_limit: preferences.timeLimitEnabled && preferences.totalTimeLimit ? 
-      preferences.totalTimeLimit.toString() : null,
     negative_marking: preferences.negativeMarking || false,
-    negative_marks: preferences.negativeMarking ? (preferences.negativeMarks || -0.25) : 0,
+    negative_marks: preferences.negativeMarks || 0,
     mode: preferences.mode || 'practice'
   };
 
@@ -113,7 +111,6 @@ export const saveQuizPreferences = async (userId: string, preferences: QuizPrefe
       .insert(prefsData);
   }
 };
-
 
 
 // Auth functions
