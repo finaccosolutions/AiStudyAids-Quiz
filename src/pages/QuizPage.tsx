@@ -134,6 +134,7 @@ useEffect(() => {
 
         if (!competitionCheck) {
           // Competition no longer exists
+          console.log('Competition no longer exists, clearing current competition');
           clearCurrentCompetition();
           setStep('mode-selector');
           currentStepRef.current = 'mode-selector';
@@ -181,7 +182,10 @@ useEffect(() => {
       }
     } catch (error: any) {
       console.error('Step determination error:', error);
-      navigate('/auth');
+      // Don't navigate to auth on competition-related errors
+      if (!error.message?.includes('Competition') && !error.message?.includes('competition')) {
+        navigate('/auth');
+      }
     }
   };
 

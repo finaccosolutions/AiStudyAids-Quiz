@@ -511,16 +511,24 @@ joinCompetition: async (code) => {
         .from('competitions')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+
+      // If competition doesn't exist, clear current competition
+      if (!competition) {
+        console.log('Competition not found, clearing current competition');
+        set({ currentCompetition: null, isLoading: false });
+        return;
+      }
 
       set({ currentCompetition: competition, isLoading: false });
       
       // Also load participants
       get().loadParticipants(id);
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      console.error('Error loading competition:', error);
+      set({ error: error.message, isLoading: false, currentCompetition: null });
     }
   },
 
@@ -555,15 +563,22 @@ loadParticipants: async (competitionId: string) => {
         .from('competitions')
         .select('creator_id, status')
         .eq('id', competitionId)
-        .single()
+        .maybeSingle()
     ]);
 
     // Handle potential errors
     if (accessCheck.error && accessCheck.error.code !== 'PGRST116') {
       throw accessCheck.error;
     }
-    if (competitionCheck.error) {
+    if (competitionCheck.error && competitionCheck.error.code !== 'PGRST116') {
       throw competitionCheck.error;
+    }
+
+    // If competition doesn't exist, clear it
+    if (!competitionCheck.data) {
+      console.log('Competition no longer exists, clearing current competition');
+      set({ currentCompetition: null, participants: [], isLoading: false });
+      return;
     }
 
     // 3. Verify access rights
@@ -737,16 +752,16 @@ updateParticipantProgress: async (competitionId, answers, score, correctAnswers,
 
     const updateData: any = {
       answers: JSON.stringify(answers), // Convert to string before saving
-      score,
-      correct_answers: correctAnswers,
-      time_taken: timeTaken,
+      score: Math.round(score), // Round score to nearest integer to match database schema
+      correct_answers: Math.round(correctAnswers), // Ensure this is also an integer
+      time_taken: Math.round(timeTaken), // Ensure this is also an integer
       last_activity: new Date().toISOString(),
       is_online: true
     };
 
     // Add progress tracking
     if (currentQuestion !== undefined) {
-      updateData.current_question = currentQuestion;
+      updateData.current_question = Math.round(currentQuestion); // Ensure integer
       updateData.questions_answered = Object.keys(answers).length;
     }
 
@@ -1011,9 +1026,10 @@ updateParticipantProgress: async (competitionId, answers, score, correctAnswers,
         .from('competitions')
         .select('*')
         .eq('id', competitionId)
-        .single();
+        .maybeSingle();
 
       if (compError) throw compError;
+      if (!competition) throw new Error('Competition not found');
 
       // Only the creator can start the competition
       if (competition.creator_id !== user.id) {
