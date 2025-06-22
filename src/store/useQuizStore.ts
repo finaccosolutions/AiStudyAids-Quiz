@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { ApiKeyData, Question, QuizPreferences, QuizResult } from '../types';
-import { getApiKey, getQuizPreferences, saveApiKey, saveQuizPreferences, saveQuizResult } from '../services/supabase';
+import { getApiKey, getQuizPreferences, saveApiKey, saveQuizPreferences, saveQuizResultToDatabase } from '../services/supabase';
 import { generateQuiz, getAnswerExplanation } from '../services/gemini';
 import { useAuthStore } from './useAuthStore';
 
@@ -295,10 +295,10 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       
       set({ result });
       
-      // Save to database
+      // Save to database using the correct function that includes course field
       const { user } = useAuthStore.getState();
       if (user && preferences) {
-        saveQuizResult(user.id, result, preferences).catch(console.error);
+        saveQuizResultToDatabase(user.id, result, preferences).catch(console.error);
       }
     },
 

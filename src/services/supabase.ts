@@ -281,20 +281,6 @@ export const updateProfile = async (userId: string, profile: Partial<UserProfile
     .eq('user_id', userId);
 };
 
-// Quiz results functions
-export const saveQuizResult = async (userId: string, result: QuizResultData) => {
-  return supabase
-    .from('quiz_results')
-    .insert({
-      user_id: userId,
-      quiz_date: result.quizDate,
-      topic: result.topic,
-      score: result.score,
-      total_questions: result.totalQuestions,
-      time_taken: result.timeTaken,
-    });
-};
-
 export const getQuizResults = async (userId: string) => {
   const { data, error } = await supabase
     .from('quiz_results')
