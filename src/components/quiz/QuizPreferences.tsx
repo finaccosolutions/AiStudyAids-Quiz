@@ -245,41 +245,49 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
     setLanguageSearch('');
   };
 
-  const handleTimeInputChange = (value: number, type: 'perQuestion' | 'totalTime') => {
-    if (type === 'perQuestion') {
-      setPreferences(prev => ({
-        ...prev,
-        timeLimit: value.toString(),
-        totalTimeLimit: (value * prev.questionCount).toString()
-      }));
-    } else {
-      setPreferences(prev => ({
-        ...prev,
-        totalTimeLimit: value.toString(),
-        timeLimit: (Math.round(value / prev.questionCount)).toString()
-      }));
-    }
-  };
+const handleTimeInputChange = (value: number, type: 'perQuestion' | 'totalTime') => {
+  if (type === 'perQuestion') {
+    setPreferences(prev => ({
+      ...prev,
+      timeLimit: value.toString(),
+      totalTimeLimit: (value * prev.questionCount).toString()
+    }));
+  } else {
+    setPreferences(prev => ({
+      ...prev,
+      totalTimeLimit: value.toString(),
+      timeLimit: (Math.round(value / prev.questionCount)).toString()
+    }));
+  }
+};
 
-  const calculateTimeValue = () => {
-    if (timeInputMode === 'perQuestion') {
-      return preferences.timeLimit ? parseInt(preferences.timeLimit) : 30;
-    } else {
-      return preferences.totalTimeLimit ? parseInt(preferences.totalTimeLimit) : 300;
-    }
-  };
+const calculateTimeValue = () => {
+  if (preferences.timeLimit === '0') return 0;
+  
+  if (timeInputMode === 'perQuestion') {
+    return preferences.timeLimit ? parseInt(preferences.timeLimit) : 30;
+  } else {
+    return preferences.totalTimeLimit ? parseInt(preferences.totalTimeLimit) : 300;
+  }
+};
 
-  const incrementTime = () => {
-    const currentValue = calculateTimeValue();
-    handleTimeInputChange(currentValue + (timeInputMode === 'perQuestion' ? 5 : 30), timeInputMode);
-  };
+const incrementTime = () => {
+  const currentValue = calculateTimeValue();
+  handleTimeInputChange(
+    currentValue + (timeInputMode === 'perQuestion' ? 5 : 30), 
+    timeInputMode
+  );
+};
 
-  const decrementTime = () => {
-    const currentValue = calculateTimeValue();
-    if (currentValue > (timeInputMode === 'perQuestion' ? 5 : 30)) {
-      handleTimeInputChange(currentValue - (timeInputMode === 'perQuestion' ? 5 : 30), timeInputMode);
-    }
-  };
+const decrementTime = () => {
+  const currentValue = calculateTimeValue();
+  if (currentValue > (timeInputMode === 'perQuestion' ? 5 : 30)) {
+    handleTimeInputChange(
+      currentValue - (timeInputMode === 'perQuestion' ? 5 : 30), 
+      timeInputMode
+    );
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-4 sm:py-8">
@@ -686,77 +694,139 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                       </div>
                     </div>
 
-                    <div>
-                      <div className="flex items-center space-x-4 mb-3 sm:mb-4">
-                        <label className="block text-base sm:text-lg font-semibold text-slate-700">
-                          Time Settings
-                        </label>
-                        <div className="flex space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => setTimeInputMode('perQuestion')}
-                            className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                              timeInputMode === 'perQuestion'
-                                ? 'bg-blue-500 text-white shadow-md'
-                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                            }`}
-                          >
-                            Per Question
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setTimeInputMode('totalTime')}
-                            className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                              timeInputMode === 'totalTime'
-                                ? 'bg-blue-500 text-white shadow-md'
-                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                            }`}
-                          >
-                            Total Time
-                          </button>
-                        </div>
-                      </div>
+                    {/* Time Settings */}
+<div>
+  <div className="flex items-center justify-between mb-3 sm:mb-4">
+    <label className="block text-base sm:text-lg font-semibold text-slate-700">
+      Time Settings
+    </label>
+    <div className="flex items-center space-x-2">
+      {/* Per Question Button */}
+      <button
+        type="button"
+        onClick={() => {
+          setTimeInputMode('perQuestion');
+          setPreferences(prev => ({
+            ...prev,
+            timeLimit: prev.timeLimit === '0' ? '30' : prev.timeLimit,
+            totalTimeLimit: (parseInt(prev.timeLimit === '0' ? '30' : prev.timeLimit) * prev.questionCount).toString()
+          }));
+        }}
+        className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+          preferences.timeLimit !== '0' && timeInputMode === 'perQuestion'
+            ? 'bg-blue-500 text-white shadow-md'
+            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+        }`}
+      >
+        Per Question
+      </button>
 
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm sm:text-base font-medium text-slate-700">
-                            {timeInputMode === 'perQuestion' ? 'Time per Question (seconds)' : 'Total Quiz Time (seconds)'}
-                          </span>
-                          <div className="flex items-center space-x-2">
-                            <button
-                              type="button"
-                              onClick={decrementTime}
-                              className="w-8 h-8 flex items-center justify-center bg-slate-200 hover:bg-slate-300 rounded-lg transition-colors"
-                            >
-                              <ChevronDown className="w-4 h-4 text-slate-700" />
-                            </button>
-                            <div className="w-16 sm:w-20 text-center font-bold text-slate-800">
-                              {calculateTimeValue()}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={incrementTime}
-                              className="w-8 h-8 flex items-center justify-center bg-slate-200 hover:bg-slate-300 rounded-lg transition-colors"
-                            >
-                              <ChevronUp className="w-4 h-4 text-slate-700" />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="text-xs sm:text-sm text-slate-500 mt-2">
-                          {timeInputMode === 'perQuestion' ? (
-                            <>
-                              Total quiz time: {calculateTimeValue() * preferences.questionCount} seconds
-                              ({Math.floor((calculateTimeValue() * preferences.questionCount) / 60)} min {calculateTimeValue() * preferences.questionCount % 60} sec)
-                            </>
-                          ) : (
-                            <>
-                              Time per question: {Math.round(calculateTimeValue() / preferences.questionCount)} seconds
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+      {/* Total Time Button */}
+      <button
+        type="button"
+        onClick={() => {
+          setTimeInputMode('totalTime');
+          setPreferences(prev => ({
+            ...prev,
+            totalTimeLimit: prev.totalTimeLimit === '0' ? (30 * prev.questionCount).toString() : prev.totalTimeLimit,
+            timeLimit: Math.round(
+              parseInt(prev.totalTimeLimit === '0' ? (30 * prev.questionCount).toString() : prev.totalTimeLimit) / 
+              prev.questionCount
+            ).toString()
+          }));
+        }}
+        className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+          preferences.timeLimit !== '0' && timeInputMode === 'totalTime'
+            ? 'bg-blue-500 text-white shadow-md'
+            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+        }`}
+      >
+        Total Time
+      </button>
+
+      {/* No Limit Button */}
+      <button
+        type="button"
+        onClick={() => {
+          setPreferences(prev => ({
+            ...prev,
+            timeLimit: '0',
+            totalTimeLimit: '0'
+          }));
+        }}
+        className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+          preferences.timeLimit === '0'
+            ? 'bg-green-500 text-white shadow-md'
+            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+        }`}
+      >
+        No Limit
+      </button>
+    </div>
+  </div>
+
+  {/* Time Input Controls (only shown when not "No Limit") */}
+  {preferences.timeLimit !== '0' ? (
+    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm sm:text-base font-medium text-slate-700">
+          {timeInputMode === 'perQuestion' ? 'Time per Question (seconds)' : 'Total Quiz Time (seconds)'}
+        </span>
+        <div className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={decrementTime}
+            className="w-8 h-8 flex items-center justify-center bg-slate-200 hover:bg-slate-300 rounded-lg transition-colors"
+          >
+            <ChevronDown className="w-4 h-4 text-slate-700" />
+          </button>
+          <input
+            type="number"
+            min={timeInputMode === 'perQuestion' ? 5 : 30}
+            value={calculateTimeValue()}
+            onChange={(e) => {
+              const value = parseInt(e.target.value) || (timeInputMode === 'perQuestion' ? 5 : 30);
+              handleTimeInputChange(
+                Math.max(timeInputMode === 'perQuestion' ? 5 : 30, value),
+                timeInputMode
+              );
+            }}
+            className="w-16 sm:w-20 text-center font-bold text-slate-800 border border-slate-300 rounded-lg py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <button
+            type="button"
+            onClick={incrementTime}
+            className="w-8 h-8 flex items-center justify-center bg-slate-200 hover:bg-slate-300 rounded-lg transition-colors"
+          >
+            <ChevronUp className="w-4 h-4 text-slate-700" />
+          </button>
+        </div>
+      </div>
+      <div className="text-xs sm:text-sm text-slate-500 mt-2">
+        {timeInputMode === 'perQuestion' ? (
+          <>
+            Total quiz time: {calculateTimeValue() * preferences.questionCount} seconds
+            ({Math.floor((calculateTimeValue() * preferences.questionCount) / 60)} min {calculateTimeValue() * preferences.questionCount % 60} sec)
+          </>
+        ) : (
+          <>
+            Time per question: {Math.round(calculateTimeValue() / preferences.questionCount)} seconds
+          </>
+        )}
+      </div>
+    </div>
+  ) : (
+    <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+      <div className="flex items-center space-x-2">
+        <CheckCircle className="w-5 h-5 text-green-500" />
+        <span className="text-sm sm:text-base font-medium text-green-700">
+          This quiz will have no time limit
+        </span>
+      </div>
+    </div>
+  )}
+</div>
+                  </div> 
                 </div>
               </CardBody>
             </Card>
@@ -995,7 +1065,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
           {/* Error Display */}
           <AnimatePresence>
             {error && (
-              <motion.div
+              <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}

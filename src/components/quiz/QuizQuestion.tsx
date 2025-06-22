@@ -970,4 +970,4 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   );
 };
 
-export default QuizQuestion;
+export default QuizQuestion; 
