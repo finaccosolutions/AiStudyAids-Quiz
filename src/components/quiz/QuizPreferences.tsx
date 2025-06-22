@@ -258,9 +258,9 @@ const handleTimeInputChange = (value: number, type: 'perQuestion' | 'totalTime')
       totalTimeLimit: value.toString(),
       timeLimit: (Math.round(value / prev.questionCount)).toString()
     }));
-  }
-};
-
+  } 
+}; 
+ 
 const calculateTimeValue = () => {
   if (preferences.timeLimit === '0') return 0;
   

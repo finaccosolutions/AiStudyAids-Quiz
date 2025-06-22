@@ -98,41 +98,43 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     }
   },
   
-  savePreferences: async (userId, preferences) => {
-    set({ isLoading: true, error: null });
-    try {
-      // Ensure at least one question type is selected
-      if (!preferences.questionTypes || preferences.questionTypes.length === 0) {
-        preferences.questionTypes = ['multiple-choice'];
-      }
-      
-      // Validate preferences
-      const validatedPreferences = {
-        ...preferences,
-        course: preferences.course || '',
-        topic: preferences.topic || '',
-        subtopic: preferences.subtopic || '',
-        questionCount: Math.max(1, Math.min(50, preferences.questionCount || 5)),
-        difficulty: preferences.difficulty || 'medium',
-        language: preferences.language || 'English',
-        timeLimitEnabled: preferences.timeLimitEnabled || false,
-        timeLimit: preferences.timeLimitEnabled ? preferences.timeLimit : null,
-        totalTimeLimit: preferences.timeLimitEnabled ? preferences.totalTimeLimit : null,
-        negativeMarking: preferences.negativeMarking || false,
-        negativeMarks: preferences.negativeMarking ? (preferences.negativeMarks || -0.25) : 0,
-        mode: preferences.mode || 'practice',
-        answerMode: preferences.mode === 'practice' ? 'immediate' : 'end'
-      };
-      
-      await saveQuizPreferences(userId, validatedPreferences);
-      set({ preferences: validatedPreferences });
-    } catch (error: any) {
-      set({ error: error.message || 'Failed to save preferences' });
-      throw error;
-    } finally {
-      set({ isLoading: false });
+savePreferences: async (userId, preferences) => {
+  set({ isLoading: true, error: null });
+  try {
+    // Ensure at least one question type is selected
+    if (!preferences.questionTypes || preferences.questionTypes.length === 0) {
+      preferences.questionTypes = ['multiple-choice'];
     }
-  },
+    
+    // Validate preferences with proper time limit handling
+    const validatedPreferences = {
+      ...preferences,
+      course: preferences.course || '',
+      topic: preferences.topic || '',
+      subtopic: preferences.subtopic || '',
+      questionCount: Math.max(1, Math.min(50, preferences.questionCount || 5)),
+      difficulty: preferences.difficulty || 'medium',
+      language: preferences.language || 'English',
+      timeLimitEnabled: preferences.timeLimitEnabled || false,
+      // Only set time limits if time limit is enabled
+      timeLimit: preferences.timeLimitEnabled ? preferences.timeLimit : null,
+      totalTimeLimit: preferences.timeLimitEnabled ? preferences.totalTimeLimit : null,
+      negativeMarking: preferences.negativeMarking || false,
+      negativeMarks: preferences.negativeMarking ? (preferences.negativeMarks || -0.25) : 0,
+      mode: preferences.mode || 'practice',
+      answerMode: preferences.mode === 'practice' ? 'immediate' : 'end'
+    };
+    
+    await saveQuizPreferences(userId, validatedPreferences);
+    set({ preferences: validatedPreferences });
+  } catch (error: any) {
+    set({ error: error.message || 'Failed to save preferences' });
+    throw error;
+  } finally {
+    set({ isLoading: false });
+  }
+},
+
   
   generateQuiz: async (userId) => {
     const { preferences, apiKey } = get();
