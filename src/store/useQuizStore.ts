@@ -86,17 +86,28 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     }
   },
   
-  loadPreferences: async (userId) => {
-    set({ isLoading: true, error: null });
-    try {
-      const preferences = await getQuizPreferences(userId);
-      set({ preferences: preferences || defaultPreferences });
-    } catch (error: any) {
-      set({ error: error.message || 'Failed to load preferences' });
-    } finally {
-      set({ isLoading: false });
+loadPreferences: async (userId) => {
+  set({ isLoading: true, error: null });
+  try {
+    const preferences = await getQuizPreferences(userId);
+    const loadedPreferences = preferences || defaultPreferences;
+    
+    // Ensure time settings are properly parsed
+    if (loadedPreferences.timeLimitEnabled) {
+      loadedPreferences.timeLimit = loadedPreferences.timeLimit ? 
+        loadedPreferences.timeLimit.toString() : '30';
+      loadedPreferences.totalTimeLimit = loadedPreferences.totalTimeLimit ? 
+        loadedPreferences.totalTimeLimit.toString() : '300';
     }
-  },
+    
+    set({ preferences: loadedPreferences });
+  } catch (error: any) {
+    set({ error: error.message || 'Failed to load preferences' });
+  } finally {
+    set({ isLoading: false });
+  }
+},
+
   
   savePreferences: async (userId, preferences) => {
     set({ isLoading: true, error: null });

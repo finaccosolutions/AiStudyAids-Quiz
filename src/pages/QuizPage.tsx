@@ -577,53 +577,61 @@ const handleCreateCompetitionSuccess = useCallback(() => {
             onBackToHome={handleBackToHome}
           />
         );
-      
-      case 'quiz':
-        if (currentQuestionIndex < 0 || currentQuestionIndex >= questions.length) {
-          return null;
-        }
-        
-        const currentQuestion = questions[currentQuestionIndex];
-        if (!currentQuestion || !preferences) {
-          return null;
-        }
-        
-        return (
-          <div className="max-w-4xl mx-auto px-2 sm:px-4">
-            <div className="flex justify-between items-center mb-4">
-              <Button
-                variant="ghost"
-                onClick={handleBackToModeSelector}
-                className="text-gray-600 hover:text-gray-800"
-              >
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Back to Quiz Modes
-              </Button>
-            </div>
-              <QuizQuestion
-                question={currentQuestion}
-                questionNumber={currentQuestionIndex + 1}
-                totalQuestions={questions.length}
-                userAnswer={answers[currentQuestion.id]}
-                onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)}
-                onPrevious={handlePrevious}
-                onNext={handleNext}
-                isLastQuestion={currentQuestionIndex === questions.length - 1}
-                onFinish={handleFinishQuiz}
-                language={preferences.language || 'en'}
-                timeLimitEnabled={preferences.timeLimitEnabled || false}
-                timeLimit={preferences.timeLimit}
-                totalTimeLimit={preferences.totalTimeLimit}
-                totalTimeRemaining={totalTimeRemaining}
-                mode={preferences.mode || 'practice'}
-                answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
-                onQuitQuiz={handleBackToModeSelector}
-                totalTimeElapsed={Math.floor((Date.now() - Date.now()) / 1000)} // You'll need to track this properly 
-                showQuitButton={true}
-              />
 
-          </div>
-        );
+      case 'quiz':
+  if (currentQuestionIndex < 0 || currentQuestionIndex >= questions.length) {
+    return null;
+  }
+  
+  const currentQuestion = questions[currentQuestionIndex];
+  if (!currentQuestion || !preferences) {
+    return null;
+  }
+
+  // Initialize total time if not already set and preferences allow it
+  useEffect(() => {
+    if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit && totalTimeRemaining === null) {
+      setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
+    }
+  }, [preferences, totalTimeRemaining]);
+  
+  return (
+    <div className="max-w-4xl mx-auto px-2 sm:px-4">
+      <div className="flex justify-between items-center mb-4">
+        <Button
+          variant="ghost"
+          onClick={handleBackToModeSelector}
+          className="text-gray-600 hover:text-gray-800"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Back to Quiz Modes
+        </Button>
+      </div>
+      <QuizQuestion
+        question={currentQuestion}
+        questionNumber={currentQuestionIndex + 1}
+        totalQuestions={questions.length}
+        userAnswer={answers[currentQuestion.id]}
+        onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        isLastQuestion={currentQuestionIndex === questions.length - 1}
+        onFinish={handleFinishQuiz}
+        language={preferences.language || 'en'}
+        timeLimitEnabled={preferences.timeLimitEnabled || false}
+        timeLimit={preferences.timeLimit}
+        totalTimeLimit={preferences.totalTimeLimit}
+        totalTimeRemaining={totalTimeRemaining}
+        mode={preferences.mode || 'practice'}
+        answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
+        onQuitQuiz={handleBackToModeSelector}
+        totalTimeElapsed={Math.floor((Date.now() - Date.now()) / 1000)} // You'll need to track this properly 
+        showQuitButton={true}
+      />
+    </div>
+  );
+
+
       
       case 'results':
         if (!result) return null;
@@ -639,6 +647,8 @@ const handleCreateCompetitionSuccess = useCallback(() => {
         );
     }
   };
+
+  
   
   return (
     <div className="relative min-h-screen bg-gray-50">

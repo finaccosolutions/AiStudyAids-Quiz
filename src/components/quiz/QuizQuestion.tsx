@@ -177,6 +177,8 @@ useEffect(() => {
       setShowExplanation(true);
     }
   }, [question, apiKey, selectedAnswer, language, mode, answerMode]);
+
+ 
   
   const playQuestionAudio = () => {
     if (isSpeaking) {
@@ -203,7 +205,8 @@ useEffect(() => {
       default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
   };
-  
+
+
   const isAnswerCorrect = () => {
     if (answerEvaluation) {
       return answerEvaluation.isCorrect;
@@ -220,6 +223,7 @@ useEffect(() => {
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
+
 
   const handleMultiSelectToggle = (option: string) => {
     const newSelection = selectedOptions.includes(option)
@@ -587,6 +591,60 @@ useEffect(() => {
           </motion.div>
         );
 
+        case 'quiz':
+  if (currentQuestionIndex < 0 || currentQuestionIndex >= questions.length) {
+    return null;
+  }
+  
+  const currentQuestion = questions[currentQuestionIndex];
+  if (!currentQuestion || !preferences) {
+    return null;
+  }
+
+  // Initialize total time if not already set and preferences allow it
+  useEffect(() => {
+    if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit && totalTimeRemaining === null) {
+      setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
+    }
+  }, [preferences, totalTimeRemaining]);
+  
+  return (
+    <div className="max-w-4xl mx-auto px-2 sm:px-4">
+      <div className="flex justify-between items-center mb-4">
+        <Button
+          variant="ghost"
+          onClick={handleBackToModeSelector}
+          className="text-gray-600 hover:text-gray-800"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Back to Quiz Modes
+        </Button>
+      </div>
+      <QuizQuestion
+        question={currentQuestion}
+        questionNumber={currentQuestionIndex + 1}
+        totalQuestions={questions.length}
+        userAnswer={answers[currentQuestion.id]}
+        onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        isLastQuestion={currentQuestionIndex === questions.length - 1}
+        onFinish={handleFinishQuiz}
+        language={preferences.language || 'en'}
+        timeLimitEnabled={preferences.timeLimitEnabled || false}
+        timeLimit={preferences.timeLimit}
+        totalTimeLimit={preferences.totalTimeLimit}
+        totalTimeRemaining={totalTimeRemaining}
+        mode={preferences.mode || 'practice'}
+        answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
+        onQuitQuiz={handleBackToModeSelector}
+        totalTimeElapsed={Math.floor((Date.now() - Date.now()) / 1000)} // You'll need to track this properly 
+        showQuitButton={true}
+      />
+    </div>
+  );
+
+
       case 'situation':
         return (
           <motion.div 
@@ -858,6 +916,35 @@ useEffect(() => {
                       <Volume2 className="w-4 h-4 sm:w-6 sm:h-6" />
                     )}
                   </motion.button>
+
+                  {/* Time Display Section */}
+                {(timeLimitEnabled || totalTimeRemaining !== null) && (
+                  <div className="flex items-center justify-center space-x-6 mb-6">
+                    {timeLimitEnabled && timeLimit && (
+                      <div className="flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-xl border border-purple-200">
+                        <Timer className="w-5 h-5 text-purple-600" />
+                        <span className="text-sm font-medium text-gray-700">Per Question:</span>
+                        <span className={`font-bold text-lg ${
+                          timeLeft <= 10 ? 'text-red-600' : 'text-purple-600'
+                        }`}>
+                          {formatTime(timeLeft)}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {totalTimeRemaining !== null && (
+                      <div className="flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-xl border border-blue-200">
+                        <Clock className="w-5 h-5 text-blue-600" />
+                        <span className="text-sm font-medium text-gray-700">Total Time:</span>
+                        <span className={`font-bold text-lg ${
+                          totalTimeRemaining <= 60 ? 'text-red-600' : 'text-blue-600'
+                        }`}>
+                          {formatTime(totalTimeRemaining)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
                   
                   {/* Quit Quiz Button */}
                   {showQuitButton && (
