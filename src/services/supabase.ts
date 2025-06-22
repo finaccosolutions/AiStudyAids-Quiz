@@ -66,7 +66,7 @@ export const getQuizPreferences = async (userId: string): Promise<QuizPreference
     difficulty: data.difficulty || 'medium',
     // Properly load time limits - convert string to string or keep as null
     timeLimit: data.time_limit || null,
-    totalTimeLimit: data.total_time_limit || null,
+    totalTimeLimit: data.total_time_limit || null, 
     timeLimitEnabled: data.time_limit_enabled || false,
     negativeMarking: data.negative_marking || false,
     negativeMarks: data.negative_marks || 0,
@@ -96,8 +96,8 @@ export const saveQuizPreferences = async (userId: string, preferences: QuizPrefe
     language: preferences.language || 'English',
     difficulty: preferences.difficulty || 'medium',
     // Proper time limit handling - save null when not enabled or not set
-    time_limit: (preferences.timeLimitEnabled && preferences.timeLimit) ? preferences.timeLimit : null,
-    total_time_limit: (preferences.timeLimitEnabled && preferences.totalTimeLimit) ? preferences.totalTimeLimit : null,
+    time_limit: (preferences.timeLimitEnabled && preferences.timeLimit) ? preferences.timeLimit.toString() : null,
+    total_time_limit: (preferences.timeLimitEnabled && preferences.totalTimeLimit) ? preferences.totalTimeLimit.toString() : null,
     time_limit_enabled: preferences.timeLimitEnabled || false,
     negative_marking: preferences.negativeMarking || false,
     negative_marks: preferences.negativeMarks || 0,
