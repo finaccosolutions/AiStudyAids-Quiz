@@ -116,9 +116,9 @@ savePreferences: async (userId, preferences) => {
       difficulty: preferences.difficulty || 'medium',
       language: preferences.language || 'English',
       timeLimitEnabled: preferences.timeLimitEnabled || false,
-      // Only set time limits if time limit is enabled
-      timeLimit: preferences.timeLimitEnabled ? preferences.timeLimit : null,
-      totalTimeLimit: preferences.timeLimitEnabled ? preferences.totalTimeLimit : null,
+      // Fix time limit handling - only set the relevant field based on the selection
+      timeLimit: preferences.timeLimitEnabled && preferences.timeLimit ? preferences.timeLimit : null,
+      totalTimeLimit: preferences.timeLimitEnabled && preferences.totalTimeLimit ? preferences.totalTimeLimit : null,
       negativeMarking: preferences.negativeMarking || false,
       negativeMarks: preferences.negativeMarking ? (preferences.negativeMarks || -0.25) : 0,
       mode: preferences.mode || 'practice',
@@ -134,6 +134,7 @@ savePreferences: async (userId, preferences) => {
     set({ isLoading: false });
   }
 },
+
 
   
   generateQuiz: async (userId) => {
