@@ -143,12 +143,26 @@ export type Question =
   | SituationQuestion
   | MultiSelectQuestion;
 
-export type QuizResult = {
+  export type QuizResult = {
   totalQuestions: number;
   correctAnswers: number;
+  questionsAttempted: number;
+  questionsSkipped: number;
   percentage: number;
   questions: Question[];
+  questionTypePerformance: Record<string, { correct: number; total: number }>;
+  finalScore: number;
+  rawScore: number;
+  negativeMarksDeducted?: number;
+  timeAnalytics?: {
+    totalTime: number;
+    averageTimePerQuestion: number;
+  };
+  strengths?: string[];
+  weaknesses?: string[];
+  recommendations?: string[];
 };
+
 
 export type QuizResultData = {
   id: string;

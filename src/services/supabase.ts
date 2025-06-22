@@ -353,3 +353,94 @@ export const removeFavoriteQuestion = async (userId: string, questionId: string)
     .eq('user_id', userId)
     .eq('id', questionId);
 };
+
+// Enhanced quiz results functions
+export const saveQuizResultToDatabase = async (
+  userId: string, 
+  result: QuizResult, 
+  preferences: QuizPreferences,
+  sessionMetadata?: any
+) => {
+  const sessionId = `quiz_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  
+  const quizResultData = {
+    user_id: userId,
+    course: preferences.course || '',
+    topic: preferences.topic,
+    subtopic: preferences.subtopic,
+    difficulty: preferences.difficulty,
+    question_types: preferences.questionTypes,
+    language: preferences.language,
+    mode: preferences.mode,
+    
+    total_questions: result.totalQuestions,
+    questions_attempted: result.questionsAttempted,
+    questions_skipped: result.questionsSkipped,
+    questions_correct: result.correctAnswers,
+    questions_incorrect: result.questionsAttempted - result.correctAnswers,
+    
+    raw_score: result.rawScore,
+    percentage_score: result.percentage,
+    final_score: result.finalScore,
+    negative_marking_applied: preferences.negativeMarking || false,
+    negative_marks_deducted: result.negativeMarksDeducted || 0,
+    
+    time_limit_enabled: preferences.timeLimitEnabled || false,
+    time_limit_per_question: preferences.timeLimit ? parseInt(preferences.timeLimit) : null,
+    total_time_limit: preferences.totalTimeLimit ? parseInt(preferences.totalTimeLimit) : null,
+    
+    question_type_performance: result.questionTypePerformance,
+    question_details: result.questions,
+    
+    session_id: sessionId,
+    device_info: sessionMetadata || {},
+    
+    completed_at: new Date().toISOString()
+  };
+
+  return supabase
+    .from('quiz_results')
+    .insert(quizResultData);
+};
+
+export const getQuizResultsWithAnalytics = async (userId: string, limit = 50) => {
+  const { data, error } = await supabase
+    .from('quiz_results')
+    .select('*')
+    .eq('user_id', userId)
+    .order('quiz_date', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data;
+};
+
+export const getQuizAnalytics = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('quiz_results')
+    .select(`
+      course,
+      difficulty,
+      percentage_score,
+      accuracy_rate,
+      completion_rate,
+      question_type_performance,
+      quiz_date
+    `)
+    .eq('user_id', userId)
+    .order('quiz_date', { ascending: false });
+
+  if (error) throw error;
+  return data;
+};
+
+export const getCompetitionResultsHistory = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('competition_results')
+    .select('*')
+    .eq('user_id', userId)
+    .order('competition_date', { ascending: false });
+
+  if (error) throw error;
+  return data;
+};

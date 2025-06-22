@@ -7,8 +7,55 @@ export const generateQuiz = async (
 ): Promise<Question[]> => {
   const { course, topic, subtopic, questionCount, questionTypes, language: quizLanguage, difficulty } = preferences;
 
-  // The prompt template for generating quiz questions
-  const prompt = `Generate a premium-quality quiz about "${course}${topic ? ` - ${topic}` : ''}${subtopic ? ` (${subtopic})` : ''}" with exactly ${questionCount} questions.
+  // Generate a unique seed based on current timestamp and random factors
+  const uniqueSeed = Date.now() + Math.random() * 1000000;
+  const sessionId = Math.random().toString(36).substring(2, 15);
+  
+  // Create variety indicators
+  const varietyPrompts = [
+    "Focus on practical applications and real-world scenarios",
+    "Emphasize theoretical concepts and fundamental principles", 
+    "Include problem-solving and analytical thinking questions",
+    "Cover historical context and evolution of concepts",
+    "Focus on current trends and modern developments",
+    "Include comparative analysis and critical thinking",
+    "Emphasize hands-on implementation and technical details",
+    "Cover interdisciplinary connections and broader implications"
+  ];
+  
+  const selectedVariety = varietyPrompts[Math.floor(Math.random() * varietyPrompts.length)];
+  
+  // Advanced prompt with variety mechanisms
+  const prompt = `QUIZ GENERATION SESSION: ${sessionId} | VARIETY SEED: ${uniqueSeed}
+
+Generate a UNIQUE and DIVERSE premium-quality quiz about "${course}${topic ? ` - ${topic}` : ''}${subtopic ? ` (${subtopic})` : ''}" with exactly ${questionCount} questions.
+
+CRITICAL UNIQUENESS REQUIREMENTS:
+1. VARIETY FOCUS: ${selectedVariety}
+2. RANDOMIZATION SEED: ${uniqueSeed} - Use this to ensure different question angles
+3. AVOID COMMON PATTERNS: Do not use typical textbook examples or standard questions
+4. PERSPECTIVE SHIFTS: Approach topics from multiple angles (practical, theoretical, historical, futuristic)
+5. DIFFICULTY VARIATION: Within ${difficulty} level, vary complexity from basic to advanced
+6. CONTEXT DIVERSITY: Use different scenarios, industries, time periods, and applications
+7. QUESTION STEM VARIETY: Use different question formats and phrasings
+8. CONTENT DEPTH: Mix surface-level and deep conceptual understanding
+
+ADVANCED QUESTION DIVERSIFICATION:
+- Use different cognitive levels: Remember, Understand, Apply, Analyze, Evaluate, Create
+- Include questions from different subtopics within the main topic
+- Vary the context: academic, professional, personal, societal applications
+- Use different time frames: historical, current, future implications
+- Include interdisciplinary connections where relevant
+- Mix concrete examples with abstract concepts
+- Use different cultural and geographical contexts when appropriate
+
+UNIQUENESS MECHANISMS:
+1. Question Angles: Approach each concept from unexpected angles
+2. Scenario Variety: Use diverse real-world scenarios and case studies
+3. Temporal Diversity: Include past, present, and future perspectives
+4. Scale Variation: Mix micro and macro level questions
+5. Application Contexts: Use different industries, situations, and environments
+6. Cognitive Complexity: Vary the thinking processes required
 
 STRICT COMMERCIAL REQUIREMENTS:
 1. CORE PARAMETERS:
@@ -21,6 +68,7 @@ ${subtopic ? `- Subtopic: ${subtopic}` : ''}
 - Each question must be unique and not repetitive
 - Include practical applications and real-world scenarios
 - Ensure progressive complexity within the chosen difficulty level
+- AVOID standard textbook questions - be creative and original
 
 2. STRICT QUESTION TYPE REQUIREMENTS:
 
