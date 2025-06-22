@@ -10,7 +10,8 @@ import {
   BookOpen, GraduationCap, Settings, Play,
   ChevronRight, Star, Trophy, Timer, Award,
   Sparkles, CheckCircle, AlertCircle, Crown,
-  Rocket, Shield, Activity, TrendingUp
+  Rocket, Shield, Activity, TrendingUp,
+  ChevronDown, Search, ChevronUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -39,6 +40,9 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   });
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [isCreatingCompetition, setIsCreatingCompetition] = useState(false);
+  const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
+  const [languageSearch, setLanguageSearch] = useState('');
+  const [timeInputMode, setTimeInputMode] = useState<'perQuestion' | 'totalTime'>('perQuestion');
 
   const isCompetitionMode = !!onStartCompetition;
 
@@ -82,10 +86,25 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   const languageOptions = [
     { value: 'English', label: 'English', flag: '🇺🇸' },
     { value: 'Hindi', label: 'Hindi', flag: '🇮🇳' },
+    { value: 'Spanish', label: 'Spanish', flag: '🇪🇸' },
+    { value: 'French', label: 'French', flag: '🇫🇷' },
+    { value: 'German', label: 'German', flag: '🇩🇪' },
+    { value: 'Chinese', label: 'Chinese', flag: '🇨🇳' },
+    { value: 'Japanese', label: 'Japanese', flag: '🇯🇵' },
+    { value: 'Russian', label: 'Russian', flag: '🇷🇺' },
+    { value: 'Portuguese', label: 'Portuguese', flag: '🇵🇹' },
+    { value: 'Arabic', label: 'Arabic', flag: '🇸🇦' },
     { value: 'Malayalam', label: 'Malayalam', flag: '🇮🇳' },
     { value: 'Tamil', label: 'Tamil', flag: '🇮🇳' },
-    { value: 'Telugu', label: 'Telugu', flag: '🇮🇳' }
+    { value: 'Telugu', label: 'Telugu', flag: '🇮🇳' },
+    { value: 'Bengali', label: 'Bengali', flag: '🇮🇳' },
+    { value: 'Korean', label: 'Korean', flag: '🇰🇷' },
+    { value: 'Italian', label: 'Italian', flag: '🇮🇹' }
   ];
+
+  const filteredLanguages = languageOptions.filter(lang => 
+    lang.label.toLowerCase().includes(languageSearch.toLowerCase())
+  );
 
   const questionTypeOptions = [
     { 
@@ -220,39 +239,81 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
     }));
   };
 
+  const selectLanguage = (language: string) => {
+    setPreferences(prev => ({ ...prev, language }));
+    setLanguageDropdownOpen(false);
+    setLanguageSearch('');
+  };
+
+  const handleTimeInputChange = (value: number, type: 'perQuestion' | 'totalTime') => {
+    if (type === 'perQuestion') {
+      setPreferences(prev => ({
+        ...prev,
+        timeLimit: value.toString(),
+        totalTimeLimit: (value * prev.questionCount).toString()
+      }));
+    } else {
+      setPreferences(prev => ({
+        ...prev,
+        totalTimeLimit: value.toString(),
+        timeLimit: (Math.round(value / prev.questionCount)).toString()
+      }));
+    }
+  };
+
+  const calculateTimeValue = () => {
+    if (timeInputMode === 'perQuestion') {
+      return preferences.timeLimit ? parseInt(preferences.timeLimit) : 30;
+    } else {
+      return preferences.totalTimeLimit ? parseInt(preferences.totalTimeLimit) : 300;
+    }
+  };
+
+  const incrementTime = () => {
+    const currentValue = calculateTimeValue();
+    handleTimeInputChange(currentValue + (timeInputMode === 'perQuestion' ? 5 : 30), timeInputMode);
+  };
+
+  const decrementTime = () => {
+    const currentValue = calculateTimeValue();
+    if (currentValue > (timeInputMode === 'perQuestion' ? 5 : 30)) {
+      handleTimeInputChange(currentValue - (timeInputMode === 'perQuestion' ? 5 : 30), timeInputMode);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-4 sm:py-8">
       <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-8 sm:mb-12"
         >
-          <div className="flex items-center justify-center mb-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center mb-4 sm:mb-6">
             <motion.div
               animate={{ 
                 rotate: [0, 10, -10, 0],
                 scale: [1, 1.1, 1]
               }}
               transition={{ duration: 4, repeat: Infinity }}
-              className="relative w-20 h-20 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-3xl flex items-center justify-center mr-6 shadow-2xl"
+              className="relative w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-3xl flex items-center justify-center sm:mr-6 shadow-2xl mb-4 sm:mb-0"
             >
-              {isCompetitionMode ? <Crown className="w-10 h-10 text-white" /> : <Settings className="w-10 h-10 text-white" />}
+              {isCompetitionMode ? <Crown className="w-8 h-8 sm:w-10 sm:h-10 text-white" /> : <Settings className="w-8 h-8 sm:w-10 sm:h-10 text-white" />}
               <div className="absolute inset-0 bg-gradient-to-r from-purple-400/50 to-indigo-400/50 rounded-3xl blur-xl animate-pulse" />
             </motion.div>
             <div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-slate-800 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+              <h1 className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-slate-800 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
                 {isCompetitionMode ? 'Create Competition' : 'Quiz Preferences'}
               </h1>
-              <p className="text-xl text-slate-600">
+              <p className="text-lg sm:text-xl text-slate-600">
                 {isCompetitionMode ? 'Set up your quiz competition' : 'Customize your learning experience'}
               </p>
             </div>
           </div>
         </motion.div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
           {/* Competition Details (only for competition mode) */}
           {isCompetitionMode && (
             <motion.div
@@ -262,80 +323,98 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
             >
               <Card className="shadow-2xl border-2 border-purple-100 overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
-                  <h3 className="text-2xl font-bold text-slate-800 flex items-center">
-                    <Trophy className="w-7 h-7 mr-3 text-purple-600" />
+                  <h3 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center">
+                    <Trophy className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-purple-600" />
                     Competition Details
                   </h3>
                 </CardHeader>
-                <CardBody className="p-8">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="space-y-6">
+                <CardBody className="p-4 sm:p-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+                    <div className="space-y-4 sm:space-y-6">
                       <div>
-                        <label className="block text-lg font-semibold text-slate-700 mb-3">
+                        <label className="block text-base sm:text-lg font-semibold text-slate-700 mb-2 sm:mb-3">
                           Competition Title
                         </label>
-                        <Input
-                          type="text"
-                          value={competitionData.title}
-                          onChange={(e) => setCompetitionData(prev => ({ ...prev, title: e.target.value }))}
-                          placeholder="Enter competition title"
-                          className="w-full py-4 text-lg rounded-xl border-2 border-slate-200 focus:border-purple-500 transition-all duration-300"
-                        />
+                        <div className="relative group">
+                          <Input
+                            type="text"
+                            value={competitionData.title}
+                            onChange={(e) => setCompetitionData(prev => ({ ...prev, title: e.target.value }))}
+                            placeholder="Enter competition title"
+                            className="w-full py-3 sm:py-4 text-base sm:text-lg rounded-xl border-2 border-slate-200 focus:border-purple-500 transition-all duration-300 pl-10 sm:pl-12 group-hover:shadow-lg"
+                          />
+                          <div className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-purple-500">
+                            <Trophy className="w-5 h-5 sm:w-6 sm:h-6" />
+                          </div>
+                          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                        </div>
                       </div>
                       
                       <div>
-                        <label className="block text-lg font-semibold text-slate-700 mb-3">
+                        <label className="block text-base sm:text-lg font-semibold text-slate-700 mb-2 sm:mb-3">
                           Description
                         </label>
-                        <textarea
-                          value={competitionData.description}
-                          onChange={(e) => setCompetitionData(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="Describe your competition"
-                          rows={4}
-                          className="w-full py-4 px-4 text-lg rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:outline-none transition-all duration-300 resize-none"
-                        />
+                        <div className="relative group">
+                          <textarea
+                            value={competitionData.description}
+                            onChange={(e) => setCompetitionData(prev => ({ ...prev, description: e.target.value }))}
+                            placeholder="Describe your competition"
+                            rows={4}
+                            className="w-full py-3 sm:py-4 px-10 sm:px-12 text-base sm:text-lg rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:outline-none transition-all duration-300 resize-none group-hover:shadow-lg"
+                          />
+                          <div className="absolute left-3 sm:left-4 top-3 sm:top-4 text-purple-500">
+                            <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
+                          </div>
+                          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                        </div>
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-lg font-semibold text-slate-700 mb-3">
+                      <label className="block text-base sm:text-lg font-semibold text-slate-700 mb-2 sm:mb-3">
                         Invite Participants (Optional)
                       </label>
-                      <div className="space-y-4">
-                        <div className="flex space-x-3">
-                          <Input
-                            type="email"
-                            value={competitionData.emailInput}
-                            onChange={(e) => setCompetitionData(prev => ({ ...prev, emailInput: e.target.value }))}
-                            placeholder="Enter email address"
-                            className="flex-1 py-4 text-lg rounded-xl border-2 border-slate-200 focus:border-purple-500"
-                            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addEmail())}
-                          />
+                      <div className="space-y-3 sm:space-y-4">
+                        <div className="flex space-x-2 sm:space-x-3">
+                          <div className="relative group flex-1">
+                            <Input
+                              type="email"
+                              value={competitionData.emailInput}
+                              onChange={(e) => setCompetitionData(prev => ({ ...prev, emailInput: e.target.value }))}
+                              placeholder="Enter email address"
+                              className="w-full py-3 sm:py-4 text-base sm:text-lg rounded-xl border-2 border-slate-200 focus:border-purple-500 pl-10 sm:pl-12 group-hover:shadow-lg"
+                              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addEmail())}
+                            />
+                            <div className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-purple-500">
+                              <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+                            </div>
+                            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                          </div>
                           <Button
                             type="button"
                             onClick={addEmail}
-                            className="px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold rounded-xl"
+                            className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm:text-base"
                           >
                             Add
                           </Button>
                         </div>
                         
                         {competitionData.emails.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium text-slate-600">Invited participants:</p>
-                            <div className="flex flex-wrap gap-2">
+                          <div className="space-y-1 sm:space-y-2">
+                            <p className="text-xs sm:text-sm font-medium text-slate-600">Invited participants:</p>
+                            <div className="flex flex-wrap gap-1 sm:gap-2">
                               {competitionData.emails.map((email) => (
                                 <motion.div
                                   key={email}
                                   initial={{ opacity: 0, scale: 0.8 }}
                                   animate={{ opacity: 1, scale: 1 }}
-                                  className="flex items-center bg-purple-100 text-purple-700 px-3 py-2 rounded-full text-sm font-medium"
+                                  className="flex items-center bg-purple-100 text-purple-700 px-2 sm:px-3 py-1 sm:py-2 rounded-full text-xs sm:text-sm font-medium shadow-sm"
                                 >
                                   {email}
                                   <button
                                     type="button"
                                     onClick={() => removeEmail(email)}
-                                    className="ml-2 text-purple-500 hover:text-purple-700"
+                                    className="ml-1 sm:ml-2 text-purple-500 hover:text-purple-700 text-xs sm:text-sm"
                                   >
                                     ×
                                   </button>
@@ -360,51 +439,69 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
           >
             <Card className="shadow-2xl border-2 border-blue-100 overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
-                <h3 className="text-2xl font-bold text-slate-800 flex items-center">
-                  <GraduationCap className="w-7 h-7 mr-3 text-blue-600" />
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center">
+                  <GraduationCap className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-blue-600" />
                   Subject & Topic
                 </h3>
               </CardHeader>
-              <CardBody className="p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <CardBody className="p-4 sm:p-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
                   <div>
-                    <label className="block text-lg font-semibold text-slate-700 mb-3">
+                    <label className="block text-base sm:text-lg font-semibold text-slate-700 mb-2 sm:mb-3">
                       Course/Subject *
                     </label>
-                    <Input
-                      type="text"
-                      value={preferences.course}
-                      onChange={(e) => setPreferences(prev => ({ ...prev, course: e.target.value }))}
-                      placeholder="e.g., Computer Science"
-                      required
-                      className="w-full py-4 text-lg rounded-xl border-2 border-slate-200 focus:border-blue-500 transition-all duration-300"
-                    />
+                    <div className="relative group">
+                      <Input
+                        type="text"
+                        value={preferences.course}
+                        onChange={(e) => setPreferences(prev => ({ ...prev, course: e.target.value }))}
+                        placeholder="e.g., Computer Science"
+                        required
+                        className="w-full py-3 sm:py-4 text-base sm:text-lg rounded-xl border-2 border-slate-200 focus:border-blue-500 transition-all duration-300 pl-10 sm:pl-12 group-hover:shadow-lg"
+                      />
+                      <div className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-blue-500">
+                        <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
+                      </div>
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                    </div>
                   </div>
                   
                   <div>
-                    <label className="block text-lg font-semibold text-slate-700 mb-3">
+                    <label className="block text-base sm:text-lg font-semibold text-slate-700 mb-2 sm:mb-3">
                       Topic (Optional)
                     </label>
-                    <Input
-                      type="text"
-                      value={preferences.topic}
-                      onChange={(e) => setPreferences(prev => ({ ...prev, topic: e.target.value }))}
-                      placeholder="e.g., Data Structures"
-                      className="w-full py-4 text-lg rounded-xl border-2 border-slate-200 focus:border-blue-500 transition-all duration-300"
-                    />
+                    <div className="relative group">
+                      <Input
+                        type="text"
+                        value={preferences.topic}
+                        onChange={(e) => setPreferences(prev => ({ ...prev, topic: e.target.value }))}
+                        placeholder="e.g., Data Structures"
+                        className="w-full py-3 sm:py-4 text-base sm:text-lg rounded-xl border-2 border-slate-200 focus:border-blue-500 transition-all duration-300 pl-10 sm:pl-12 group-hover:shadow-lg"
+                      />
+                      <div className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-blue-500">
+                        <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
+                      </div>
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                    </div>
                   </div>
                   
                   <div>
-                    <label className="block text-lg font-semibold text-slate-700 mb-3">
+                    <label className="block text-base sm:text-lg font-semibold text-slate-700 mb-2 sm:mb-3">
                       Subtopic (Optional)
                     </label>
-                    <Input
-                      type="text"
-                      value={preferences.subtopic}
-                      onChange={(e) => setPreferences(prev => ({ ...prev, subtopic: e.target.value }))}
-                      placeholder="e.g., Binary Trees"
-                      className="w-full py-4 text-lg rounded-xl border-2 border-slate-200 focus:border-blue-500 transition-all duration-300"
-                    />
+                    <div className="relative group">
+                      <Input
+                        type="text"
+                        value={preferences.subtopic}
+                        onChange={(e) => setPreferences(prev => ({ ...prev, subtopic: e.target.value }))}
+                        placeholder="e.g., Binary Trees"
+                        className="w-full py-3 sm:py-4 text-base sm:text-lg rounded-xl border-2 border-slate-200 focus:border-blue-500 transition-all duration-300 pl-10 sm:pl-12 group-hover:shadow-lg"
+                      />
+                      <div className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-blue-500">
+                        <Brain className="w-5 h-5 sm:w-6 sm:h-6" />
+                      </div>
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
               </CardBody>
@@ -419,20 +516,20 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
           >
             <Card className="shadow-2xl border-2 border-green-100 overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
-                <h3 className="text-2xl font-bold text-slate-800 flex items-center">
-                  <Target className="w-7 h-7 mr-3 text-green-600" />
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center">
+                  <Target className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-green-600" />
                   Quiz Configuration
                 </h3>
               </CardHeader>
-              <CardBody className="p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <CardBody className="p-4 sm:p-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                   {/* Question Count and Difficulty */}
-                  <div className="space-y-8">
+                  <div className="space-y-6 sm:space-y-8">
                     <div>
-                      <label className="block text-lg font-semibold text-slate-700 mb-4">
+                      <label className="block text-base sm:text-lg font-semibold text-slate-700 mb-3 sm:mb-4">
                         Number of Questions
                       </label>
-                      <div className="relative">
+                      <div className="relative group">
                         <Input
                           type="number"
                           min="1"
@@ -442,56 +539,58 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                             ...prev, 
                             questionCount: Math.max(1, Math.min(50, parseInt(e.target.value) || 1))
                           }))}
-                          className="w-full py-4 text-lg rounded-xl border-2 border-slate-200 focus:border-green-500 transition-all duration-300"
+                          className="w-full py-3 sm:py-4 text-base sm:text-lg rounded-xl border-2 border-slate-200 focus:border-green-500 transition-all duration-300 pl-10 sm:pl-12 group-hover:shadow-lg"
                         />
-                        <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                          <Sparkles className="w-6 h-6 text-green-500" />
+                        <div className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-green-500">
+                          <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
+                        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                       </div>
-                      <p className="text-sm text-slate-500 mt-2">Choose between 1-50 questions</p>
+                      <p className="text-xs sm:text-sm text-slate-500 mt-2">Choose between 1-50 questions</p>
                     </div>
 
                     <div>
-                      <label className="block text-lg font-semibold text-slate-700 mb-4">
+                      <label className="block text-base sm:text-lg font-semibold text-slate-700 mb-3 sm:mb-4">
                         Difficulty Level
                       </label>
-                      <div className="grid grid-cols-1 gap-4">
+                      <div className="grid grid-cols-3 gap-2 sm:gap-3">
                         {difficultyOptions.map((option) => (
                           <motion.button
                             key={option.value}
                             type="button"
                             onClick={() => setPreferences(prev => ({ ...prev, difficulty: option.value as any }))}
-                            className={`p-6 rounded-2xl border-2 transition-all duration-300 text-left ${
+                            className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 text-left ${
                               preferences.difficulty === option.value
-                                ? `${option.borderColor} ${option.bgColor} shadow-lg scale-[1.02] ring-4 ring-opacity-20`
+                                ? `${option.borderColor} ${option.bgColor} shadow-lg scale-[1.02] ring-2 sm:ring-4 ring-opacity-20`
                                 : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md hover:scale-[1.01]'
                             }`}
                             whileHover={{ scale: preferences.difficulty === option.value ? 1.02 : 1.01 }}
                             whileTap={{ scale: 0.98 }}
                           >
-                            <div className="flex items-center space-x-4">
-                              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl ${
+                            <div className="flex flex-col sm:flex-row items-center sm:items-start sm:space-x-2 space-y-1 sm:space-y-0">
+                              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl ${
                                 preferences.difficulty === option.value 
-                                  ? `bg-gradient-to-r ${option.color} text-white shadow-lg`
+                                  ? `bg-gradient-to-r ${option.color} text-white shadow-md sm:shadow-lg`
                                   : 'bg-slate-100 text-slate-600'
                               }`}>
                                 {option.icon}
                               </div>
-                              <div className="flex-1">
-                                <h4 className={`text-xl font-bold ${
+                              <div className="flex-1 text-center sm:text-left">
+                                <h4 className={`text-sm sm:text-base font-bold ${
                                   preferences.difficulty === option.value ? option.textColor : 'text-slate-800'
                                 }`}>
                                   {option.label}
                                 </h4>
-                                <p className="text-slate-600 mt-1">{option.description}</p>
+                                <p className="text-xs sm:text-sm text-slate-600 mt-0 sm:mt-1">{option.description}</p>
                               </div>
                               {preferences.difficulty === option.value && (
                                 <motion.div
                                   initial={{ scale: 0 }}
                                   animate={{ scale: 1 }}
                                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                  className="hidden sm:block"
                                 >
-                                  <CheckCircle className="w-8 h-8 text-green-500" />
+                                  <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
                                 </motion.div>
                               )}
                             </div>
@@ -502,44 +601,160 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                   </div>
 
                   {/* Language Selection */}
-                  <div>
-                    <label className="block text-lg font-semibold text-slate-700 mb-4">
-                      Language
-                    </label>
-                    <div className="grid grid-cols-1 gap-3">
-                      {languageOptions.map((option) => (
-                        <motion.button
-                          key={option.value}
+                  <div className="space-y-6 sm:space-y-8">
+                    <div>
+                      <label className="block text-base sm:text-lg font-semibold text-slate-700 mb-3 sm:mb-4">
+                        Language
+                      </label>
+                      <div className="relative">
+                        <button
                           type="button"
-                          onClick={() => setPreferences(prev => ({ ...prev, language: option.value as any }))}
-                          className={`p-4 rounded-xl border-2 transition-all duration-300 text-left ${
-                            preferences.language === option.value
-                              ? 'border-blue-500 bg-blue-50 shadow-lg scale-[1.02] ring-4 ring-blue-200'
-                              : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md hover:scale-[1.01]'
+                          onClick={() => setLanguageDropdownOpen(!languageDropdownOpen)}
+                          className={`w-full p-3 sm:p-4 rounded-xl border-2 transition-all duration-300 text-left flex items-center justify-between ${
+                            languageDropdownOpen
+                              ? 'border-blue-500 bg-blue-50 shadow-lg'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md'
                           }`}
-                          whileHover={{ scale: preferences.language === option.value ? 1.02 : 1.01 }}
-                          whileTap={{ scale: 0.98 }}
                         >
-                          <div className="flex items-center space-x-4">
-                            <span className="text-2xl">{option.flag}</span>
-                            <span className={`text-lg font-semibold ${
-                              preferences.language === option.value ? 'text-blue-700' : 'text-slate-800'
-                            }`}>
-                              {option.label}
-                            </span>
-                            {preferences.language === option.value && (
-                              <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                className="ml-auto"
-                              >
-                                <CheckCircle className="w-6 h-6 text-green-500" />
-                              </motion.div>
+                          <div className="flex items-center">
+                            {preferences.language ? (
+                              <>
+                                <span className="text-xl sm:text-2xl mr-2 sm:mr-3">
+                                  {languageOptions.find(lang => lang.value === preferences.language)?.flag}
+                                </span>
+                                <span className="text-sm sm:text-base font-semibold text-slate-800">
+                                  {languageOptions.find(lang => lang.value === preferences.language)?.label}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-sm sm:text-base text-slate-500">Select a language</span>
                             )}
                           </div>
-                        </motion.button>
-                      ))}
+                          <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 text-slate-500 transition-transform duration-300 ${
+                            languageDropdownOpen ? 'transform rotate-180' : ''
+                          }`} />
+                        </button>
+
+                        <AnimatePresence>
+                          {languageDropdownOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.2 }}
+                              className="absolute z-10 mt-1 sm:mt-2 w-full bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden"
+                            >
+                              <div className="p-2 sm:p-3 border-b border-slate-200 bg-slate-50">
+                                <div className="relative">
+                                  <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+                                  <input
+                                    type="text"
+                                    value={languageSearch}
+                                    onChange={(e) => setLanguageSearch(e.target.value)}
+                                    placeholder="Search languages..."
+                                    className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1 sm:py-2 text-sm sm:text-base rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  />
+                                </div>
+                              </div>
+                              <div className="max-h-48 sm:max-h-60 overflow-y-auto">
+                                {filteredLanguages.length > 0 ? (
+                                  filteredLanguages.map((option) => (
+                                    <button
+                                      key={option.value}
+                                      type="button"
+                                      onClick={() => selectLanguage(option.value)}
+                                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-left flex items-center hover:bg-blue-50 transition-colors duration-200 ${
+                                        preferences.language === option.value ? 'bg-blue-100' : ''
+                                      }`}
+                                    >
+                                      <span className="text-xl sm:text-2xl mr-2 sm:mr-3">{option.flag}</span>
+                                      <span className="text-sm sm:text-base text-slate-800 font-medium">{option.label}</span>
+                                      {preferences.language === option.value && (
+                                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 ml-auto" />
+                                      )}
+                                    </button>
+                                  ))
+                                ) : (
+                                  <div className="px-3 sm:px-4 py-2 sm:py-3 text-slate-500 text-center text-sm sm:text-base">
+                                    No languages found
+                                  </div>
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center space-x-4 mb-3 sm:mb-4">
+                        <label className="block text-base sm:text-lg font-semibold text-slate-700">
+                          Time Settings
+                        </label>
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setTimeInputMode('perQuestion')}
+                            className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+                              timeInputMode === 'perQuestion'
+                                ? 'bg-blue-500 text-white shadow-md'
+                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                            }`}
+                          >
+                            Per Question
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTimeInputMode('totalTime')}
+                            className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+                              timeInputMode === 'totalTime'
+                                ? 'bg-blue-500 text-white shadow-md'
+                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                            }`}
+                          >
+                            Total Time
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm sm:text-base font-medium text-slate-700">
+                            {timeInputMode === 'perQuestion' ? 'Time per Question (seconds)' : 'Total Quiz Time (seconds)'}
+                          </span>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={decrementTime}
+                              className="w-8 h-8 flex items-center justify-center bg-slate-200 hover:bg-slate-300 rounded-lg transition-colors"
+                            >
+                              <ChevronDown className="w-4 h-4 text-slate-700" />
+                            </button>
+                            <div className="w-16 sm:w-20 text-center font-bold text-slate-800">
+                              {calculateTimeValue()}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={incrementTime}
+                              className="w-8 h-8 flex items-center justify-center bg-slate-200 hover:bg-slate-300 rounded-lg transition-colors"
+                            >
+                              <ChevronUp className="w-4 h-4 text-slate-700" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="text-xs sm:text-sm text-slate-500 mt-2">
+                          {timeInputMode === 'perQuestion' ? (
+                            <>
+                              Total quiz time: {calculateTimeValue() * preferences.questionCount} seconds
+                              ({Math.floor((calculateTimeValue() * preferences.questionCount) / 60)} min {calculateTimeValue() * preferences.questionCount % 60} sec)
+                            </>
+                          ) : (
+                            <>
+                              Time per question: {Math.round(calculateTimeValue() / preferences.questionCount)} seconds
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -555,14 +770,14 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
           >
             <Card className="shadow-2xl border-2 border-purple-100 overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
-                <h3 className="text-2xl font-bold text-slate-800 flex items-center">
-                  <Star className="w-7 h-7 mr-3 text-purple-600" />
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center">
+                  <Star className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-purple-600" />
                   Question Types
                 </h3>
-                <p className="text-slate-600 mt-2">Select at least one question type</p>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1 sm:mt-2">Select at least one question type</p>
               </CardHeader>
-              <CardBody className="p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <CardBody className="p-4 sm:p-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                   {questionTypeOptions.map((option) => {
                     const isSelected = preferences.questionTypes.includes(option.value);
                     return (
@@ -570,9 +785,9 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                         key={option.value}
                         type="button"
                         onClick={() => handleQuestionTypeToggle(option.value)}
-                        className={`p-6 rounded-2xl border-2 transition-all duration-300 text-left relative overflow-hidden ${
+                        className={`p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 text-left relative overflow-hidden ${
                           isSelected
-                            ? 'border-purple-500 bg-purple-50 shadow-xl scale-[1.02] ring-4 ring-purple-200'
+                            ? 'border-purple-500 bg-purple-50 shadow-xl scale-[1.02] ring-2 sm:ring-4 ring-purple-200'
                             : 'border-slate-200 bg-white hover:border-purple-300 hover:shadow-lg hover:scale-[1.01]'
                         }`}
                         whileHover={{ scale: isSelected ? 1.02 : 1.01 }}
@@ -580,27 +795,27 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                       >
                         <div className="absolute inset-0 bg-gradient-to-br from-purple-400/5 to-indigo-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                         <div className="relative z-10">
-                          <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 ${
+                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center mb-3 sm:mb-4 ${
                             isSelected 
-                              ? `bg-gradient-to-r ${option.color} text-white shadow-lg`
+                              ? `bg-gradient-to-r ${option.color} text-white shadow-md sm:shadow-lg`
                               : 'bg-slate-100 text-slate-600'
                           }`}>
-                            <option.icon className="w-7 h-7" />
+                            <option.icon className="w-5 h-5 sm:w-6 sm:h-6" />
                           </div>
-                          <h4 className={`text-lg font-bold mb-2 ${
+                          <h4 className={`text-sm sm:text-base font-bold mb-1 sm:mb-2 ${
                             isSelected ? 'text-purple-700' : 'text-slate-800'
                           }`}>
                             {option.label}
                           </h4>
-                          <p className="text-slate-600 text-sm">{option.description}</p>
+                          <p className="text-xs sm:text-sm text-slate-600">{option.description}</p>
                           {isSelected && (
                             <motion.div
                               initial={{ scale: 0, rotate: -180 }}
                               animate={{ scale: 1, rotate: 0 }}
                               transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                              className="absolute top-4 right-4"
+                              className="absolute top-2 sm:top-4 right-2 sm:right-4"
                             >
-                              <CheckCircle className="w-6 h-6 text-green-500" />
+                              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
                             </motion.div>
                           )}
                         </div>
@@ -612,10 +827,10 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-center"
+                    className="mt-4 sm:mt-6 p-3 sm:p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-center shadow-sm"
                   >
-                    <AlertCircle className="w-6 h-6 text-orange-500 mr-3 flex-shrink-0" />
-                    <p className="text-orange-700 font-medium">Please select at least one question type</p>
+                    <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500 mr-2 sm:mr-3 flex-shrink-0" />
+                    <p className="text-xs sm:text-sm text-orange-700 font-medium">Please select at least one question type</p>
                   </motion.div>
                 )}
               </CardBody>
@@ -630,13 +845,13 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
           >
             <Card className="shadow-2xl border-2 border-indigo-100 overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50">
-                <h3 className="text-2xl font-bold text-slate-800 flex items-center">
-                  <Rocket className="w-7 h-7 mr-3 text-indigo-600" />
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center">
+                  <Rocket className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-indigo-600" />
                   Quiz Mode
                 </h3>
               </CardHeader>
-              <CardBody className="p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <CardBody className="p-4 sm:p-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                   {modeOptions.map((option) => {
                     const isSelected = preferences.mode === option.value;
                     return (
@@ -644,9 +859,9 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                         key={option.value}
                         type="button"
                         onClick={() => setPreferences(prev => ({ ...prev, mode: option.value as any }))}
-                        className={`p-8 rounded-2xl border-2 transition-all duration-300 text-left relative overflow-hidden ${
+                        className={`p-6 sm:p-8 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 text-left relative overflow-hidden ${
                           isSelected
-                            ? 'border-indigo-500 bg-indigo-50 shadow-xl scale-[1.02] ring-4 ring-indigo-200'
+                            ? 'border-indigo-500 bg-indigo-50 shadow-xl scale-[1.02] ring-2 sm:ring-4 ring-indigo-200'
                             : 'border-slate-200 bg-white hover:border-indigo-300 hover:shadow-lg hover:scale-[1.01]'
                         }`}
                         whileHover={{ scale: isSelected ? 1.02 : 1.01 }}
@@ -654,21 +869,21 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                       >
                         <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/5 to-purple-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                         <div className="relative z-10">
-                          <div className="flex items-center space-x-4 mb-6">
-                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
+                          <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 mb-4 sm:mb-6">
+                            <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg sm:rounded-2xl flex items-center justify-center ${
                               isSelected 
-                                ? `bg-gradient-to-r ${option.color} text-white shadow-lg`
+                                ? `bg-gradient-to-r ${option.color} text-white shadow-md sm:shadow-lg`
                                 : 'bg-slate-100 text-slate-600'
                             }`}>
-                              <option.icon className="w-8 h-8" />
+                              <option.icon className="w-6 h-6 sm:w-8 sm:h-8" />
                             </div>
                             <div className="flex-1">
-                              <h4 className={`text-2xl font-bold ${
+                              <h4 className={`text-lg sm:text-xl font-bold ${
                                 isSelected ? 'text-indigo-700' : 'text-slate-800'
                               }`}>
                                 {option.label}
                               </h4>
-                              <p className="text-slate-600 text-lg mt-1">{option.description}</p>
+                              <p className="text-sm sm:text-base text-slate-600 mt-1">{option.description}</p>
                             </div>
                             {isSelected && (
                               <motion.div
@@ -676,17 +891,17 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                                 animate={{ scale: 1, rotate: 0 }}
                                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
                               >
-                                <CheckCircle className="w-8 h-8 text-green-500" />
+                                <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-500" />
                               </motion.div>
                             )}
                           </div>
-                          <div className="space-y-3">
+                          <div className="space-y-2 sm:space-y-3">
                             {option.features.map((feature, index) => (
-                              <div key={index} className="flex items-center space-x-3">
+                              <div key={index} className="flex items-center space-x-2 sm:space-x-3">
                                 <div className={`w-2 h-2 rounded-full ${
                                   isSelected ? 'bg-indigo-500' : 'bg-slate-400'
                                 }`} />
-                                <span className="text-slate-700 font-medium">{feature}</span>
+                                <span className="text-xs sm:text-sm text-slate-700 font-medium">{feature}</span>
                               </div>
                             ))}
                           </div>
@@ -699,137 +914,43 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
             </Card>
           </motion.div>
 
-          {/* Time Settings */}
+          {/* Scoring Settings */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
           >
-            <Card className="shadow-2xl border-2 border-orange-100 overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50">
-                <h3 className="text-2xl font-bold text-slate-800 flex items-center">
-                  <Timer className="w-7 h-7 mr-3 text-orange-600" />
-                  Time Settings
-                </h3>
-              </CardHeader>
-              <CardBody className="p-8">
-                <div className="space-y-8">
-                  <div className="flex items-center justify-between p-6 bg-gradient-to-r from-orange-50 to-red-50 rounded-2xl border border-orange-200">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
-                        <Clock className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <h4 className="text-xl font-bold text-slate-800">Enable Time Limits</h4>
-                        <p className="text-slate-600">Add time pressure to your quiz</p>
-                      </div>
-                    </div>
-                    <motion.button
-                      type="button"
-                      onClick={() => setPreferences(prev => ({ ...prev, timeLimitEnabled: !prev.timeLimitEnabled }))}
-                      className={`relative w-16 h-8 rounded-full transition-all duration-300 ${
-                        preferences.timeLimitEnabled ? 'bg-green-500' : 'bg-slate-300'
-                      }`}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <motion.div
-                        className="absolute top-1 w-6 h-6 bg-white rounded-full shadow-lg"
-                        animate={{ x: preferences.timeLimitEnabled ? 36 : 4 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                      />
-                    </motion.button>
-                  </div>
-
-                  <AnimatePresence>
-                    {preferences.timeLimitEnabled && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="grid grid-cols-1 lg:grid-cols-2 gap-8"
-                      >
-                        <div>
-                          <label className="block text-lg font-semibold text-slate-700 mb-4">
-                            Time per Question (seconds)
-                          </label>
-                          <select
-                            value={preferences.timeLimit || ''}
-                            onChange={(e) => setPreferences(prev => ({ ...prev, timeLimit: e.target.value || null }))}
-                            className="w-full py-4 px-4 text-lg rounded-xl border-2 border-slate-200 focus:border-orange-500 focus:outline-none transition-all duration-300"
-                          >
-                            <option value="">No limit per question</option>
-                            <option value="15">15 seconds</option>
-                            <option value="30">30 seconds</option>
-                            <option value="60">1 minute</option>
-                            <option value="120">2 minutes</option>
-                            <option value="300">5 minutes</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-lg font-semibold text-slate-700 mb-4">
-                            Total Quiz Time (seconds)
-                          </label>
-                          <select
-                            value={preferences.totalTimeLimit || ''}
-                            onChange={(e) => setPreferences(prev => ({ ...prev, totalTimeLimit: e.target.value || null }))}
-                            className="w-full py-4 px-4 text-lg rounded-xl border-2 border-slate-200 focus:border-orange-500 focus:outline-none transition-all duration-300"
-                          >
-                            <option value="">No total time limit</option>
-                            <option value="300">5 minutes</option>
-                            <option value="600">10 minutes</option>
-                            <option value="900">15 minutes</option>
-                            <option value="1800">30 minutes</option>
-                            <option value="3600">1 hour</option>
-                          </select>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </CardBody>
-            </Card>
-          </motion.div>
-
-          {/* Scoring Settings */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-          >
             <Card className="shadow-2xl border-2 border-red-100 overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50">
-                <h3 className="text-2xl font-bold text-slate-800 flex items-center">
-                  <Award className="w-7 h-7 mr-3 text-red-600" />
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center">
+                  <Award className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-red-600" />
                   Scoring Settings
                 </h3>
               </CardHeader>
-              <CardBody className="p-8">
-                <div className="space-y-8">
-                  <div className="flex items-center justify-between p-6 bg-gradient-to-r from-red-50 to-pink-50 rounded-2xl border border-red-200">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl flex items-center justify-center">
-                        <TrendingUp className="w-6 h-6 text-white" />
+              <CardBody className="p-4 sm:p-8">
+                <div className="space-y-6 sm:space-y-8">
+                  <div className="flex items-center justify-between p-4 sm:p-6 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl sm:rounded-2xl border border-red-200 shadow-sm">
+                    <div className="flex items-center space-x-3 sm:space-x-4">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
+                        <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                       </div>
                       <div>
-                        <h4 className="text-xl font-bold text-slate-800">Negative Marking</h4>
-                        <p className="text-slate-600">Deduct points for wrong answers</p>
+                        <h4 className="text-base sm:text-lg font-bold text-slate-800">Negative Marking</h4>
+                        <p className="text-xs sm:text-sm text-slate-600">Deduct points for wrong answers</p>
                       </div>
                     </div>
                     <motion.button
                       type="button"
                       onClick={() => setPreferences(prev => ({ ...prev, negativeMarking: !prev.negativeMarking }))}
-                      className={`relative w-16 h-8 rounded-full transition-all duration-300 ${
+                      className={`relative w-12 sm:w-16 h-6 sm:h-8 rounded-full transition-all duration-300 ${
                         preferences.negativeMarking ? 'bg-red-500' : 'bg-slate-300'
                       }`}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                     >
                       <motion.div
-                        className="absolute top-1 w-6 h-6 bg-white rounded-full shadow-lg"
-                        animate={{ x: preferences.negativeMarking ? 36 : 4 }}
+                        className="absolute top-1 sm:top-1 w-4 h-4 sm:w-6 sm:h-6 bg-white rounded-full shadow-lg"
+                        animate={{ x: preferences.negativeMarking ? (window.innerWidth < 640 ? 28 : 36) : 4 }}
                         transition={{ type: "spring", stiffness: 500, damping: 30 }}
                       />
                     </motion.button>
@@ -844,18 +965,24 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                         transition={{ duration: 0.3 }}
                       >
                         <div className="max-w-md">
-                          <label className="block text-lg font-semibold text-slate-700 mb-4">
+                          <label className="block text-base sm:text-lg font-semibold text-slate-700 mb-3 sm:mb-4">
                             Negative Marks per Wrong Answer
                           </label>
-                          <select
-                            value={preferences.negativeMarks || -0.25}
-                            onChange={(e) => setPreferences(prev => ({ ...prev, negativeMarks: parseFloat(e.target.value) }))}
-                            className="w-full py-4 px-4 text-lg rounded-xl border-2 border-slate-200 focus:border-red-500 focus:outline-none transition-all duration-300"
-                          >
-                            <option value={-0.25}>-0.25 marks</option>
-                            <option value={-0.5}>-0.5 marks</option>
-                            <option value={-1}>-1 mark</option>
-                          </select>
+                          <div className="relative group">
+                            <select
+                              value={preferences.negativeMarks || -0.25}
+                              onChange={(e) => setPreferences(prev => ({ ...prev, negativeMarks: parseFloat(e.target.value) }))}
+                              className="w-full py-3 sm:py-4 px-10 sm:px-12 text-base sm:text-lg rounded-xl border-2 border-slate-200 focus:border-red-500 focus:outline-none transition-all duration-300 group-hover:shadow-lg"
+                            >
+                              <option value={-0.25}>-0.25 marks</option>
+                              <option value={-0.5}>-0.5 marks</option>
+                              <option value={-1}>-1 mark</option>
+                            </select>
+                            <div className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-red-500">
+                              <Award className="w-5 h-5 sm:w-6 sm:h-6" />
+                            </div>
+                            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-red-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                          </div>
                         </div>
                       </motion.div>
                     )}
@@ -872,10 +999,10 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="p-6 bg-red-50 border-2 border-red-200 rounded-2xl flex items-center shadow-lg"
+                className="p-4 sm:p-6 bg-red-50 border-2 border-red-200 rounded-xl sm:rounded-2xl flex items-center shadow-lg"
               >
-                <AlertCircle className="w-8 h-8 text-red-500 mr-4 flex-shrink-0" />
-                <p className="text-red-700 font-medium text-lg">{error}</p>
+                <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-red-500 mr-3 sm:mr-4 flex-shrink-0" />
+                <p className="text-sm sm:text-base text-red-700 font-medium">{error}</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -884,27 +1011,35 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-            className="flex justify-center pt-8"
+            transition={{ delay: 0.7 }}
+            className="flex justify-center pt-6 sm:pt-8"
           >
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 type="submit"
                 disabled={isLoading || isCreatingCompetition || preferences.questionTypes.length === 0 || !preferences.course}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-6 px-12 text-xl rounded-2xl shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 relative overflow-hidden group"
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-4 sm:py-6 px-8 sm:px-12 text-lg sm:text-xl rounded-xl sm:rounded-2xl shadow-xl sm:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 relative overflow-hidden group"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                 <div className="relative flex items-center">
                   {isLoading || isCreatingCompetition ? (
                     <>
-                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3" />
-                      {isCompetitionMode ? 'Creating Competition...' : 'Saving Preferences...'}
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-2 sm:mr-3" />
+                      <span className="text-sm sm:text-base">
+                        {isCompetitionMode ? 'Creating Competition...' : 'Saving Preferences...'}
+                      </span>
                     </>
                   ) : (
                     <>
-                      {isCompetitionMode ? <Crown className="w-6 h-6 mr-3" /> : <Play className="w-6 h-6 mr-3" />}
-                      {isCompetitionMode ? 'Create Competition' : 'Start Quiz'}
-                      <ChevronRight className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform duration-300" />
+                      {isCompetitionMode ? (
+                        <Crown className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
+                      ) : (
+                        <Play className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
+                      )}
+                      <span className="text-sm sm:text-base">
+                        {isCompetitionMode ? 'Create Competition' : 'Start Quiz'}
+                      </span>
+                      <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 ml-2 sm:ml-3 group-hover:translate-x-1 transition-transform duration-300" />
                     </>
                   )}
                 </div>
