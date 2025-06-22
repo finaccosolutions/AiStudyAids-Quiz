@@ -577,7 +577,7 @@ loadParticipants: async (competitionId: string) => {
       return;
     }
 
-    // 4. Main query with profile join
+    // 4. Main query with profile join - Cast answers to text to avoid jsonb array function issues
     const { data: participantsWithProfiles, error: joinError } = await supabase
       .from('competition_participants')
       .select(`
@@ -589,7 +589,7 @@ loadParticipants: async (competitionId: string) => {
         score,
         correct_answers,
         time_taken,
-        answers,
+        answers::text,
         rank,
         points_earned,
         joined_at,
@@ -616,6 +616,8 @@ loadParticipants: async (competitionId: string) => {
     if (!joinError && participantsWithProfiles) {
       const formattedParticipants = participantsWithProfiles.map(p => ({
         ...p,
+        // Parse answers back to JSON object
+        answers: p.answers ? JSON.parse(p.answers) : {},
         profile: {
           full_name: p.profiles?.full_name || p.email?.split('@')[0] || 'Anonymous',
           avatar_url: p.profiles?.avatar_url || null
@@ -639,7 +641,7 @@ loadParticipants: async (competitionId: string) => {
 
     console.warn('Join query failed, falling back to separate queries:', joinError);
 
-    // 6. Fallback: Load participants without profiles
+    // 6. Fallback: Load participants without profiles - Cast answers to text
     const { data: participants, error: participantsError } = await supabase
       .from('competition_participants')
       .select(`
@@ -651,7 +653,7 @@ loadParticipants: async (competitionId: string) => {
         score,
         correct_answers,
         time_taken,
-        answers,
+        answers::text,
         rank,
         points_earned,
         joined_at,
@@ -694,6 +696,8 @@ loadParticipants: async (competitionId: string) => {
       const profile = profilesMap.get(p.user_id);
       return {
         ...p,
+        // Parse answers back to JSON object
+        answers: p.answers ? JSON.parse(p.answers) : {},
         profile: {
           full_name: profile?.full_name || p.email?.split('@')[0] || 'Anonymous',
           avatar_url: profile?.avatar_url || null
@@ -726,48 +730,48 @@ loadParticipants: async (competitionId: string) => {
 
 
 
+updateParticipantProgress: async (competitionId, answers, score, correctAnswers, timeTaken, currentQuestion) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
 
-  updateParticipantProgress: async (competitionId, answers, score, correctAnswers, timeTaken, currentQuestion) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+    const updateData: any = {
+      answers: JSON.stringify(answers), // Convert to string before saving
+      score,
+      correct_answers: correctAnswers,
+      time_taken: timeTaken,
+      last_activity: new Date().toISOString(),
+      is_online: true
+    };
 
-      const updateData: any = {
-        answers,
-        score,
-        correct_answers: correctAnswers,
-        time_taken: timeTaken,
-        last_activity: new Date().toISOString(),
-        is_online: true
-      };
-
-      // Add progress tracking
-      if (currentQuestion !== undefined) {
-        updateData.current_question = currentQuestion;
-        updateData.questions_answered = Object.keys(answers).length;
-      }
-
-      const { error } = await supabase
-        .from('competition_participants')
-        .update(updateData)
-        .eq('competition_id', competitionId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      // Update local state for real-time updates
-      set(state => ({
-        participants: state.participants.map(p => 
-          p.user_id === user.id 
-            ? { ...p, ...updateData }
-            : p
-        )
-      }));
-    } catch (error: any) {
-      console.error('Error updating participant progress:', error);
-      set({ error: error.message });
+    // Add progress tracking
+    if (currentQuestion !== undefined) {
+      updateData.current_question = currentQuestion;
+      updateData.questions_answered = Object.keys(answers).length;
     }
-  },
+
+    const { error } = await supabase
+      .from('competition_participants')
+      .update(updateData)
+      .eq('competition_id', competitionId)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+
+    // Update local state for real-time updates
+    set(state => ({
+      participants: state.participants.map(p => 
+        p.user_id === user.id 
+          ? { ...p, ...updateData, answers: answers } // Keep as object in local state
+          : p
+      )
+    }));
+  } catch (error: any) {
+    console.error('Error updating participant progress:', error);
+    set({ error: error.message });
+  }
+},
+
 
   completeCompetition: async (competitionId) => {
     try {
