@@ -8,10 +8,12 @@ import {
   TrendingUp, Award, Zap, Users, Home, RefreshCw,
   ChevronDown, ChevronUp, BarChart3, Activity,
   Brain, Timer, CheckCircle, XCircle, Sparkles,
-  LogOut, ArrowLeft, Eye, EyeOff
+  LogOut, ArrowLeft, Eye, EyeOff, AlertTriangle,
+  Loader
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
+import { supabase } from '../../services/supabase';
 
 interface CompetitionResultsProps {
   competition: Competition;
@@ -41,6 +43,9 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
   const [confettiVisible, setConfettiVisible] = useState(true);
   const [showLiveUpdates, setShowLiveUpdates] = useState(true);
+  const [competitionStatus, setCompetitionStatus] = useState(competition.status);
+  const [isLoading, setIsLoading] = useState(true);
+  const [competitionResults, setCompetitionResults] = useState<any[]>([]);
 
   // Get all participants (completed and still playing)
   const allParticipants = participants.filter(p => 
@@ -64,14 +69,41 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     const bProgress = (b.questions_answered || 0) / (competition.questions?.length || 1);
     if (bProgress !== aProgress) return bProgress - aProgress;
     
-    return (a.score || 0) - (b.score || 0);
+    return (b.score || 0) - (a.score || 0);
   });
 
   const userParticipant = sortedParticipants.find(p => p.user_id === user?.id);
   const userRank = sortedParticipants.findIndex(p => p.user_id === user?.id) + 1;
   const completedCount = sortedParticipants.filter(p => p.status === 'completed').length;
   const totalParticipants = sortedParticipants.length;
-  const isCompetitionFullyComplete = completedCount === totalParticipants;
+  const isCompetitionFullyComplete = competitionStatus === 'completed';
+
+  // Load competition results from database if competition is completed
+  useEffect(() => {
+    const loadCompetitionResults = async () => {
+      if (isCompetitionFullyComplete) {
+        try {
+          const { data, error } = await supabase
+            .from('competition_results')
+            .select(`
+              *,
+              profiles!competition_results_user_id_fkey(full_name)
+            `)
+            .eq('competition_id', competition.id)
+            .order('final_rank', { ascending: true });
+
+          if (!error && data) {
+            setCompetitionResults(data);
+          }
+        } catch (error) {
+          console.error('Error loading competition results:', error);
+        }
+      }
+      setIsLoading(false);
+    };
+
+    loadCompetitionResults();
+  }, [competition.id, isCompetitionFullyComplete]);
 
   useEffect(() => {
     if (user) {
@@ -92,17 +124,42 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     // Subscribe to competition and participant updates
     const unsubscribe = subscribeToCompetition(competition.id);
     
-    // Refresh participants data periodically
-    const refreshInterval = setInterval(() => {
-      loadParticipants(competition.id);
+    // Check competition status periodically
+    const statusInterval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('competitions')
+          .select('status')
+          .eq('id', competition.id)
+          .single();
+        
+        if (data && data.status !== competitionStatus) {
+          setCompetitionStatus(data.status);
+          if (data.status === 'completed') {
+            // Reload results when competition completes
+            window.location.reload();
+          }
+        }
+      } catch (error) {
+        console.error('Error checking competition status:', error);
+      }
     }, 3000);
+
+    // Refresh participants data periodically if not completed
+    let refreshInterval: NodeJS.Timeout;
+    if (!isCompetitionFullyComplete) {
+      refreshInterval = setInterval(() => {
+        loadParticipants(competition.id);
+      }, 3000);
+    }
 
     return () => {
       console.log('Cleaning up results page subscriptions');
       unsubscribe();
-      clearInterval(refreshInterval);
+      clearInterval(statusInterval);
+      if (refreshInterval) clearInterval(refreshInterval);
     };
-  }, [competition.id, subscribeToCompetition, loadParticipants]);
+  }, [competition.id, subscribeToCompetition, loadParticipants, competitionStatus, isCompetitionFullyComplete]);
 
   // Cleanup subscriptions when component unmounts
   useEffect(() => {
@@ -133,37 +190,59 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   const getPerformanceMessage = () => {
     if (!userParticipant || userParticipant.status !== 'completed') {
       return { 
-        message: 'Quiz completed! Waiting for final results...', 
+        message: isCompetitionFullyComplete 
+          ? 'Competition completed! Check your final results below.' 
+          : 'Quiz completed! Waiting for other participants to finish...', 
         color: 'text-blue-600',
+        bgColor: 'bg-blue-50',
+        borderColor: 'border-blue-200',
+        icon: Trophy,
         emoji: '⏳'
       };
     }
     
-    const percentage = userParticipant.score / (competition.questions?.length || 1) * 100;
-    
+    if (!isCompetitionFullyComplete) {
+      return { 
+        message: `Currently ranked #${userRank}. Final results will be available when all participants finish.`, 
+        color: 'text-orange-600',
+        bgColor: 'bg-orange-50',
+        borderColor: 'border-orange-200',
+        icon: Clock,
+        emoji: '⏳'
+      };
+    }
+
+    // Final results messages
     if (userRank === 1) return { 
       message: '🎉 Congratulations! You won the competition!', 
       color: 'text-yellow-600',
+      bgColor: 'bg-yellow-50',
+      borderColor: 'border-yellow-200',
+      icon: Trophy,
       emoji: '🏆'
     };
     if (userRank <= 3) return { 
       message: '🏆 Excellent! You finished in the top 3!', 
       color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      icon: Award,
       emoji: '🥉'
     };
-    if (percentage >= 70) return { 
-      message: '👏 Great performance! Well done!', 
+    if (userRank <= totalParticipants / 2) return { 
+      message: '👏 Great performance! You finished in the top half!', 
       color: 'text-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      icon: TrendingUp,
       emoji: '👏'
     };
-    if (percentage >= 50) return { 
-      message: '👍 Good effort! Keep practicing!', 
-      color: 'text-orange-600',
-      emoji: '👍'
-    };
     return { 
-      message: '💪 Keep learning and improving!', 
+      message: '💪 Good effort! Keep practicing for even better results!', 
       color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200',
+      icon: Target,
       emoji: '💪'
     };
   };
@@ -194,7 +273,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   const insights = getCompetitionInsights();
 
   const getRankIcon = (rank: number, isCompleted: boolean) => {
-    if (!isCompleted) return <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />;
+    if (!isCompleted && !isCompetitionFullyComplete) return <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />;
     
     if (rank === 1) return <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500" />;
     if (rank === 2) return <Medal className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />;
@@ -203,7 +282,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   };
 
   const getRankColor = (rank: number, isCompleted: boolean) => {
-    if (!isCompleted) return 'from-orange-400 to-yellow-400';
+    if (!isCompleted && !isCompetitionFullyComplete) return 'from-orange-400 to-yellow-400';
     if (rank === 1) return 'from-yellow-400 to-yellow-500';
     if (rank === 2) return 'from-gray-300 to-gray-400';
     if (rank === 3) return 'from-orange-400 to-orange-500';
@@ -216,11 +295,27 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     return ((participant.questions_answered || 0) / totalQuestions) * 100;
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <Loader className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Loading Results...</h2>
+          <p className="text-gray-600">Please wait while we prepare your competition results</p>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-4 sm:py-8 relative overflow-hidden">
       {/* Confetti Animation */}
       <AnimatePresence>
-        {confettiVisible && userParticipant?.status === 'completed' && (
+        {confettiVisible && userParticipant?.status === 'completed' && isCompetitionFullyComplete && userRank <= 3 && (
           <div className="fixed inset-0 pointer-events-none z-10">
             {Array.from({ length: 50 }).map((_, i) => (
               <motion.div
@@ -259,7 +354,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
             </div>
             <div className="text-center sm:text-left">
               <h1 className="text-3xl sm:text-5xl font-bold text-gray-800">
-                {isCompetitionFullyComplete ? 'Competition Complete!' : 'Live Results'}
+                {isCompetitionFullyComplete ? 'Final Results!' : 'Live Results'}
               </h1>
               <p className="text-lg sm:text-2xl text-gray-600">{competition.title}</p>
               {!isCompetitionFullyComplete && (
@@ -273,7 +368,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+            transition={{ delay: 0.3, type: "spring", stiffness: 200, damping: 20 }}
             className={`text-2xl sm:text-3xl font-bold ${performance.color} mb-4`}
           >
             {performance.emoji} {performance.message}
@@ -318,7 +413,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                     </div>
                     <div className="text-2xl sm:text-4xl font-bold">{userRank}</div>
                     <div className="text-purple-100 text-sm sm:text-base">
-                      {userParticipant.status === 'completed' ? 'Final Rank' : 'Current Rank'}
+                      {isCompetitionFullyComplete ? 'Final Rank' : 'Current Rank'}
                     </div>
                   </div>
                   <div>
@@ -441,15 +536,16 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
             </CardHeader>
             <CardBody className="p-4 sm:p-6">
               <div className="space-y-3 sm:space-y-4">
-                {sortedParticipants.map((participant, index) => {
-                  const rank = index + 1;
-                  const isCompleted = participant.status === 'completed';
+                {(isCompetitionFullyComplete && competitionResults.length > 0 ? competitionResults : sortedParticipants).map((participant, index) => {
+                  const rank = isCompetitionFullyComplete && competitionResults.length > 0 ? participant.final_rank : index + 1;
+                  const isCompleted = isCompetitionFullyComplete || participant.status === 'completed';
                   const isCurrentUser = participant.user_id === user?.id;
                   const progressPercentage = getProgressPercentage(participant);
+                  const participantName = participant.profiles?.full_name || participant.profile?.full_name || 'Anonymous';
                   
                   return (
                     <motion.div
-                      key={participant.id}
+                      key={participant.id || participant.user_id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.7 + index * 0.05 }}
@@ -457,7 +553,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                         isCurrentUser
                           ? 'border-purple-500 bg-purple-50 shadow-lg scale-105'
                           : 'border-gray-200 bg-white hover:shadow-md'
-                      } ${!isCompleted ? 'border-l-4 border-l-orange-400' : ''}`}
+                      } ${!isCompleted && !isCompetitionFullyComplete ? 'border-l-4 border-l-orange-400' : ''}`}
                     >
                       <div className="flex items-center space-x-3 sm:space-x-6">
                         {/* Rank Badge */}
@@ -469,7 +565,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-3 mb-2 sm:mb-3">
                             <h4 className="text-lg sm:text-2xl font-bold text-gray-800 truncate">
-                              {participant.profile?.full_name || 'Anonymous'}
+                              {participantName}
                             </h4>
                             <div className="flex items-center space-x-2">
                               {isCurrentUser && (
@@ -531,7 +627,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                           </div>
 
                           {/* Progress Bar for Active Participants */}
-                          {!isCompleted && (
+                          {!isCompleted && !isCompetitionFullyComplete && (
                             <div className="mt-3 sm:mt-4">
                               <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
                                 <span>Quiz Progress</span>

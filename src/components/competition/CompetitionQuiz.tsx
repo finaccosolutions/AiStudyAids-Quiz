@@ -161,7 +161,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     }));
   };
 
-  // FIXED: Enhanced completion logic to handle both creator and joiners properly
+  // Enhanced completion logic with proper database updates
   const handleNextQuestion = useCallback(async () => {
     if (!currentQuestion || isQuizCompleted || isSubmitting) return;
 
@@ -184,7 +184,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       setScore(Math.max(0, newScore));
       setCorrectAnswers(newCorrectAnswers);
 
-      // Update progress in real-time with proper answer format
+      // Update progress in real-time
       const timeTaken = Math.floor((Date.now() - startTime) / 1000);
       const updatedAnswers = { ...answers, [currentQuestion.id]: userAnswer };
       
@@ -201,13 +201,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
         console.log('Quiz completed, finishing...');
         setIsQuizCompleted(true);
         
-        // FIXED: Complete the competition for this user and check if all participants are done
-        await completeCompetition(competition.id);
+        // Use the new edge function for completion
+        await handleCompetitionCompletion(Math.max(0, newScore), newCorrectAnswers, timeTaken, updatedAnswers);
         
-        // Check if this user is the last to complete
-        await checkAndUpdateCompetitionStatus();
-        
-        // FIXED: Always call onComplete for both creator and joiners
         setTimeout(() => {
           onComplete();
         }, 1000);
@@ -230,49 +226,42 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     competition.id,
     startTime,
     updateParticipantProgress,
-    completeCompetition,
     onComplete,
     isQuizCompleted,
     isSubmitting
   ]);
 
-  // FIXED: New function to check and update competition status when last participant finishes
-  const checkAndUpdateCompetitionStatus = async () => {
+  // New function to handle competition completion with proper database updates
+  const handleCompetitionCompletion = async (finalScore: number, correctAnswers: number, timeTaken: number, answers: Record<number, string>) => {
     try {
-      // Get all participants for this competition
-      const { data: allParticipants, error } = await supabase
-        .from('competition_participants')
-        .select('status')
-        .eq('competition_id', competition.id);
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/competition-completion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          competitionId: competition.id,
+          userId: user?.id,
+          finalScore,
+          correctAnswers,
+          timeTaken,
+          answers
+        })
+      });
 
-      if (error) {
-        console.error('Error fetching participants:', error);
-        return;
+      if (!response.ok) {
+        throw new Error('Failed to complete competition');
       }
 
-      // Check if all participants have completed
-      const allCompleted = allParticipants.every(p => p.status === 'completed');
+      const result = await response.json();
+      console.log('Competition completion result:', result);
       
-      if (allCompleted) {
-        console.log('All participants completed, updating competition status to completed');
-        
-        // Update competition status to completed
-        const { error: updateError } = await supabase
-          .from('competitions')
-          .update({ 
-            status: 'completed',
-            end_time: new Date().toISOString()
-          })
-          .eq('id', competition.id);
-
-        if (updateError) {
-          console.error('Error updating competition status:', updateError);
-        } else {
-          console.log('Competition status updated to completed successfully');
-        }
-      }
+      return result;
     } catch (error) {
-      console.error('Error in checkAndUpdateCompetitionStatus:', error);
+      console.error('Error completing competition:', error);
+      // Fallback to original method
+      await completeCompetition(competition.id);
     }
   };
 
@@ -447,7 +436,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
         >
           <Trophy className="w-16 h-16 mx-auto mb-4 text-yellow-400" />
           <h2 className="text-2xl font-bold mb-2">Quiz Completed!</h2>
-          <p className="text-white/80">Waiting for results...</p>
+          <p className="text-white/80">Processing results and updating rankings...</p>
         </motion.div>
       </div>
     );
@@ -664,6 +653,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                                 </div>
                                 <div className="text-xs text-gray-500 mt-1">
                                   {participant.questions_answered || 0}/{questions.length} answered
+                                  {participant.status === 'completed' && (
+                                    <span className="ml-2 text-green-600 font-medium">✓ Completed</span>
+                                  )}
                                 </div>
                               </div>
                             </div>
