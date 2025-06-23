@@ -49,13 +49,13 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   const [competitionStatus, setCompetitionStatus] = useState(competition.status);
   const [isLoading, setIsLoading] = useState(true);
   const [competitionResults, setCompetitionResults] = useState<any[]>([]);
-  const [autoRedirectTimer, setAutoRedirectTimer] = useState<number | null>(null);
-  const [showAutoRedirectWarning, setShowAutoRedirectWarning] = useState(false);
+  const [showResultsTimer, setShowResultsTimer] = useState<number | null>(null);
+  const [showTimerWarning, setShowTimerWarning] = useState(false);
   
   // Refs for cleanup management
   const isComponentMountedRef = useRef(true);
   const subscriptionCleanupRef = useRef<(() => void) | null>(null);
-  const autoRedirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const resultsTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get all participants (completed and still playing)
@@ -98,8 +98,8 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
       isComponentMountedRef.current = false;
       
       // Clear all timers
-      if (autoRedirectTimeoutRef.current) {
-        clearTimeout(autoRedirectTimeoutRef.current);
+      if (resultsTimerRef.current) {
+        clearTimeout(resultsTimerRef.current);
       }
       if (statusCheckIntervalRef.current) {
         clearInterval(statusCheckIntervalRef.current);
@@ -122,20 +122,26 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
       
       if (isCompetitionFullyComplete) {
         try {
+          // Fixed query - use the correct relationship path
           const { data, error } = await supabase
             .from('competition_results')
             .select(`
               *,
-              profiles!competition_results_user_id_fkey(full_name)
+              profiles:user_id(full_name)
             `)
             .eq('competition_id', competition.id)
             .order('final_rank', { ascending: true });
 
-          if (!error && data && isComponentMountedRef.current) {
+          if (error) {
+            console.error('Error loading competition results:', error);
+            // Fallback to using participants data if database query fails
+            setCompetitionResults([]);
+          } else if (data && isComponentMountedRef.current) {
             setCompetitionResults(data);
           }
         } catch (error) {
           console.error('Error loading competition results:', error);
+          setCompetitionResults([]);
         }
       }
       
@@ -162,19 +168,19 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     return () => clearTimeout(timer);
   }, [user, loadUserStats]);
 
-  // Enhanced auto-redirect logic for completed competitions
+  // Enhanced results display timer - show results for 30 seconds after completion
   useEffect(() => {
     if (!isCompetitionFullyComplete || !userParticipant || userParticipant.status !== 'completed') {
       return;
     }
 
-    // Show warning after 10 seconds
-    const warningTimeout = setTimeout(() => {
+    // Show results for 30 seconds, then show warning for 10 seconds
+    const showResultsTimeout = setTimeout(() => {
       if (isComponentMountedRef.current) {
-        setShowAutoRedirectWarning(true);
-        setAutoRedirectTimer(10); // 10 second countdown
+        setShowTimerWarning(true);
+        setShowResultsTimer(10); // 10 second countdown
       }
-    }, 10000);
+    }, 30000); // Show results for 30 seconds
 
     // Start countdown after warning is shown
     const countdownTimeout = setTimeout(() => {
@@ -188,50 +194,31 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
         }
         
         timeLeft--;
-        setAutoRedirectTimer(timeLeft);
+        setShowResultsTimer(timeLeft);
         
         if (timeLeft <= 0) {
           clearInterval(countdownInterval);
-          handleAutoRedirect();
+          // Don't auto-redirect, just hide the warning
+          setShowTimerWarning(false);
+          setShowResultsTimer(null);
         }
       }, 1000);
       
       return () => clearInterval(countdownInterval);
-    }, 10000);
-
-    // Auto redirect after 20 seconds total
-    autoRedirectTimeoutRef.current = setTimeout(() => {
-      handleAutoRedirect();
-    }, 20000);
+    }, 30000);
 
     return () => {
-      clearTimeout(warningTimeout);
+      clearTimeout(showResultsTimeout);
       clearTimeout(countdownTimeout);
-      if (autoRedirectTimeoutRef.current) {
-        clearTimeout(autoRedirectTimeoutRef.current);
-      }
     };
   }, [isCompetitionFullyComplete, userParticipant]);
 
-  const handleAutoRedirect = () => {
-    if (!isComponentMountedRef.current) return;
-    
-    console.log('Auto-redirecting to home page...');
-    
-    // Cleanup before redirect
-    setCleanupFlag(true);
-    cleanupSubscriptions();
-    
-    // Navigate to home
-    navigate('/');
-  };
-
-  const handleCancelAutoRedirect = () => {
-    if (autoRedirectTimeoutRef.current) {
-      clearTimeout(autoRedirectTimeoutRef.current);
+  const handleCancelTimer = () => {
+    if (resultsTimerRef.current) {
+      clearTimeout(resultsTimerRef.current);
     }
-    setShowAutoRedirectWarning(false);
-    setAutoRedirectTimer(null);
+    setShowTimerWarning(false);
+    setShowResultsTimer(null);
   };
 
   // Set up real-time subscriptions for live updates with proper cleanup
@@ -441,28 +428,28 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-4 sm:py-8 relative overflow-hidden">
-      {/* Auto-redirect warning */}
+      {/* Results display timer warning */}
       <AnimatePresence>
-        {showAutoRedirectWarning && autoRedirectTimer !== null && (
+        {showTimerWarning && showResultsTimer !== null && (
           <motion.div
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
-            className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-orange-500 text-white px-6 py-4 rounded-lg shadow-xl"
+            className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-blue-500 text-white px-6 py-4 rounded-lg shadow-xl"
           >
             <div className="flex items-center space-x-4">
-              <AlertTriangle className="w-6 h-6" />
+              <Trophy className="w-6 h-6" />
               <div>
-                <p className="font-semibold">Auto-redirecting to home page in {autoRedirectTimer}s</p>
-                <p className="text-sm opacity-90">Competition completed - returning to main page</p>
+                <p className="font-semibold">Results displayed for your review</p>
+                <p className="text-sm opacity-90">Take your time to analyze the competition results</p>
               </div>
               <Button
-                onClick={handleCancelAutoRedirect}
+                onClick={handleCancelTimer}
                 variant="outline"
                 size="sm"
-                className="border-white text-white hover:bg-white hover:text-orange-500"
+                className="border-white text-white hover:bg-white hover:text-blue-500"
               >
-                Cancel
+                Got it
               </Button>
             </div>
           </motion.div>
