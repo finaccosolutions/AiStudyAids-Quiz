@@ -123,11 +123,12 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
       if (isCompetitionFullyComplete) {
         try {
           // Fixed query - use the correct relationship path
+          // The profiles table has user_id as foreign key, not id as primary key for the relationship
           const { data, error } = await supabase
             .from('competition_results')
             .select(`
               *,
-              profiles:user_id(full_name)
+              profiles!competition_results_user_id_fkey(full_name)
             `)
             .eq('competition_id', competition.id)
             .order('final_rank', { ascending: true });
