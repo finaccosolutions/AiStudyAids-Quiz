@@ -122,12 +122,14 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
       
       if (isCompetitionFullyComplete) {
         try {
-          // Use the new foreign key relationship to auth.users
+          console.log('Loading competition results for completed competition...');
+          
+          // Use the correct foreign key relationship to public.users, then join with profiles
           const { data, error } = await supabase
             .from('competition_results')
             .select(`
               *,
-              users!competition_results_user_id_auth_fkey(
+              users!competition_results_user_id_fkey(
                 id,
                 profiles(full_name)
               )
@@ -137,15 +139,24 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
 
           if (error) {
             console.error('Error loading competition results:', error);
-            // Fallback to using participants data if database query fails
-            setCompetitionResults([]);
+            
+            // Fallback: Try a simpler query without the join
+            const { data: fallbackData, error: fallbackError } = await supabase
+              .from('competition_results')
+              .select('*')
+              .eq('competition_id', competition.id)
+              .order('final_rank', { ascending: true });
+            
+            if (fallbackError) {
+              console.error('Fallback query also failed:', fallbackError);
+              setCompetitionResults([]);
+            } else if (fallbackData && isComponentMountedRef.current) {
+              console.log('Using fallback data without user profiles');
+              setCompetitionResults(fallbackData);
+            }
           } else if (data && isComponentMountedRef.current) {
-            // Transform the data to match expected structure
-            const transformedData = data.map(result => ({
-              ...result,
-              profiles: result.users?.profiles
-            }));
-            setCompetitionResults(transformedData);
+            console.log('Successfully loaded competition results:', data);
+            setCompetitionResults(data);
           }
         } catch (error) {
           console.error('Error loading competition results:', error);
@@ -176,50 +187,8 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     return () => clearTimeout(timer);
   }, [user, loadUserStats]);
 
-  // Enhanced results display timer - show results for 30 seconds after completion
-  useEffect(() => {
-    if (!isCompetitionFullyComplete || !userParticipant || userParticipant.status !== 'completed') {
-      return;
-    }
-
-    // Show results for 30 seconds, then show warning for 10 seconds
-    const showResultsTimeout = setTimeout(() => {
-      if (isComponentMountedRef.current) {
-        setShowTimerWarning(true);
-        setShowResultsTimer(10); // 10 second countdown
-      }
-    }, 30000); // Show results for 30 seconds
-
-    // Start countdown after warning is shown
-    const countdownTimeout = setTimeout(() => {
-      if (!isComponentMountedRef.current) return;
-      
-      let timeLeft = 10;
-      const countdownInterval = setInterval(() => {
-        if (!isComponentMountedRef.current) {
-          clearInterval(countdownInterval);
-          return;
-        }
-        
-        timeLeft--;
-        setShowResultsTimer(timeLeft);
-        
-        if (timeLeft <= 0) {
-          clearInterval(countdownInterval);
-          // Don't auto-redirect, just hide the warning
-          setShowTimerWarning(false);
-          setShowResultsTimer(null);
-        }
-      }, 1000);
-      
-      return () => clearInterval(countdownInterval);
-    }, 30000);
-
-    return () => {
-      clearTimeout(showResultsTimeout);
-      clearTimeout(countdownTimeout);
-    };
-  }, [isCompetitionFullyComplete, userParticipant]);
+  // REMOVED: Auto-redirect timer that was causing the page to close automatically
+  // The results page should stay open until the user manually navigates away
 
   const handleCancelTimer = () => {
     if (resultsTimerRef.current) {
@@ -252,7 +221,6 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
         
         if (data && data.status !== competitionStatus && isComponentMountedRef.current) {
           setCompetitionStatus(data.status);
-          // REMOVED: window.location.reload() - let the component handle state updates naturally
           console.log('Competition status updated to:', data.status);
         }
       } catch (error) {
@@ -434,33 +402,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-4 sm:py-8 relative overflow-hidden">
-      {/* Results display timer warning */}
-      <AnimatePresence>
-        {showTimerWarning && showResultsTimer !== null && (
-          <motion.div
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-blue-500 text-white px-6 py-4 rounded-lg shadow-xl"
-          >
-            <div className="flex items-center space-x-4">
-              <Trophy className="w-6 h-6" />
-              <div>
-                <p className="font-semibold">Results displayed for your review</p>
-                <p className="text-sm opacity-90">Take your time to analyze the competition results</p>
-              </div>
-              <Button
-                onClick={handleCancelTimer}
-                variant="outline"
-                size="sm"
-                className="border-white text-white hover:bg-white hover:text-blue-500"
-              >
-                Got it
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* REMOVED: Auto-redirect timer warning that was causing confusion */}
 
       {/* Confetti Animation */}
       <AnimatePresence>
@@ -690,7 +632,16 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                   const isCompleted = isCompetitionFullyComplete || participant.status === 'completed';
                   const isCurrentUser = participant.user_id === user?.id;
                   const progressPercentage = getProgressPercentage(participant);
-                  const participantName = participant.profiles?.full_name || participant.profile?.full_name || participant.users?.profiles?.full_name || 'Anonymous';
+                  
+                  // Handle different data structures for participant names
+                  let participantName = 'Anonymous';
+                  if (participant.users?.profiles?.full_name) {
+                    participantName = participant.users.profiles.full_name;
+                  } else if (participant.profiles?.full_name) {
+                    participantName = participant.profiles.full_name;
+                  } else if (participant.profile?.full_name) {
+                    participantName = participant.profile.full_name;
+                  }
                   
                   return (
                     <motion.div
