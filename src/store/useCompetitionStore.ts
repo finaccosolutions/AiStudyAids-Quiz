@@ -847,6 +847,49 @@ updateParticipantProgress: async (competitionId, answers, score, correctAnswers,
         )
       }));
 
+      // CRITICAL FIX: Check if all participants have completed and update competition status
+      // Get all participants for this competition
+      const { data: allParticipants, error: participantsError } = await supabase
+        .from('competition_participants')
+        .select('status')
+        .eq('competition_id', competitionId)
+        .in('status', ['joined', 'completed']);
+
+      if (!participantsError && allParticipants) {
+        const completedCount = allParticipants.filter(p => p.status === 'completed').length;
+        const totalParticipants = allParticipants.length;
+
+        console.log(`Competition ${competitionId}: ${completedCount}/${totalParticipants} participants completed`);
+
+        // If all participants have completed, mark competition as completed
+        if (completedCount === totalParticipants) {
+          console.log('All participants completed, updating competition status to completed');
+          
+          const { error: competitionUpdateError } = await supabase
+            .from('competitions')
+            .update({ 
+              status: 'completed',
+              end_time: new Date().toISOString()
+            })
+            .eq('id', competitionId);
+
+          if (competitionUpdateError) {
+            console.error('Error updating competition status:', competitionUpdateError);
+          } else {
+            console.log('Competition status updated to completed');
+            
+            // Update local competition state
+            set(state => ({
+              currentCompetition: state.currentCompetition ? {
+                ...state.currentCompetition,
+                status: 'completed',
+                end_time: new Date().toISOString()
+              } : null
+            }));
+          }
+        }
+      }
+
       // The database trigger will handle competition finalization
     } catch (error: any) {
       console.error('Error in completeCompetition:', error);

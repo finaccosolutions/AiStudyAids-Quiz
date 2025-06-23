@@ -137,7 +137,7 @@ useEffect(() => {
           return;
         }
 
-        // Check if user has completed the competition
+        // CRITICAL FIX: Check if user has completed the competition
         if (user) {
           const { data: userParticipant } = await supabase
             .from('competition_participants')
@@ -146,8 +146,8 @@ useEffect(() => {
             .eq('user_id', user.id)
             .maybeSingle();
 
-          // If user has completed the competition, go to results regardless of competition status
-          if (userParticipant?.status === 'completed') {
+          // CRITICAL FIX: If user has completed OR competition is completed, go to results
+          if (userParticipant?.status === 'completed' || competitionCheck.status === 'completed') {
             if (!competitionCompletedRef.current) {
               competitionCompletedRef.current = true;
               setStep('competition-results');
@@ -388,6 +388,15 @@ const handleCreateCompetitionSuccess = useCallback(() => {
     setStep(newStep);
     currentStepRef.current = newStep;
   }, [loadCompetition]);
+
+  // CRITICAL FIX: Enhanced leave handler for competitions
+  const handleLeaveCompetition = useCallback(() => {
+    // Clear competition state and reset flags
+    clearCurrentCompetition();
+    competitionCompletedRef.current = false;
+    setStep('mode-selector');
+    currentStepRef.current = 'mode-selector';
+  }, [clearCurrentCompetition]);
   
   const renderContent = () => {
     if (!user) return null;
@@ -592,7 +601,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
           <CompetitionLobby
             competition={currentCompetition}
             onStartQuiz={handleStartCompetitionQuiz}
-            onLeave={handleBackToModeSelector} // FIXED: Add proper leave handler
+            onLeave={handleLeaveCompetition} // FIXED: Use proper leave handler
           />
         );
 
@@ -604,7 +613,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
           <CompetitionQuiz
             competition={currentCompetition}
             onComplete={handleCompetitionComplete}
-            onLeave={handleBackToModeSelector} // FIXED: Add proper leave handler
+            onLeave={handleLeaveCompetition} // FIXED: Use proper leave handler
           />
         );
 
@@ -617,7 +626,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
             competition={currentCompetition}
             onNewCompetition={handleNewCompetition}
             onBackToHome={handleBackToHome}
-            onLeave={handleBackToModeSelector} // FIXED: Add proper leave handler
+            onLeave={handleLeaveCompetition} // FIXED: Use proper leave handler
           />
         );
       
