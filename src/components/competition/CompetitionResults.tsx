@@ -124,43 +124,63 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
         try {
           console.log('Loading competition results for completed competition...');
           
-          // Use the correct foreign key relationship to public.users, then join with profiles
-          const { data, error } = await supabase
+          // First, try to get competition results with user profiles
+          const { data: resultsData, error: resultsError } = await supabase
             .from('competition_results')
-            .select(`
-              *,
-              users!competition_results_user_id_fkey(
-                id,
-                profiles(full_name)
-              )
-            `)
+            .select('*')
             .eq('competition_id', competition.id)
             .order('final_rank', { ascending: true });
 
-          if (error) {
-            console.error('Error loading competition results:', error);
+          if (resultsError) {
+            console.error('Error loading competition results:', resultsError);
+            setCompetitionResults([]);
+            setIsLoading(false);
+            return;
+          }
+
+          if (resultsData && resultsData.length > 0) {
+            // Get user profiles for the results
+            const userIds = resultsData.map(result => result.user_id).filter(Boolean);
             
-            // Fallback: Try a simpler query without the join
-            const { data: fallbackData, error: fallbackError } = await supabase
-              .from('competition_results')
-              .select('*')
-              .eq('competition_id', competition.id)
-              .order('final_rank', { ascending: true });
-            
-            if (fallbackError) {
-              console.error('Fallback query also failed:', fallbackError);
-              setCompetitionResults([]);
-            } else if (fallbackData && isComponentMountedRef.current) {
-              console.log('Using fallback data without user profiles');
-              setCompetitionResults(fallbackData);
+            if (userIds.length > 0) {
+              const { data: profilesData, error: profilesError } = await supabase
+                .from('profiles')
+                .select('user_id, full_name')
+                .in('user_id', userIds);
+
+              if (!profilesError && profilesData) {
+                // Merge results with profile data
+                const resultsWithProfiles = resultsData.map(result => ({
+                  ...result,
+                  profile: profilesData.find(profile => profile.user_id === result.user_id)
+                }));
+                
+                if (isComponentMountedRef.current) {
+                  console.log('Successfully loaded competition results with profiles:', resultsWithProfiles);
+                  setCompetitionResults(resultsWithProfiles);
+                }
+              } else {
+                console.warn('Could not load profiles, using results without names');
+                if (isComponentMountedRef.current) {
+                  setCompetitionResults(resultsData);
+                }
+              }
+            } else {
+              if (isComponentMountedRef.current) {
+                setCompetitionResults(resultsData);
+              }
             }
-          } else if (data && isComponentMountedRef.current) {
-            console.log('Successfully loaded competition results:', data);
-            setCompetitionResults(data);
+          } else {
+            console.log('No competition results found, using live participant data');
+            if (isComponentMountedRef.current) {
+              setCompetitionResults([]);
+            }
           }
         } catch (error) {
           console.error('Error loading competition results:', error);
-          setCompetitionResults([]);
+          if (isComponentMountedRef.current) {
+            setCompetitionResults([]);
+          }
         }
       }
       
@@ -635,12 +655,10 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                   
                   // Handle different data structures for participant names
                   let participantName = 'Anonymous';
-                  if (participant.users?.profiles?.full_name) {
-                    participantName = participant.users.profiles.full_name;
+                  if (participant.profile?.full_name) {
+                    participantName = participant.profile.full_name;
                   } else if (participant.profiles?.full_name) {
                     participantName = participant.profiles.full_name;
-                  } else if (participant.profile?.full_name) {
-                    participantName = participant.profile.full_name;
                   }
                   
                   return (
