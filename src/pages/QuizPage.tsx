@@ -54,6 +54,9 @@ const QuizPage: React.FC = () => {
   const competitionCompletedRef = useRef(false);
   const isOnResultsPageRef = useRef(false);
   const isComponentMountedRef = useRef(true);
+  const lastCompletionCheckRef = useRef<number>(0);
+  const resultsDisplayStartTimeRef = useRef<number | null>(null);
+  const autoRedirectTimerRef = useRef<NodeJS.Timeout | null>(null);
   
 const [step, setStep] = useState<
   'api-key' | 'mode-selector' | 'solo-preferences' | 'create-competition' | 
@@ -76,6 +79,12 @@ const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
     return () => {
       console.log('QuizPage component unmounting, cleaning up...');
       isComponentMountedRef.current = false;
+      
+      // Clear auto-redirect timer
+      if (autoRedirectTimerRef.current) {
+        clearTimeout(autoRedirectTimerRef.current);
+        autoRedirectTimerRef.current = null;
+      }
       
       // Cleanup competition store
       setCleanupFlag(true);
@@ -106,7 +115,7 @@ const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
     initializeQuizPage();
   }, [user, loadApiKey, loadPreferences, loadUserCompetitions]);
 
-// Enhanced step determination with better competition completion tracking and results page protection
+// Enhanced step determination with better completion detection and auto-redirect
 useEffect(() => {
   if (!isInitializedRef.current || !isComponentMountedRef.current) return;
 
@@ -122,10 +131,25 @@ useEffect(() => {
         return;
       }
 
-      // CRITICAL FIX: If user is currently on results page, don't auto-redirect
+      // CRITICAL FIX: If user is currently on results page, handle auto-redirect logic
       if (isOnResultsPageRef.current && step === 'competition-results') {
-        console.log('User is actively viewing results page, preventing auto-redirect');
-        return;
+        console.log('User is actively viewing results page');
+        
+        // Check if this is the first time showing results
+        if (!resultsDisplayStartTimeRef.current) {
+          resultsDisplayStartTimeRef.current = Date.now();
+          console.log('Starting results display timer');
+          
+          // Set auto-redirect timer for 45 seconds (30s viewing + 15s buffer)
+          autoRedirectTimerRef.current = setTimeout(() => {
+            if (isComponentMountedRef.current && isOnResultsPageRef.current) {
+              console.log('Auto-redirecting from results page after timeout');
+              handleBackToHome();
+            }
+          }, 45000); // 45 seconds total
+        }
+        
+        return; // Don't override results page
       }
 
       // CRITICAL FIX: Don't override manual step changes from mode selection
@@ -135,8 +159,11 @@ useEffect(() => {
         return;
       }
 
-      // Check if user has active competitions first
-      if (user && isComponentMountedRef.current) {
+      // Check if user has active competitions first - but with rate limiting
+      const now = Date.now();
+      if (user && isComponentMountedRef.current && (now - lastCompletionCheckRef.current) > 2000) {
+        lastCompletionCheckRef.current = now;
+        
         const activeCompetitions = await loadUserActiveCompetitions(user.id);
         
         if (activeCompetitions.length > 0 && isComponentMountedRef.current) {
@@ -144,29 +171,45 @@ useEffect(() => {
             const competition = activeCompetitions[0];
             loadCompetition(competition.id);
             
-            // Check if user has completed this competition
-            const { data: userParticipant } = await supabase
-              .from('competition_participants')
-              .select('status')
-              .eq('competition_id', competition.id)
-              .eq('user_id', user.id)
+            // Check if user has completed this competition - single query
+            const { data: competitionData } = await supabase
+              .from('competitions')
+              .select(`
+                status,
+                competition_participants!inner(status, user_id)
+              `)
+              .eq('id', competition.id)
+              .eq('competition_participants.user_id', user.id)
               .maybeSingle();
 
+            const userParticipant = competitionData?.competition_participants?.[0];
+            const competitionStatus = competitionData?.status;
+
             // If user completed OR competition is completed, go to results
-            if ((userParticipant?.status === 'completed' || competition.status === 'completed') && isComponentMountedRef.current) {
+            if ((userParticipant?.status === 'completed' || competitionStatus === 'completed') && isComponentMountedRef.current) {
               // Only set results if not already there
               if (step !== 'competition-results') {
+                console.log('Setting competition results step');
                 setStep('competition-results');
                 currentStepRef.current = 'competition-results';
                 competitionCompletedRef.current = true;
                 isOnResultsPageRef.current = true;
+                resultsDisplayStartTimeRef.current = Date.now();
+                
+                // Set auto-redirect timer
+                autoRedirectTimerRef.current = setTimeout(() => {
+                  if (isComponentMountedRef.current && isOnResultsPageRef.current) {
+                    console.log('Auto-redirecting from results page');
+                    handleBackToHome();
+                  }
+                }, 45000);
               }
               return;
             }
             
             if (isComponentMountedRef.current) {
-              const newStep = competition.status === 'waiting' ? 'competition-lobby' : 
-                            competition.status === 'active' ? 'competition-quiz' : 'competition-lobby';
+              const newStep = competitionStatus === 'waiting' ? 'competition-lobby' : 
+                            competitionStatus === 'active' ? 'competition-quiz' : 'competition-lobby';
               setStep(newStep);
               currentStepRef.current = newStep;
             }
@@ -182,7 +225,7 @@ useEffect(() => {
       }
 
       // CRITICAL FIX: Check if we're in a competition context first
-      if (currentCompetition && isComponentMountedRef.current) {
+      if (currentCompetition && isComponentMountedRef.current && (now - lastCompletionCheckRef.current) > 2000) {
         const { data: competitionCheck } = await supabase
           .from('competitions')
           .select('status')
@@ -193,6 +236,11 @@ useEffect(() => {
           clearCurrentCompetition();
           competitionCompletedRef.current = false;
           isOnResultsPageRef.current = false;
+          resultsDisplayStartTimeRef.current = null;
+          if (autoRedirectTimerRef.current) {
+            clearTimeout(autoRedirectTimerRef.current);
+            autoRedirectTimerRef.current = null;
+          }
           if (isComponentMountedRef.current) {
             setStep('mode-selector');
             currentStepRef.current = 'mode-selector';
@@ -200,7 +248,7 @@ useEffect(() => {
           return;
         }
 
-        // CRITICAL FIX: Check if user has completed the competition
+        // CRITICAL FIX: Check if user has completed the competition - single query
         if (user && isComponentMountedRef.current) {
           const { data: userParticipant } = await supabase
             .from('competition_participants')
@@ -218,6 +266,15 @@ useEffect(() => {
             currentStepRef.current = 'competition-results';
             competitionCompletedRef.current = true;
             isOnResultsPageRef.current = true;
+            resultsDisplayStartTimeRef.current = Date.now();
+            
+            // Set auto-redirect timer
+            autoRedirectTimerRef.current = setTimeout(() => {
+              if (isComponentMountedRef.current && isOnResultsPageRef.current) {
+                console.log('Auto-redirecting from results page');
+                handleBackToHome();
+              }
+            }, 45000);
             return;
           }
         }
@@ -232,9 +289,23 @@ useEffect(() => {
             clearCurrentCompetition();
             competitionCompletedRef.current = false;
             isOnResultsPageRef.current = false;
+            resultsDisplayStartTimeRef.current = null;
+            if (autoRedirectTimerRef.current) {
+              clearTimeout(autoRedirectTimerRef.current);
+              autoRedirectTimerRef.current = null;
+            }
           } else if (newStep === 'competition-results') {
             competitionCompletedRef.current = true;
             isOnResultsPageRef.current = true;
+            resultsDisplayStartTimeRef.current = Date.now();
+            
+            // Set auto-redirect timer
+            autoRedirectTimerRef.current = setTimeout(() => {
+              if (isComponentMountedRef.current && isOnResultsPageRef.current) {
+                console.log('Auto-redirecting from results page');
+                handleBackToHome();
+              }
+            }, 45000);
           }
           
           setStep(newStep);
@@ -352,6 +423,11 @@ useEffect(() => {
     setCleanupFlag(false); // Reset cleanup flag for new session
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
+    resultsDisplayStartTimeRef.current = null;
+    if (autoRedirectTimerRef.current) {
+      clearTimeout(autoRedirectTimerRef.current);
+      autoRedirectTimerRef.current = null;
+    }
     setSelectedMode(null);
     setTotalTimeRemaining(null);
     setCompetitionQuestions([]);
@@ -397,6 +473,11 @@ useEffect(() => {
     resetQuiz();
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
+    resultsDisplayStartTimeRef.current = null;
+    if (autoRedirectTimerRef.current) {
+      clearTimeout(autoRedirectTimerRef.current);
+      autoRedirectTimerRef.current = null;
+    }
     setTotalTimeRemaining(null);
     setStep('mode-selector');
     currentStepRef.current = 'mode-selector';
@@ -451,8 +532,17 @@ useEffect(() => {
     console.log('Competition completed, setting completion flag and navigating to results');
     competitionCompletedRef.current = true;
     isOnResultsPageRef.current = true;
+    resultsDisplayStartTimeRef.current = Date.now();
     setStep('competition-results');
     currentStepRef.current = 'competition-results';
+    
+    // Set auto-redirect timer for results page
+    autoRedirectTimerRef.current = setTimeout(() => {
+      if (isComponentMountedRef.current && isOnResultsPageRef.current) {
+        console.log('Auto-redirecting from results page after completion');
+        handleBackToHome();
+      }
+    }, 45000);
   }, []);
 
   const handleNewCompetition = useCallback(() => {
@@ -462,6 +552,11 @@ useEffect(() => {
     setCleanupFlag(false); // Reset cleanup flag for new session
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
+    resultsDisplayStartTimeRef.current = null;
+    if (autoRedirectTimerRef.current) {
+      clearTimeout(autoRedirectTimerRef.current);
+      autoRedirectTimerRef.current = null;
+    }
     setCompetitionQuestions([]);
     setStep('mode-selector');
     currentStepRef.current = 'mode-selector';
@@ -474,6 +569,11 @@ useEffect(() => {
     clearCurrentCompetition();
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
+    resultsDisplayStartTimeRef.current = null;
+    if (autoRedirectTimerRef.current) {
+      clearTimeout(autoRedirectTimerRef.current);
+      autoRedirectTimerRef.current = null;
+    }
     navigate('/');
   }, [navigate, clearCurrentCompetition, setCleanupFlag, cleanupSubscriptions]);
 
@@ -504,6 +604,11 @@ const handleCreateCompetitionSuccess = useCallback(() => {
     clearCurrentCompetition();
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
+    resultsDisplayStartTimeRef.current = null;
+    if (autoRedirectTimerRef.current) {
+      clearTimeout(autoRedirectTimerRef.current);
+      autoRedirectTimerRef.current = null;
+    }
     setStep('mode-selector');
     currentStepRef.current = 'mode-selector';
   }, [clearCurrentCompetition, setCleanupFlag, cleanupSubscriptions]);

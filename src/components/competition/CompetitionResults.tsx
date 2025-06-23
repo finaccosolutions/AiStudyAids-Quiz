@@ -51,12 +51,15 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   const [competitionResults, setCompetitionResults] = useState<any[]>([]);
   const [showResultsTimer, setShowResultsTimer] = useState<number | null>(null);
   const [showTimerWarning, setShowTimerWarning] = useState(false);
+  const [resultsViewTime, setResultsViewTime] = useState(0);
   
   // Refs for cleanup management
   const isComponentMountedRef = useRef(true);
   const subscriptionCleanupRef = useRef<(() => void) | null>(null);
   const resultsTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const viewTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastStatusCheckRef = useRef<number>(0);
 
   // Get all participants (completed and still playing)
   const allParticipants = participants.filter(p => 
@@ -104,6 +107,9 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
       if (statusCheckIntervalRef.current) {
         clearInterval(statusCheckIntervalRef.current);
       }
+      if (viewTimeIntervalRef.current) {
+        clearInterval(viewTimeIntervalRef.current);
+      }
       
       // Cleanup subscriptions
       if (subscriptionCleanupRef.current) {
@@ -114,6 +120,21 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
       setCleanupFlag(true);
     };
   }, [setCleanupFlag]);
+
+  // Start view time counter
+  useEffect(() => {
+    viewTimeIntervalRef.current = setInterval(() => {
+      if (isComponentMountedRef.current) {
+        setResultsViewTime(prev => prev + 1);
+      }
+    }, 1000);
+
+    return () => {
+      if (viewTimeIntervalRef.current) {
+        clearInterval(viewTimeIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Load competition results from database if competition is completed
   useEffect(() => {
@@ -168,72 +189,58 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     return () => clearTimeout(timer);
   }, [user, loadUserStats]);
 
-  // Enhanced results display timer - show results for 30 seconds after completion
+  // Enhanced results display timer with better UX
   useEffect(() => {
     if (!isCompetitionFullyComplete || !userParticipant || userParticipant.status !== 'completed') {
       return;
     }
 
-    // Show results for 30 seconds, then show warning for 10 seconds
-    const showResultsTimeout = setTimeout(() => {
+    // Show results for 30 seconds, then show gentle reminder
+    const showReminderTimeout = setTimeout(() => {
       if (isComponentMountedRef.current) {
         setShowTimerWarning(true);
-        setShowResultsTimer(10); // 10 second countdown
       }
-    }, 30000); // Show results for 30 seconds
-
-    // Start countdown after warning is shown
-    const countdownTimeout = setTimeout(() => {
-      if (!isComponentMountedRef.current) return;
-      
-      let timeLeft = 10;
-      const countdownInterval = setInterval(() => {
-        if (!isComponentMountedRef.current) {
-          clearInterval(countdownInterval);
-          return;
-        }
-        
-        timeLeft--;
-        setShowResultsTimer(timeLeft);
-        
-        if (timeLeft <= 0) {
-          clearInterval(countdownInterval);
-          // Don't auto-redirect, just hide the warning
-          setShowTimerWarning(false);
-          setShowResultsTimer(null);
-        }
-      }, 1000);
-      
-      return () => clearInterval(countdownInterval);
-    }, 30000);
+    }, 30000); // Show reminder after 30 seconds
 
     return () => {
-      clearTimeout(showResultsTimeout);
-      clearTimeout(countdownTimeout);
+      clearTimeout(showReminderTimeout);
     };
   }, [isCompetitionFullyComplete, userParticipant]);
 
   const handleCancelTimer = () => {
-    if (resultsTimerRef.current) {
-      clearTimeout(resultsTimerRef.current);
-    }
     setShowTimerWarning(false);
     setShowResultsTimer(null);
   };
 
-  // Set up real-time subscriptions for live updates with proper cleanup
+  // Set up real-time subscriptions for live updates with rate limiting
   useEffect(() => {
     if (!competition.id || !isComponentMountedRef.current) return;
 
-    console.log('Setting up real-time subscriptions for results page');
+    console.log('Setting up subscriptions for results page');
     
-    // Subscribe to competition and participant updates
-    const unsubscribe = subscribeToCompetition(competition.id);
-    subscriptionCleanupRef.current = unsubscribe;
+    // Load initial data using centralized function
+    loadParticipants(competition.id);
     
-    // Check competition status periodically
+    // Set up subscriptions with proper cleanup
+    const setupSubscriptions = () => {
+      // Clean up existing subscriptions
+      if (subscriptionCleanupRef.current) {
+        subscriptionCleanupRef.current();
+      }
+
+      // Set up new subscriptions
+      subscriptionCleanupRef.current = subscribeToCompetition(competition.id);
+    };
+
+    setupSubscriptions();
+
+    // Check competition status periodically with rate limiting
     statusCheckIntervalRef.current = setInterval(async () => {
       if (!isComponentMountedRef.current) return;
+      
+      const now = Date.now();
+      if (now - lastStatusCheckRef.current < 3000) return; // Rate limit to every 3 seconds
+      lastStatusCheckRef.current = now;
       
       try {
         const { data } = await supabase
@@ -246,13 +253,17 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
           setCompetitionStatus(data.status);
           if (data.status === 'completed') {
             // Reload results when competition completes
-            window.location.reload();
+            setTimeout(() => {
+              if (isComponentMountedRef.current) {
+                window.location.reload();
+              }
+            }, 1000);
           }
         }
       } catch (error) {
         console.error('Error checking competition status:', error);
       }
-    }, 3000);
+    }, 5000); // Check every 5 seconds
 
     // Refresh participants data periodically if not completed
     let refreshInterval: NodeJS.Timeout;
@@ -261,7 +272,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
         if (isComponentMountedRef.current) {
           loadParticipants(competition.id);
         }
-      }, 3000);
+      }, 5000); // Refresh every 5 seconds for live updates
     }
 
     return () => {
@@ -428,28 +439,28 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-4 sm:py-8 relative overflow-hidden">
-      {/* Results display timer warning */}
+      {/* Gentle reminder banner instead of aggressive timer */}
       <AnimatePresence>
-        {showTimerWarning && showResultsTimer !== null && (
+        {showTimerWarning && (
           <motion.div
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
-            className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-blue-500 text-white px-6 py-4 rounded-lg shadow-xl"
+            className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-4 rounded-lg shadow-xl max-w-md mx-4"
           >
             <div className="flex items-center space-x-4">
-              <Trophy className="w-6 h-6" />
-              <div>
-                <p className="font-semibold">Results displayed for your review</p>
-                <p className="text-sm opacity-90">Take your time to analyze the competition results</p>
+              <Trophy className="w-6 h-6 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="font-semibold">Results Available</p>
+                <p className="text-sm opacity-90">You've been viewing results for {Math.floor(resultsViewTime / 60)}m {resultsViewTime % 60}s</p>
               </div>
               <Button
                 onClick={handleCancelTimer}
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="border-white text-white hover:bg-white hover:text-blue-500"
+                className="text-white hover:bg-white/20 flex-shrink-0"
               >
-                Got it
+                ✕
               </Button>
             </div>
           </motion.div>
