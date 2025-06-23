@@ -253,13 +253,11 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const handleLeaveCompetition = async () => {
     if (user && userParticipant && isComponentMounted) {
       try {
-        setIsComponentMounted(false);
         await leaveCompetition(competition.id);
         // Navigate to preferences page instead of quiz page
         navigate('/preferences');
       } catch (error) {
         console.error('Failed to leave competition:', error);
-        setIsComponentMounted(true);
       }
     }
     setShowLeaveConfirm(false);
@@ -268,12 +266,10 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const handleCancelCompetition = async () => {
     if (isCreator && isComponentMounted) {
       try {
-        setIsComponentMounted(false);
         await cancelCompetition(competition.id);
         navigate('/preferences');
       } catch (error) {
         console.error('Failed to cancel competition:', error);
-        setIsComponentMounted(true);
       }
     }
     setShowCancelConfirm(false);

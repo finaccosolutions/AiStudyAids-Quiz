@@ -373,7 +373,7 @@ joinCompetition: async (code) => {
 
       if (error) {
         console.error('Error removing participant:', error);
-        // Don't throw error here as the cleanup already happened
+        throw error; // Throw the error to propagate it to the calling component
       }
 
       set({ isLoading: false });
@@ -751,7 +751,7 @@ updateParticipantProgress: async (competitionId, answers, score, correctAnswers,
     if (!user) throw new Error('User not authenticated');
 
     const updateData: any = {
-      answers: JSON.stringify(answers), // Convert to string before saving
+      answers: answers, // Store as native JSON object, not stringified
       score: Math.round(score), // Round score to nearest integer to match database schema
       correct_answers: Math.round(correctAnswers), // Ensure this is also an integer
       time_taken: Math.round(timeTaken), // Ensure this is also an integer
