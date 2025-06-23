@@ -28,6 +28,8 @@ interface CompetitionState {
   activeSubscriptions: Map<string, any>;
   // Add user's active competitions
   userActiveCompetitions: Competition[];
+  // Add cleanup flag
+  cleanupFlag: boolean;
 
   // Actions
   createCompetition: (data: any) => Promise<Competition>;
@@ -64,6 +66,7 @@ interface CompetitionState {
   getLiveLeaderboard: (competitionId: string) => CompetitionParticipant[];
   clearCurrentCompetition: () => void;
   cleanupSubscriptions: () => void;
+  setCleanupFlag: (flag: boolean) => void;
 }
 
 export const useCompetitionStore = create<CompetitionState>((set, get) => ({
@@ -80,6 +83,11 @@ export const useCompetitionStore = create<CompetitionState>((set, get) => ({
   error: null,
   activeSubscriptions: new Map(),
   userActiveCompetitions: [],
+  cleanupFlag: false,
+
+  setCleanupFlag: (flag: boolean) => {
+    set({ cleanupFlag: flag });
+  },
 
   loadUserActiveCompetitions: async (userId) => {
     try {
