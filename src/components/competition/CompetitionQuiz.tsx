@@ -67,6 +67,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const joinedParticipants = participants.filter(p => p.status === 'joined' || p.status === 'completed');
   const leaderboard = getLiveLeaderboard(competition.id);
+  const isCreator = user?.id === competition.creator_id;
 
   // Load participants and set up subscriptions
   useEffect(() => {
@@ -197,8 +198,12 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       if (isLastQuestion) {
         console.log('Quiz completed, finishing...');
         setIsQuizCompleted(true);
+        
+        // Complete the competition for this user
         await completeCompetition(competition.id);
-        // Wait a moment for the completion to process, then call onComplete
+        
+        // FIXED: Always call onComplete regardless of whether user is creator or not
+        // The parent component (QuizPage) will handle the navigation logic
         setTimeout(() => {
           onComplete();
         }, 1000);
@@ -230,6 +235,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const handleLeaveQuiz = async () => {
     if (isSubmitting) return;
     
+    // FIXED: Allow creators to leave the competition
     setIsSubmitting(true);
     try {
       await leaveCompetition(competition.id);
@@ -414,6 +420,11 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
               <div className="flex items-center space-x-2">
                 <Trophy className="w-6 h-6 text-yellow-400" />
                 <span className="text-xl font-bold text-white">{competition.title}</span>
+                {isCreator && (
+                  <span className="px-2 py-1 bg-yellow-500 text-yellow-900 text-xs font-bold rounded-full">
+                    CREATOR
+                  </span>
+                )}
               </div>
               <div className="flex items-center space-x-2">
                 <Target className="w-5 h-5 text-blue-400" />
@@ -749,6 +760,11 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
               </div>
               <p className="text-gray-600 mb-6">
                 Are you sure you want to leave this competition? Your progress will be lost and you won't be able to rejoin.
+                {isCreator && (
+                  <span className="block mt-2 text-orange-600 font-medium">
+                    As the creator, leaving will end the competition for all participants.
+                  </span>
+                )}
               </p>
               <div className="flex space-x-3">
                 <Button
