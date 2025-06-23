@@ -34,39 +34,39 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className="w-full">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 relative overflow-hidden"
+        className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl border border-white/20 p-4 sm:p-8 relative overflow-hidden w-full"
       >
         {/* Background gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-indigo-50/50 pointer-events-none" />
         
         <div className="relative z-10">
           {/* Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-6 sm:mb-8">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="w-20 h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl relative"
+              className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-xl relative"
             >
-              <LogIn className="w-10 h-10 text-white" />
+              <LogIn className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-0 rounded-2xl border-2 border-dashed border-blue-300 opacity-30"
+                className="absolute inset-0 rounded-xl sm:rounded-2xl border-2 border-dashed border-blue-300 opacity-30"
               />
             </motion.div>
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+            <h2 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
               Welcome Back
             </h2>
-            <p className="text-gray-600 text-lg">Sign in to continue your learning journey</p>
+            <p className="text-gray-600 text-base sm:text-lg">Sign in to continue your learning journey</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {error && (
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -75,12 +75,12 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
               >
                 <div className="flex items-center">
                   <div className="w-2 h-2 bg-red-500 rounded-full mr-3 animate-pulse" />
-                  {error}
+                  <span className="text-sm sm:text-base">{error}</span>
                 </div>
               </motion.div>
             )}
 
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5">
               {/* Email Field */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -92,7 +92,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
                   Email Address
                 </label>
                 <div className="relative">
-                  <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-300 ${
+                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 ${
                     focusedField === 'email' ? 'text-blue-600' : 'text-gray-400'
                   }`}>
                     <Mail className="w-5 h-5" />
@@ -106,7 +106,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
                     onBlur={() => setFocusedField(null)}
                     placeholder="Enter your email"
                     required
-                    className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400 text-gray-900"
+                    className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-3 sm:py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-base sm:text-lg placeholder-gray-400 text-gray-900"
                   />
                 </div>
               </motion.div>
@@ -122,7 +122,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
                   Password
                 </label>
                 <div className="relative">
-                  <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-300 ${
+                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 ${
                     focusedField === 'password' ? 'text-blue-600' : 'text-gray-400'
                   }`}>
                     <Lock className="w-5 h-5" />
@@ -136,12 +136,12 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
                     onBlur={() => setFocusedField(null)}
                     placeholder="Enter your password"
                     required
-                    className="w-full pl-12 pr-14 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-lg placeholder-gray-400 text-gray-900"
+                    className="w-full pl-10 sm:pl-12 pr-12 sm:pr-14 py-3 sm:py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-base sm:text-lg placeholder-gray-400 text-gray-900"
                   />
                   <motion.button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:text-blue-600 transition-colors duration-300"
+                    className="absolute inset-y-0 right-0 pr-3 sm:pr-4 flex items-center hover:text-blue-600 transition-colors duration-300"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                   >
@@ -155,7 +155,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
             <motion.button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] relative overflow-hidden group"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 sm:py-4 px-6 rounded-xl font-bold text-base sm:text-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] relative overflow-hidden group"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               initial={{ opacity: 0, y: 20 }}
@@ -165,7 +165,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
               {isLoading ? (
                 <div className="flex items-center justify-center">
-                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
                   Signing In...
                 </div>
               ) : (
@@ -182,9 +182,9 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="mt-8 text-center"
+            className="mt-6 sm:mt-8 text-center"
           >
-            <p className="text-gray-600 text-lg">
+            <p className="text-gray-600 text-base sm:text-lg">
               Don't have an account?{' '}
               <button
                 onClick={onToggleMode}
@@ -197,8 +197,8 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
           </motion.div>
 
           {/* Decorative elements */}
-          <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-blue-200/30 to-indigo-200/30 rounded-full blur-xl" />
-          <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br from-indigo-200/30 to-purple-200/30 rounded-full blur-xl" />
+          <div className="absolute top-4 right-4 w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-200/30 to-indigo-200/30 rounded-full blur-xl" />
+          <div className="absolute bottom-4 left-4 w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-indigo-200/30 to-purple-200/30 rounded-full blur-xl" />
         </div>
       </motion.div>
     </div>

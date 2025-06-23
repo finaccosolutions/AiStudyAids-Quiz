@@ -30,7 +30,7 @@ const AuthPage: React.FC = () => {
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-full blur-3xl opacity-30" />
       </div>
       
-      <div className="relative z-10 min-h-screen flex">
+      <div className="relative z-10 min-h-screen flex flex-col lg:flex-row">
         {/* Left side - Branding and Features */}
         <div className="hidden lg:flex lg:w-1/2 flex-col justify-center px-12 xl:px-16">
           <motion.div
@@ -127,19 +127,19 @@ const AuthPage: React.FC = () => {
         </div>
         
         {/* Right side - Auth Forms */}
-        <div className="w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
-          <div className="w-full max-w-md lg:max-w-lg">
+        <div className="w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className="w-full max-w-full sm:max-w-md lg:max-w-lg">
             {/* Mobile Logo */}
-            <div className="lg:hidden text-center mb-8">
+            <div className="lg:hidden text-center mb-6 sm:mb-8">
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center justify-center mb-4"
               >
-                <Brain className="h-12 w-12 text-purple-600 mr-3" />
-                <h1 className="text-3xl font-bold gradient-text">QuizGenius</h1>
+                <Brain className="h-10 w-10 sm:h-12 sm:w-12 text-purple-600 mr-3" />
+                <h1 className="text-2xl sm:text-3xl font-bold gradient-text">QuizGenius</h1>
               </motion.div>
-              <p className="text-gray-600">
+              <p className="text-gray-600 text-sm sm:text-base">
                 {isSignIn ? 'Welcome back!' : 'Join our community of learners'}
               </p>
             </div>
@@ -150,6 +150,7 @@ const AuthPage: React.FC = () => {
               initial={{ opacity: 0, x: isSignIn ? -20 : 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
+              className="w-full"
             >
               {isSignIn ? (
                 <SignIn onToggleMode={() => setIsSignIn(false)} />

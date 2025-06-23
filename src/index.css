@@ -115,6 +115,32 @@ input:focus, select:focus, textarea:focus {
 
 /* Mobile responsive improvements */
 @media (max-width: 640px) {
+  /* Remove default padding and margins on mobile */
+  .mobile-full-width {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  /* Full width containers on mobile */
+  .container, .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl, .max-w-2xl, .max-w-xl, .max-w-lg, .max-w-md {
+    max-width: 100vw !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* Ensure body and html take full width */
+  html, body {
+    width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* Mobile padding adjustments */
   .mobile-padding {
     padding-left: 1rem;
     padding-right: 1rem;
@@ -137,6 +163,14 @@ input:focus, select:focus, textarea:focus {
   }
 
   /* Improved spacing for mobile */
+  .space-y-2 > * + * {
+    margin-top: 0.5rem;
+  }
+
+  .space-y-3 > * + * {
+    margin-top: 0.75rem;
+  }
+
   .space-y-4 > * + * {
     margin-top: 1rem;
   }
@@ -154,6 +188,11 @@ input:focus, select:focus, textarea:focus {
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
 
+  /* Force single column on mobile for better readability */
+  .mobile-single-col {
+    grid-template-columns: 1fr !important;
+  }
+
   /* Responsive text sizes */
   .text-xs { font-size: 0.75rem; }
   .text-sm { font-size: 0.875rem; }
@@ -163,21 +202,21 @@ input:focus, select:focus, textarea:focus {
   .text-2xl { font-size: 1.5rem; }
   .text-3xl { font-size: 1.875rem; }
   .text-4xl { font-size: 2.25rem; }
-  .text-5xl { font-size: 3rem; }
+  .text-5xl { font-size: 2.5rem; }
 
   /* Responsive padding */
   .p-2 { padding: 0.5rem; }
   .p-3 { padding: 0.75rem; }
   .p-4 { padding: 1rem; }
   .p-6 { padding: 1.5rem; }
-  .p-8 { padding: 2rem; }
+  .p-8 { padding: 1.5rem; }
 
   /* Responsive margins */
   .m-2 { margin: 0.5rem; }
   .m-3 { margin: 0.75rem; }
   .m-4 { margin: 1rem; }
   .m-6 { margin: 1.5rem; }
-  .m-8 { margin: 2rem; }
+  .m-8 { margin: 1.5rem; }
 
   /* Better flex layouts */
   .flex-col {
@@ -206,6 +245,41 @@ input:focus, select:focus, textarea:focus {
   .leading-tight { line-height: 1.25; }
   .leading-normal { line-height: 1.5; }
   .leading-relaxed { line-height: 1.625; }
+
+  /* Mobile specific card adjustments */
+  .mobile-card {
+    margin: 0.5rem !important;
+    border-radius: 1rem !important;
+  }
+
+  /* Mobile button adjustments */
+  .mobile-btn {
+    width: 100% !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 1rem !important;
+  }
+
+  /* Mobile form adjustments */
+  .mobile-form {
+    padding: 1rem !important;
+  }
+
+  /* Mobile header adjustments */
+  .mobile-header {
+    padding: 1rem !important;
+    text-align: center !important;
+  }
+
+  /* Remove horizontal margins on mobile */
+  .mx-auto {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Full width on mobile */
+  .sm\:max-w-md, .sm\:max-w-lg, .sm\:max-w-xl {
+    max-width: 100vw !important;
+  }
 }
 
 /* Tablet responsive improvements */

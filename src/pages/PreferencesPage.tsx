@@ -75,52 +75,54 @@ const PreferencesPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="w-full px-2 sm:px-4 py-4 sm:py-8">
         {/* Back Button */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <Button
             variant="ghost"
             onClick={handleBackToModeSelector}
-            className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-all duration-300 px-6 py-3 rounded-xl"
+            className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-all duration-300 px-4 sm:px-6 py-2 sm:py-3 rounded-xl"
           >
-            <ArrowLeft className="w-5 h-5 mr-2" />
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
             Back to Quiz Modes
           </Button>
         </div>
 
         {/* Render appropriate component based on selected mode */}
-        {selectedMode === 'solo' && (
-          <QuizPreferencesForm
-            userId={user.id}
-            initialPreferences={preferences || defaultPreferences}
-            onSave={handleSoloSave}
-          />
-        )}
+        <div className="w-full">
+          {selectedMode === 'solo' && (
+            <QuizPreferencesForm
+              userId={user.id}
+              initialPreferences={preferences || defaultPreferences}
+              onSave={handleSoloSave}
+            />
+          )}
 
-        {selectedMode === 'create-competition' && (
-          <QuizPreferencesForm
-            userId={user.id}
-            initialPreferences={preferences || defaultPreferences}
-            onStartCompetition={handleStartCompetition}
-          />
-        )}
+          {selectedMode === 'create-competition' && (
+            <QuizPreferencesForm
+              userId={user.id}
+              initialPreferences={preferences || defaultPreferences}
+              onStartCompetition={handleStartCompetition}
+            />
+          )}
 
-        {selectedMode === 'join-competition' && (
-          <JoinCompetitionForm
-            onJoinSuccess={handleJoinSuccess}
-            onCancel={handleBackToModeSelector}
-          />
-        )}
+          {selectedMode === 'join-competition' && (
+            <JoinCompetitionForm
+              onJoinSuccess={handleJoinSuccess}
+              onCancel={handleBackToModeSelector}
+            />
+          )}
 
-        {selectedMode === 'random-match' && (
-          <RandomMatchmaking
-            onMatchFound={handleMatchFound}
-            onCancel={handleBackToModeSelector}
-          />
-        )}
+          {selectedMode === 'random-match' && (
+            <RandomMatchmaking
+              onMatchFound={handleMatchFound}
+              onCancel={handleBackToModeSelector}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
-};
+}; 
 
 export default PreferencesPage;
