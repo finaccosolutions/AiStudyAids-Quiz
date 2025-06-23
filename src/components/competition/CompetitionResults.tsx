@@ -122,12 +122,13 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
       
       if (isCompetitionFullyComplete) {
         try {
-          // Fixed query - use the correct relationship path through users table
+          // Use the new foreign key relationship to auth.users
           const { data, error } = await supabase
             .from('competition_results')
             .select(`
               *,
-              users!competition_results_user_id_fkey(
+              users!competition_results_user_id_auth_fkey(
+                id,
                 profiles(full_name)
               )
             `)
@@ -238,7 +239,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     const unsubscribe = subscribeToCompetition(competition.id);
     subscriptionCleanupRef.current = unsubscribe;
     
-    // Check competition status periodically
+    // Check competition status periodically - REMOVED AUTOMATIC RELOAD
     statusCheckIntervalRef.current = setInterval(async () => {
       if (!isComponentMountedRef.current) return;
       
@@ -251,10 +252,8 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
         
         if (data && data.status !== competitionStatus && isComponentMountedRef.current) {
           setCompetitionStatus(data.status);
-          if (data.status === 'completed') {
-            // Reload results when competition completes
-            window.location.reload();
-          }
+          // REMOVED: window.location.reload() - let the component handle state updates naturally
+          console.log('Competition status updated to:', data.status);
         }
       } catch (error) {
         console.error('Error checking competition status:', error);
