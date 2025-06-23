@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
 import { Question } from '../../types';
 import { speechService } from '../../services/speech';
+import { supabase } from '../../services/supabase';
 
 interface CompetitionQuizProps {
   competition: Competition;
@@ -160,6 +161,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     }));
   };
 
+  // FIXED: Enhanced completion logic to handle both creator and joiners properly
   const handleNextQuestion = useCallback(async () => {
     if (!currentQuestion || isQuizCompleted || isSubmitting) return;
 
@@ -199,11 +201,13 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
         console.log('Quiz completed, finishing...');
         setIsQuizCompleted(true);
         
-        // Complete the competition for this user
+        // FIXED: Complete the competition for this user and check if all participants are done
         await completeCompetition(competition.id);
         
-        // FIXED: Always call onComplete regardless of whether user is creator or not
-        // The parent component (QuizPage) will handle the navigation logic
+        // Check if this user is the last to complete
+        await checkAndUpdateCompetitionStatus();
+        
+        // FIXED: Always call onComplete for both creator and joiners
         setTimeout(() => {
           onComplete();
         }, 1000);
@@ -232,10 +236,49 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     isSubmitting
   ]);
 
+  // FIXED: New function to check and update competition status when last participant finishes
+  const checkAndUpdateCompetitionStatus = async () => {
+    try {
+      // Get all participants for this competition
+      const { data: allParticipants, error } = await supabase
+        .from('competition_participants')
+        .select('status')
+        .eq('competition_id', competition.id);
+
+      if (error) {
+        console.error('Error fetching participants:', error);
+        return;
+      }
+
+      // Check if all participants have completed
+      const allCompleted = allParticipants.every(p => p.status === 'completed');
+      
+      if (allCompleted) {
+        console.log('All participants completed, updating competition status to completed');
+        
+        // Update competition status to completed
+        const { error: updateError } = await supabase
+          .from('competitions')
+          .update({ 
+            status: 'completed',
+            end_time: new Date().toISOString()
+          })
+          .eq('id', competition.id);
+
+        if (updateError) {
+          console.error('Error updating competition status:', updateError);
+        } else {
+          console.log('Competition status updated to completed successfully');
+        }
+      }
+    } catch (error) {
+      console.error('Error in checkAndUpdateCompetitionStatus:', error);
+    }
+  };
+
   const handleLeaveQuiz = async () => {
     if (isSubmitting) return;
     
-    // FIXED: Allow creators to leave the competition
     setIsSubmitting(true);
     try {
       await leaveCompetition(competition.id);

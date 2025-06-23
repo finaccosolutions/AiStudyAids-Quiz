@@ -85,7 +85,7 @@ const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
     initializeQuizPage();
   }, [user, loadApiKey, loadPreferences, loadUserCompetitions]);
 
-// FIXED: Enhanced step determination with competition completion tracking
+// FIXED: Enhanced step determination with better competition completion tracking
 useEffect(() => {
   if (!isInitializedRef.current) return;
 
@@ -107,6 +107,22 @@ useEffect(() => {
           if (activeCompetitions.length === 1) {
             const competition = activeCompetitions[0];
             loadCompetition(competition.id);
+            
+            // FIXED: Check if user has completed this competition
+            const { data: userParticipant } = await supabase
+              .from('competition_participants')
+              .select('status')
+              .eq('competition_id', competition.id)
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            // If user completed OR competition is completed, go to results
+            if (userParticipant?.status === 'completed' || competition.status === 'completed') {
+              setStep('competition-results');
+              currentStepRef.current = 'competition-results';
+              competitionCompletedRef.current = true;
+              return;
+            }
             
             const newStep = competition.status === 'waiting' ? 'competition-lobby' : 
                           competition.status === 'active' ? 'competition-quiz' : 'competition-lobby';
@@ -148,12 +164,11 @@ useEffect(() => {
 
           // CRITICAL FIX: If user has completed OR competition is completed, go to results
           if (userParticipant?.status === 'completed' || competitionCheck.status === 'completed') {
-            if (!competitionCompletedRef.current) {
-              competitionCompletedRef.current = true;
-              setStep('competition-results');
-              currentStepRef.current = 'competition-results';
-              return;
-            }
+            console.log('User completed or competition completed, going to results');
+            setStep('competition-results');
+            currentStepRef.current = 'competition-results';
+            competitionCompletedRef.current = true;
+            return;
           }
         }
 
@@ -357,7 +372,9 @@ useEffect(() => {
     }
   }, [currentCompetition, user, apiKey]);
 
+  // FIXED: Enhanced completion handler to ensure proper results display
   const handleCompetitionComplete = useCallback(() => {
+    console.log('Competition completed, setting completion flag and navigating to results');
     competitionCompletedRef.current = true; // Mark competition as completed
     setStep('competition-results');
     currentStepRef.current = 'competition-results';
