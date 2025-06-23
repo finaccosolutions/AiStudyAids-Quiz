@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../ui/Button';
@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
 import { supabase } from '../../services/supabase';
+import { useNavigate } from 'react-router-dom';
 
 interface CompetitionResultsProps {
   competition: Competition;
@@ -29,6 +30,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   onLeave
 }) => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const { 
     participants, 
     userStats, 
@@ -36,7 +38,8 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     leaveCompetition,
     loadParticipants,
     subscribeToCompetition,
-    cleanupSubscriptions
+    cleanupSubscriptions,
+    setCleanupFlag
   } = useCompetitionStore();
   
   const [copied, setCopied] = useState(false);
@@ -46,6 +49,14 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   const [competitionStatus, setCompetitionStatus] = useState(competition.status);
   const [isLoading, setIsLoading] = useState(true);
   const [competitionResults, setCompetitionResults] = useState<any[]>([]);
+  const [autoRedirectTimer, setAutoRedirectTimer] = useState<number | null>(null);
+  const [showAutoRedirectWarning, setShowAutoRedirectWarning] = useState(false);
+  
+  // Refs for cleanup management
+  const isComponentMountedRef = useRef(true);
+  const subscriptionCleanupRef = useRef<(() => void) | null>(null);
+  const autoRedirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get all participants (completed and still playing)
   const allParticipants = participants.filter(p => 
@@ -78,9 +89,37 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   const totalParticipants = sortedParticipants.length;
   const isCompetitionFullyComplete = competitionStatus === 'completed';
 
+  // Component lifecycle management
+  useEffect(() => {
+    isComponentMountedRef.current = true;
+    
+    return () => {
+      console.log('CompetitionResults component unmounting, cleaning up...');
+      isComponentMountedRef.current = false;
+      
+      // Clear all timers
+      if (autoRedirectTimeoutRef.current) {
+        clearTimeout(autoRedirectTimeoutRef.current);
+      }
+      if (statusCheckIntervalRef.current) {
+        clearInterval(statusCheckIntervalRef.current);
+      }
+      
+      // Cleanup subscriptions
+      if (subscriptionCleanupRef.current) {
+        subscriptionCleanupRef.current();
+      }
+      
+      // Mark store as cleaned up
+      setCleanupFlag(true);
+    };
+  }, [setCleanupFlag]);
+
   // Load competition results from database if competition is completed
   useEffect(() => {
     const loadCompetitionResults = async () => {
+      if (!isComponentMountedRef.current) return;
+      
       if (isCompetitionFullyComplete) {
         try {
           const { data, error } = await supabase
@@ -92,40 +131,123 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
             .eq('competition_id', competition.id)
             .order('final_rank', { ascending: true });
 
-          if (!error && data) {
+          if (!error && data && isComponentMountedRef.current) {
             setCompetitionResults(data);
           }
         } catch (error) {
           console.error('Error loading competition results:', error);
         }
       }
-      setIsLoading(false);
+      
+      if (isComponentMountedRef.current) {
+        setIsLoading(false);
+      }
     };
 
     loadCompetitionResults();
   }, [competition.id, isCompetitionFullyComplete]);
 
   useEffect(() => {
-    if (user) {
+    if (user && isComponentMountedRef.current) {
       loadUserStats(user.id);
     }
     
     // Hide confetti after 5 seconds
-    const timer = setTimeout(() => setConfettiVisible(false), 5000);
+    const timer = setTimeout(() => {
+      if (isComponentMountedRef.current) {
+        setConfettiVisible(false);
+      }
+    }, 5000);
+    
     return () => clearTimeout(timer);
   }, [user, loadUserStats]);
 
-  // Set up real-time subscriptions for live updates
+  // Enhanced auto-redirect logic for completed competitions
   useEffect(() => {
-    if (!competition.id) return;
+    if (!isCompetitionFullyComplete || !userParticipant || userParticipant.status !== 'completed') {
+      return;
+    }
+
+    // Show warning after 10 seconds
+    const warningTimeout = setTimeout(() => {
+      if (isComponentMountedRef.current) {
+        setShowAutoRedirectWarning(true);
+        setAutoRedirectTimer(10); // 10 second countdown
+      }
+    }, 10000);
+
+    // Start countdown after warning is shown
+    const countdownTimeout = setTimeout(() => {
+      if (!isComponentMountedRef.current) return;
+      
+      let timeLeft = 10;
+      const countdownInterval = setInterval(() => {
+        if (!isComponentMountedRef.current) {
+          clearInterval(countdownInterval);
+          return;
+        }
+        
+        timeLeft--;
+        setAutoRedirectTimer(timeLeft);
+        
+        if (timeLeft <= 0) {
+          clearInterval(countdownInterval);
+          handleAutoRedirect();
+        }
+      }, 1000);
+      
+      return () => clearInterval(countdownInterval);
+    }, 10000);
+
+    // Auto redirect after 20 seconds total
+    autoRedirectTimeoutRef.current = setTimeout(() => {
+      handleAutoRedirect();
+    }, 20000);
+
+    return () => {
+      clearTimeout(warningTimeout);
+      clearTimeout(countdownTimeout);
+      if (autoRedirectTimeoutRef.current) {
+        clearTimeout(autoRedirectTimeoutRef.current);
+      }
+    };
+  }, [isCompetitionFullyComplete, userParticipant]);
+
+  const handleAutoRedirect = () => {
+    if (!isComponentMountedRef.current) return;
+    
+    console.log('Auto-redirecting to home page...');
+    
+    // Cleanup before redirect
+    setCleanupFlag(true);
+    cleanupSubscriptions();
+    
+    // Navigate to home
+    navigate('/');
+  };
+
+  const handleCancelAutoRedirect = () => {
+    if (autoRedirectTimeoutRef.current) {
+      clearTimeout(autoRedirectTimeoutRef.current);
+    }
+    setShowAutoRedirectWarning(false);
+    setAutoRedirectTimer(null);
+  };
+
+  // Set up real-time subscriptions for live updates with proper cleanup
+  useEffect(() => {
+    if (!competition.id || !isComponentMountedRef.current) return;
 
     console.log('Setting up real-time subscriptions for results page');
     
     // Subscribe to competition and participant updates
     const unsubscribe = subscribeToCompetition(competition.id);
+    subscriptionCleanupRef.current = unsubscribe;
     
     // Check competition status periodically
-    const statusInterval = setInterval(async () => {
+    statusCheckIntervalRef.current = setInterval(async () => {
+      if (!isComponentMountedRef.current) return;
+      
       try {
         const { data } = await supabase
           .from('competitions')
@@ -133,7 +255,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
           .eq('id', competition.id)
           .single();
         
-        if (data && data.status !== competitionStatus) {
+        if (data && data.status !== competitionStatus && isComponentMountedRef.current) {
           setCompetitionStatus(data.status);
           if (data.status === 'completed') {
             // Reload results when competition completes
@@ -149,28 +271,34 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     let refreshInterval: NodeJS.Timeout;
     if (!isCompetitionFullyComplete) {
       refreshInterval = setInterval(() => {
-        loadParticipants(competition.id);
+        if (isComponentMountedRef.current) {
+          loadParticipants(competition.id);
+        }
       }, 3000);
     }
 
     return () => {
       console.log('Cleaning up results page subscriptions');
-      unsubscribe();
-      clearInterval(statusInterval);
-      if (refreshInterval) clearInterval(refreshInterval);
+      if (subscriptionCleanupRef.current) {
+        subscriptionCleanupRef.current();
+      }
+      if (statusCheckIntervalRef.current) {
+        clearInterval(statusCheckIntervalRef.current);
+      }
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
     };
   }, [competition.id, subscribeToCompetition, loadParticipants, competitionStatus, isCompetitionFullyComplete]);
 
-  // Cleanup subscriptions when component unmounts
-  useEffect(() => {
-    return () => {
-      cleanupSubscriptions();
-    };
-  }, [cleanupSubscriptions]);
-
   const handleLeaveCompetition = async () => {
     try {
+      // Cleanup first
+      setCleanupFlag(true);
+      cleanupSubscriptions();
+      
       await leaveCompetition(competition.id);
+      
       if (onLeave) {
         onLeave();
       } else {
@@ -313,6 +441,34 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-4 sm:py-8 relative overflow-hidden">
+      {/* Auto-redirect warning */}
+      <AnimatePresence>
+        {showAutoRedirectWarning && autoRedirectTimer !== null && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-orange-500 text-white px-6 py-4 rounded-lg shadow-xl"
+          >
+            <div className="flex items-center space-x-4">
+              <AlertTriangle className="w-6 h-6" />
+              <div>
+                <p className="font-semibold">Auto-redirecting to home page in {autoRedirectTimer}s</p>
+                <p className="text-sm opacity-90">Competition completed - returning to main page</p>
+              </div>
+              <Button
+                onClick={handleCancelAutoRedirect}
+                variant="outline"
+                size="sm"
+                className="border-white text-white hover:bg-white hover:text-orange-500"
+              >
+                Cancel
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Confetti Animation */}
       <AnimatePresence>
         {confettiVisible && userParticipant?.status === 'completed' && isCompetitionFullyComplete && userRank <= 3 && (
