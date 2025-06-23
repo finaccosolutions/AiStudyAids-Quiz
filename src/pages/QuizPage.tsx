@@ -87,6 +87,7 @@ const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   }, [user, loadApiKey, loadPreferences, loadUserCompetitions]);
 
 // FIXED: Enhanced step determination with better competition completion tracking and results page protection
+// FIXED: Enhanced step determination with better competition completion tracking and results page protection
 useEffect(() => {
   if (!isInitializedRef.current) return;
 
@@ -103,6 +104,13 @@ useEffect(() => {
       // CRITICAL FIX: If user is currently on results page, don't auto-redirect
       if (isOnResultsPageRef.current && step === 'competition-results') {
         console.log('User is actively viewing results page, preventing auto-redirect');
+        return;
+      }
+
+      // CRITICAL FIX: Don't override manual step changes from mode selection
+      if (selectedMode && (step === 'solo-preferences' || step === 'create-competition' || 
+          step === 'join-competition' || step === 'random-match')) {
+        console.log('User has selected a mode, maintaining current step:', step);
         return;
       }
 
@@ -208,8 +216,8 @@ useEffect(() => {
         }
       }
     
-      // CRITICAL FIX: Only handle solo quiz logic if NOT in competition context
-      if (!currentCompetition && !competitionCompletedRef.current) {
+      // CRITICAL FIX: Only handle solo quiz logic if NOT in competition context AND no mode selected
+      if (!currentCompetition && !competitionCompletedRef.current && !selectedMode) {
         let newStep: string;
         
         // If quiz is being generated, stay on current step
@@ -247,7 +255,8 @@ useEffect(() => {
 
   const timeoutId = setTimeout(determineStep, 100);
   return () => clearTimeout(timeoutId);
-}, [questions, result, location.state, currentCompetition, navigate, user, isInitializedRef.current, isGeneratingQuiz, preferences, step]);
+}, [questions, result, location.state, currentCompetition, navigate, user, isInitializedRef.current, isGeneratingQuiz, preferences, step, selectedMode]);
+
 
   const handleFinishQuiz = useCallback(() => {
     console.log('Finishing quiz...');
