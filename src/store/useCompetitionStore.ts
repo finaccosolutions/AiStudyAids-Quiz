@@ -592,7 +592,7 @@ loadParticipants: async (competitionId: string) => {
       return;
     }
 
-    // 4. Main query with profile join - Cast answers to text to avoid jsonb array function issues
+    // 4. Main query with profile join - Store answers as JSONB properly
     const { data: participantsWithProfiles, error: joinError } = await supabase
       .from('competition_participants')
       .select(`
@@ -604,7 +604,7 @@ loadParticipants: async (competitionId: string) => {
         score,
         correct_answers,
         time_taken,
-        answers::text,
+        answers,
         rank,
         points_earned,
         joined_at,
@@ -631,8 +631,8 @@ loadParticipants: async (competitionId: string) => {
     if (!joinError && participantsWithProfiles) {
       const formattedParticipants = participantsWithProfiles.map(p => ({
         ...p,
-        // Parse answers back to JSON object
-        answers: p.answers ? JSON.parse(p.answers) : {},
+        // Ensure answers is properly handled as JSONB object
+        answers: p.answers || {},
         profile: {
           full_name: p.profiles?.full_name || p.email?.split('@')[0] || 'Anonymous',
           avatar_url: p.profiles?.avatar_url || null
@@ -656,7 +656,7 @@ loadParticipants: async (competitionId: string) => {
 
     console.warn('Join query failed, falling back to separate queries:', joinError);
 
-    // 6. Fallback: Load participants without profiles - Cast answers to text
+    // 6. Fallback: Load participants without profiles
     const { data: participants, error: participantsError } = await supabase
       .from('competition_participants')
       .select(`
@@ -668,7 +668,7 @@ loadParticipants: async (competitionId: string) => {
         score,
         correct_answers,
         time_taken,
-        answers::text,
+        answers,
         rank,
         points_earned,
         joined_at,
@@ -711,8 +711,8 @@ loadParticipants: async (competitionId: string) => {
       const profile = profilesMap.get(p.user_id);
       return {
         ...p,
-        // Parse answers back to JSON object
-        answers: p.answers ? JSON.parse(p.answers) : {},
+        // Ensure answers is properly handled as JSONB object
+        answers: p.answers || {},
         profile: {
           full_name: profile?.full_name || p.email?.split('@')[0] || 'Anonymous',
           avatar_url: profile?.avatar_url || null
@@ -743,16 +743,27 @@ loadParticipants: async (competitionId: string) => {
   }
 },
 
-
-
 updateParticipantProgress: async (competitionId, answers, score, correctAnswers, timeTaken, currentQuestion) => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    console.log('Updating participant progress:', {
+      competitionId,
+      answers: typeof answers,
+      answersKeys: Object.keys(answers || {}),
+      score,
+      correctAnswers,
+      timeTaken,
+      currentQuestion
+    });
+
+    // Ensure answers is a proper object and serialize it correctly for JSONB
+    const answersObject = answers && typeof answers === 'object' ? answers : {};
+
     const updateData: any = {
-      answers: answers, // Store as native JSON object, not stringified
-      score: Math.round(score), // Round score to nearest integer to match database schema
+      answers: answersObject, // Store as JSONB object directly
+      score: Math.round(score), // Round score to nearest integer
       correct_answers: Math.round(correctAnswers), // Ensure this is also an integer
       time_taken: Math.round(timeTaken), // Ensure this is also an integer
       last_activity: new Date().toISOString(),
@@ -762,8 +773,10 @@ updateParticipantProgress: async (competitionId, answers, score, correctAnswers,
     // Add progress tracking
     if (currentQuestion !== undefined) {
       updateData.current_question = Math.round(currentQuestion); // Ensure integer
-      updateData.questions_answered = Object.keys(answers).length;
+      updateData.questions_answered = Object.keys(answersObject).length;
     }
+
+    console.log('Update data being sent:', updateData);
 
     const { error } = await supabase
       .from('competition_participants')
@@ -771,27 +784,34 @@ updateParticipantProgress: async (competitionId, answers, score, correctAnswers,
       .eq('competition_id', competitionId)
       .eq('user_id', user.id);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Database update error:', error);
+      throw error;
+    }
+
+    console.log('Participant progress updated successfully');
 
     // Update local state for real-time updates
     set(state => ({
       participants: state.participants.map(p => 
         p.user_id === user.id 
-          ? { ...p, ...updateData, answers: answers } // Keep as object in local state
+          ? { ...p, ...updateData, answers: answersObject } // Keep as object in local state
           : p
       )
     }));
   } catch (error: any) {
     console.error('Error updating participant progress:', error);
     set({ error: error.message });
+    throw error; // Re-throw to handle in component
   }
 },
-
 
   completeCompetition: async (competitionId) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
+
+      console.log('Completing competition for user:', user.id);
 
       // Mark participant as completed
       const { error } = await supabase
@@ -806,11 +826,32 @@ updateParticipantProgress: async (competitionId, answers, score, correctAnswers,
         .eq('competition_id', competitionId)
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error completing competition:', error);
+        throw error;
+      }
+
+      console.log('Competition completed successfully');
+
+      // Update local state
+      set(state => ({
+        participants: state.participants.map(p => 
+          p.user_id === user.id 
+            ? { 
+                ...p, 
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                quiz_end_time: new Date().toISOString()
+              }
+            : p
+        )
+      }));
 
       // The database trigger will handle competition finalization
     } catch (error: any) {
+      console.error('Error in completeCompetition:', error);
       set({ error: error.message });
+      throw error; // Re-throw to handle in component
     }
   },
 
