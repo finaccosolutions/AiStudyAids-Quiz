@@ -151,7 +151,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                   Full Name
                 </label>
                 <div className="relative">
-                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 ${
+                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 z-10 ${
                     focusedField === 'fullName' ? 'text-indigo-600' : 'text-gray-400'
                   }`}>
                     <User className="w-5 h-5" />
@@ -181,8 +181,8 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                   Email Address
                 </label>
                 <div className="relative">
-                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 ${
-                    focusedField === 'email' ? 'text-indigo-600' : 'text-gray-400'
+                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 z-10 ${
+                    focusedField === 'fullName' ? 'text-indigo-600' : 'text-gray-400'
                   }`}>
                     <Mail className="w-5 h-5" />
                   </div>
@@ -211,38 +211,44 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                   Mobile Number
                 </label>
                 <div className="relative">
-                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 ${
-                    focusedField === 'mobileNumber' ? 'text-indigo-600' : 'text-gray-400'
-                  }`}>
+                <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 z-10 ${
+                  focusedField === 'fullName' ? 'text-indigo-600' : 'text-gray-400'
+                }`}>
                     <Phone className="w-5 h-5" />
                   </div>
-                  <div className="flex">
-                    <div className="relative">
-                      <select
-                        name="countryCode"
-                        value={formData.countryCode}
+                    <div className="flex">
+                      <div className="relative">
+                        <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 z-10 ${
+                          focusedField === 'mobileNumber' ? 'text-indigo-600' : 'text-gray-400'
+                        }`}>
+                          <Phone className="w-5 h-5" />
+                        </div>
+                        <select
+                          name="countryCode"
+                          value={formData.countryCode}
+                          onChange={handleChange}
+                          className="pl-10 sm:pl-12 pr-2 sm:pr-3 py-3 sm:py-4 border-2 border-gray-200 border-r-0 rounded-l-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white text-base sm:text-lg appearance-none cursor-pointer min-w-[70px] sm:min-w-[80px] text-gray-900"
+                        >
+                          {countries.map((country) => (
+                            <option key={country.code} value={country.code}>
+                              {country.code}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <input
+                        type="tel"
+                        name="mobileNumber"
+                        value={formData.mobileNumber}
                         onChange={handleChange}
-                        className="pl-10 sm:pl-12 pr-2 sm:pr-3 py-3 sm:py-4 border-2 border-gray-200 border-r-0 rounded-l-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white text-base sm:text-lg appearance-none cursor-pointer min-w-[70px] sm:min-w-[80px] text-gray-900"
-                      >
-                        {countries.map((country) => (
-                          <option key={country.code} value={country.code}>
-                            {country.flag} {country.code}
-                          </option>
-                        ))}
-                      </select>
+                        onFocus={() => setFocusedField('mobileNumber')}
+                        onBlur={() => setFocusedField(null)}
+                        placeholder="Mobile number"
+                        required
+                        className="flex-1 px-3 sm:px-4 py-3 sm:py-4 border-2 border-l-0 border-gray-200 rounded-r-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white text-base sm:text-lg placeholder-gray-400 text-gray-900"
+                      />
                     </div>
-                    <input
-                      type="tel"
-                      name="mobileNumber"
-                      value={formData.mobileNumber}
-                      onChange={handleChange}
-                      onFocus={() => setFocusedField('mobileNumber')}
-                      onBlur={() => setFocusedField(null)}
-                      placeholder="Mobile number"
-                      required
-                      className="flex-1 px-3 sm:px-4 py-3 sm:py-4 border-2 border-l-0 border-gray-200 rounded-r-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white text-base sm:text-lg placeholder-gray-400 text-gray-900"
-                    />
-                  </div>
+
                 </div>
               </motion.div>
 
@@ -257,8 +263,8 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                   Password
                 </label>
                 <div className="relative">
-                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 ${
-                    focusedField === 'password' ? 'text-indigo-600' : 'text-gray-400'
+                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 z-10 ${
+                    focusedField === 'fullName' ? 'text-indigo-600' : 'text-gray-400'
                   }`}>
                     <Lock className="w-5 h-5" />
                   </div>
@@ -296,9 +302,9 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
                   Confirm Password
                 </label>
                 <div className="relative">
-                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 ${
-                    focusedField === 'confirmPassword' ? 'text-indigo-600' : 'text-gray-400'
-                  }`}>
+                <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 z-10 ${
+                  focusedField === 'fullName' ? 'text-indigo-600' : 'text-gray-400'
+                }`}>
                     <Lock className="w-5 h-5" />
                   </div>
                   <input
