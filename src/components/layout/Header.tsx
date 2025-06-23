@@ -75,7 +75,7 @@ const Header: React.FC = () => {
               <div className="absolute inset-0 bg-purple-500/20 rounded-full blur-xl transition-all duration-300 group-hover:blur-2xl" />
             </div>
             <span className="text-xl font-bold text-purple-600">
-              QuizGenius
+              Ai Learner
             </span>
           </Link>
           
