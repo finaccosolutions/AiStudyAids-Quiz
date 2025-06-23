@@ -56,23 +56,23 @@ export const getQuizPreferences = async (userId: string): Promise<QuizPreference
 
   if (!data) return null;
 
-  return {
-    course: data.course || '',
-    topic: data.topic || '',
-    subtopic: data.subtopic || '',
-    questionCount: data.question_count || 5,
-    questionTypes: data.question_types || ['multiple-choice'],
-    language: data.language || 'English',
-    difficulty: data.difficulty || 'medium',
-    // Properly load time limits - convert string to string or keep as null
-    timeLimit: data.time_limit || null,
-    totalTimeLimit: data.total_time_limit || null, 
-    timeLimitEnabled: data.time_limit_enabled || false,
-    negativeMarking: data.negative_marking || false,
-    negativeMarks: data.negative_marks || 0,
-    mode: data.mode || 'practice',
-    answerMode: data.mode === 'practice' ? 'immediate' : 'end'
-  };
+return {
+  course: data.course || '',
+  topic: data.topic || '',
+  subtopic: data.subtopic || '',
+  questionCount: data.question_count || 5,
+  questionTypes: data.question_types || ['multiple-choice'],
+  language: data.language || 'English',
+  difficulty: data.difficulty || 'medium',
+  // Updated time limits - keep as string or null
+  timeLimit: data.time_limit || null,
+  totalTimeLimit: data.total_time_limit || null, 
+  timeLimitEnabled: data.time_limit_enabled || false,
+  negativeMarking: data.negative_marking || false,
+  negativeMarks: data.negative_marks || 0,
+  mode: data.mode || 'practice',
+  answerMode: data.mode === 'practice' ? 'immediate' : 'end'
+};
 };
 
 
@@ -86,23 +86,25 @@ export const saveQuizPreferences = async (userId: string, preferences: QuizPrefe
     .eq('user_id', userId)
     .maybeSingle();
 
-  const prefsData = {
-    user_id: userId,
-    course: preferences.course || '',
-    topic: preferences.topic || '',
-    subtopic: preferences.subtopic || '',
-    question_count: preferences.questionCount || 5,
-    question_types: preferences.questionTypes || ['multiple-choice'],
-    language: preferences.language || 'English',
-    difficulty: preferences.difficulty || 'medium',
-    // Proper time limit handling - save null when not enabled or not set
-    time_limit: (preferences.timeLimitEnabled && preferences.timeLimit) ? preferences.timeLimit.toString() : null,
-    total_time_limit: (preferences.timeLimitEnabled && preferences.totalTimeLimit) ? preferences.totalTimeLimit.toString() : null,
-    time_limit_enabled: preferences.timeLimitEnabled || false,
-    negative_marking: preferences.negativeMarking || false,
-    negative_marks: preferences.negativeMarks || 0,
-    mode: preferences.mode || 'practice'
-  };
+// Replace this section in saveQuizPreferences function:
+const prefsData = {
+  user_id: userId,
+  course: preferences.course || '',
+  topic: preferences.topic || '',
+  subtopic: preferences.subtopic || '',
+  question_count: preferences.questionCount || 5,
+  question_types: preferences.questionTypes || ['multiple-choice'],
+  language: preferences.language || 'English',
+  difficulty: preferences.difficulty || 'medium',
+  // Updated time limit handling
+  time_limit: preferences.timeLimitEnabled && preferences.timeLimit ? preferences.timeLimit : null,
+  total_time_limit: preferences.timeLimitEnabled && preferences.totalTimeLimit ? preferences.totalTimeLimit : null,
+  time_limit_enabled: preferences.timeLimitEnabled || false,
+  negative_marking: preferences.negativeMarking || false,
+  negative_marks: preferences.negativeMarks || 0,
+  mode: preferences.mode || 'practice'
+};
+
 
   if (existingPrefs) {
     return supabase

@@ -42,13 +42,14 @@ export type QuizPreferences = {
   questionTypes: QuestionType[];
   language: QuizLanguage;
   timeLimitEnabled: boolean;
-  timeLimit?: string | null;
-  totalTimeLimit?: string | null;
+  timeLimit?: string | null;  // Keep as string
+  totalTimeLimit?: string | null;  // Keep as string
   negativeMarking?: boolean;
   negativeMarks?: number;
   mode: 'practice' | 'exam';
   answerMode: 'immediate' | 'end';
 };
+
 
 export type QuestionType = 
   | 'multiple-choice'  // Single correct answer from options

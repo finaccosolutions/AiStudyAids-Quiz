@@ -107,23 +107,23 @@ savePreferences: async (userId, preferences) => {
     }
     
     // Validate preferences with proper time limit handling
-    const validatedPreferences = {
-      ...preferences,
-      course: preferences.course || '',
-      topic: preferences.topic || '',
-      subtopic: preferences.subtopic || '',
-      questionCount: Math.max(1, Math.min(50, preferences.questionCount || 5)),
-      difficulty: preferences.difficulty || 'medium',
-      language: preferences.language || 'English',
-      timeLimitEnabled: preferences.timeLimitEnabled || false,
-      // Fix time limit handling - only set the relevant field based on the selection
-      timeLimit: preferences.timeLimitEnabled && preferences.timeLimit ? preferences.timeLimit.toString() : null,
-      totalTimeLimit: preferences.timeLimitEnabled && preferences.totalTimeLimit ? preferences.totalTimeLimit.toString() : null,
-      negativeMarking: preferences.negativeMarking || false,
-      negativeMarks: preferences.negativeMarking ? (preferences.negativeMarks || -0.25) : 0,
-      mode: preferences.mode || 'practice',
-      answerMode: preferences.mode === 'practice' ? 'immediate' : 'end'
-    };
+const validatedPreferences = {
+  ...preferences,
+  course: preferences.course || '',
+  topic: preferences.topic || '',
+  subtopic: preferences.subtopic || '',
+  questionCount: Math.max(1, Math.min(50, preferences.questionCount || 5)),
+  difficulty: preferences.difficulty || 'medium',
+  language: preferences.language || 'English',
+  timeLimitEnabled: preferences.timeLimitEnabled || false,
+  // Updated time limit handling - don't convert to string here
+  timeLimit: preferences.timeLimitEnabled ? preferences.timeLimit : null,
+  totalTimeLimit: preferences.timeLimitEnabled ? preferences.totalTimeLimit : null,
+  negativeMarking: preferences.negativeMarking || false,
+  negativeMarks: preferences.negativeMarking ? (preferences.negativeMarks || -0.25) : 0,
+  mode: preferences.mode || 'practice',
+  answerMode: preferences.mode === 'practice' ? 'immediate' : 'end'
+};
     
     await saveQuizPreferences(userId, validatedPreferences);
     set({ preferences: validatedPreferences });
