@@ -122,13 +122,14 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
       
       if (isCompetitionFullyComplete) {
         try {
-          // Fixed query - use the correct relationship path
-          // The profiles table has user_id as foreign key, not id as primary key for the relationship
+          // Fixed query - use the correct relationship path through users table
           const { data, error } = await supabase
             .from('competition_results')
             .select(`
               *,
-              profiles!competition_results_user_id_fkey(full_name)
+              users!competition_results_user_id_fkey(
+                profiles(full_name)
+              )
             `)
             .eq('competition_id', competition.id)
             .order('final_rank', { ascending: true });
@@ -138,7 +139,12 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
             // Fallback to using participants data if database query fails
             setCompetitionResults([]);
           } else if (data && isComponentMountedRef.current) {
-            setCompetitionResults(data);
+            // Transform the data to match expected structure
+            const transformedData = data.map(result => ({
+              ...result,
+              profiles: result.users?.profiles
+            }));
+            setCompetitionResults(transformedData);
           }
         } catch (error) {
           console.error('Error loading competition results:', error);
@@ -685,7 +691,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                   const isCompleted = isCompetitionFullyComplete || participant.status === 'completed';
                   const isCurrentUser = participant.user_id === user?.id;
                   const progressPercentage = getProgressPercentage(participant);
-                  const participantName = participant.profiles?.full_name || participant.profile?.full_name || 'Anonymous';
+                  const participantName = participant.profiles?.full_name || participant.profile?.full_name || participant.users?.profiles?.full_name || 'Anonymous';
                   
                   return (
                     <motion.div
