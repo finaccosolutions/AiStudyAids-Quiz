@@ -282,7 +282,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   // Show countdown screen
   if (countdown !== null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative overflow-hidden px-4">
         {/* Animated Background */}
         <div className="absolute inset-0">
           {Array.from({ length: 20 }).map((_, i) => (
@@ -290,8 +290,8 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
               key={i}
               className="absolute w-2 h-2 bg-white rounded-full opacity-20"
               initial={{
-                x: Math.random() * window.innerWidth,
-                y: Math.random() * window.innerHeight,
+                x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 800),
+                y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 600),
               }}
               animate={{
                 y: [null, -100],
@@ -309,7 +309,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className="text-center text-white relative z-10"
+          className="text-center text-white relative z-10 w-full max-w-md"
         >
           <motion.div
             animate={{ 
@@ -317,14 +317,14 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
               rotate: [0, 10, -10, 0]
             }}
             transition={{ duration: 1, repeat: Infinity }}
-            className="text-9xl font-bold mb-6 bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent"
+            className="text-6xl sm:text-9xl font-bold mb-6 bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent"
           >
             {countdown}
           </motion.div>
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl font-bold mb-4"
+            className="text-2xl sm:text-4xl font-bold mb-4"
           >
             Quiz Starting...
           </motion.h2>
@@ -332,7 +332,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-2xl opacity-80"
+            className="text-lg sm:text-2xl opacity-80"
           >
             Get ready to compete!
           </motion.p>
@@ -341,7 +341,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
             transition={{ duration: 0.5, repeat: Infinity }}
             className="mt-8"
           >
-            <Rocket className="w-16 h-16 mx-auto text-yellow-400" />
+            <Rocket className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-yellow-400" />
           </motion.div>
         </motion.div>
       </div>
@@ -351,19 +351,19 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   // Show cancelled/completed message
   if (competition.status === 'cancelled' || competition.status === 'completed') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 flex items-center justify-center px-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="text-center text-white"
+          className="text-center text-white w-full max-w-md"
         >
-          <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-red-500 to-orange-500 rounded-full flex items-center justify-center">
-            <AlertTriangle className="w-12 h-12" />
+          <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 bg-gradient-to-r from-red-500 to-orange-500 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-10 h-10 sm:w-12 sm:h-12" />
           </div>
-          <h2 className="text-4xl font-bold mb-4">
+          <h2 className="text-2xl sm:text-4xl font-bold mb-4">
             Competition {competition.status === 'cancelled' ? 'Cancelled' : 'Completed'}
           </h2>
-          <p className="text-xl opacity-80 mb-6">
+          <p className="text-lg sm:text-xl opacity-80 mb-6">
             {competition.status === 'cancelled' 
               ? 'This competition has been cancelled by the creator.'
               : 'This competition has ended.'
@@ -371,7 +371,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
           </p>
           <Button
             onClick={() => navigate('/preferences')}
-            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 px-8 py-3 text-lg font-bold"
+            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 px-6 sm:px-8 py-3 text-base sm:text-lg font-bold w-full sm:w-auto"
           >
             Back to Quiz
           </Button>
@@ -381,7 +381,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-4 sm:py-8 relative overflow-hidden">
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-200/30 to-pink-200/30 rounded-full blur-3xl animate-pulse" />
@@ -393,32 +393,32 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
+          className="text-center mb-6 sm:mb-8"
         >
-          <div className="flex items-center justify-center mb-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center mb-4 sm:mb-6">
             <motion.div
               animate={{ rotate: [0, 10, -10, 0] }}
               transition={{ duration: 3, repeat: Infinity }}
-              className="w-24 h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl flex items-center justify-center mr-6 shadow-2xl relative"
+              className="w-16 h-16 sm:w-24 sm:h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl flex items-center justify-center mb-4 sm:mb-0 sm:mr-6 shadow-2xl relative"
             >
-              <Trophy className="w-12 h-12 text-white" />
+              <Trophy className="w-8 h-8 sm:w-12 sm:h-12 text-white" />
               <div className="absolute inset-0 bg-gradient-to-r from-purple-400/50 to-indigo-400/50 rounded-2xl blur-xl animate-pulse" />
             </motion.div>
-            <div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-slate-800 to-purple-600 bg-clip-text text-transparent">
+            <div className="text-center sm:text-left">
+              <h1 className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-slate-800 to-purple-600 bg-clip-text text-transparent">
                 {competition.title}
               </h1>
-              <p className="text-slate-600 text-xl">{competition.description}</p>
+              <p className="text-slate-600 text-lg sm:text-xl">{competition.description}</p>
             </div>
           </div>
           
-          <div className="flex items-center justify-center space-x-8 text-sm">
+          <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-8 text-sm">
             <motion.div 
               whileHover={{ scale: 1.05 }}
-              className="flex items-center space-x-2 bg-white px-6 py-3 rounded-full shadow-lg border border-purple-200"
+              className="flex items-center space-x-2 bg-white px-4 sm:px-6 py-3 rounded-full shadow-lg border border-purple-200 w-full sm:w-auto justify-center"
             >
-              <Hash className="w-5 h-5 text-purple-600" />
-              <span className="font-mono text-2xl font-bold text-purple-600">{competition.competition_code}</span>
+              <Hash className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+              <span className="font-mono text-lg sm:text-2xl font-bold text-purple-600">{competition.competition_code}</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -430,48 +430,48 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
             </motion.div>
             <motion.div 
               whileHover={{ scale: 1.05 }}
-              className="flex items-center space-x-2 text-slate-600 bg-white px-6 py-3 rounded-full shadow-lg border border-blue-200"
+              className="flex items-center space-x-2 text-slate-600 bg-white px-4 sm:px-6 py-3 rounded-full shadow-lg border border-blue-200 w-full sm:w-auto justify-center"
             >
-              <Users className="w-5 h-5" />
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="font-semibold">{joinedParticipants.length} participants joined</span>
             </motion.div>
             <motion.div 
               whileHover={{ scale: 1.05 }}
-              className="flex items-center space-x-2 text-slate-600 bg-white px-6 py-3 rounded-full shadow-lg border border-green-200"
+              className="flex items-center space-x-2 text-slate-600 bg-white px-4 sm:px-6 py-3 rounded-full shadow-lg border border-green-200 w-full sm:w-auto justify-center"
             >
-              <Activity className="w-5 h-5" />
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="font-semibold capitalize">{competition.status}</span>
             </motion.div>
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-8">
           {/* Main Content */}
-          <div className="xl:col-span-2 space-y-8">
+          <div className="xl:col-span-2 space-y-6 sm:space-y-8">
             {/* Participants Panel */}
             <Card className="shadow-2xl border-2 border-purple-100 overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-3xl font-bold text-slate-800 flex items-center">
-                    <Users className="w-8 h-8 mr-3 text-purple-600" />
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                  <h3 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center">
+                    <Users className="w-6 h-6 sm:w-8 sm:h-8 mr-2 sm:mr-3 text-purple-600" />
                     Battle Arena
                   </h3>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
                     {isCreator && (
                       <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                         <Button
                           onClick={handleStartCompetition}
                           disabled={!canStart || !apiKey}
-                          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 transition-all duration-300 px-8 py-4 text-lg font-bold shadow-xl disabled:opacity-50"
+                          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 transition-all duration-300 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold shadow-xl disabled:opacity-50 w-full sm:w-auto"
                         >
                           {isStarting ? (
                             <>
-                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                              <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                               Starting...
                             </>
                           ) : (
                             <>
-                              <Play className="w-6 h-6 mr-2" />
+                              <Play className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
                               Start Battle
                             </>
                           )}
@@ -484,10 +484,10 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                         <Button
                           onClick={() => setShowCancelConfirm(true)}
                           variant="outline"
-                          className="border-red-200 text-red-600 hover:bg-red-50 px-6 py-4 text-lg font-bold"
+                          className="border-red-200 text-red-600 hover:bg-red-50 px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold w-full sm:w-auto"
                           disabled={isStarting}
                         >
-                          <Trash2 className="w-5 h-5 mr-2" />
+                          <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                           Cancel
                         </Button>
                       </motion.div>
@@ -496,9 +496,9 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                         <Button
                           onClick={() => setShowLeaveConfirm(true)}
                           variant="outline"
-                          className="border-orange-200 text-orange-600 hover:bg-orange-50 px-6 py-4 text-lg font-bold"
+                          className="border-orange-200 text-orange-600 hover:bg-orange-50 px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold w-full sm:w-auto"
                         >
-                          <LogOut className="w-5 h-5 mr-2" />
+                          <LogOut className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                           Leave
                         </Button>
                       </motion.div>
@@ -506,8 +506,8 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                   </div>
                 </div>
               </CardHeader>
-              <CardBody className="p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <CardBody className="p-4 sm:p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                   {joinedParticipants.map((participant, index) => {
                     const participantName = participant.profile?.full_name || 'Anonymous User';
                     
@@ -517,20 +517,20 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
-                        className={`bg-gradient-to-r from-white to-purple-50 p-6 rounded-2xl border-2 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden ${
+                        className={`bg-gradient-to-r from-white to-purple-50 p-4 sm:p-6 rounded-2xl border-2 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden ${
                           participant.user_id === user?.id ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-100'
                         }`}
                       >
                         {/* Background Pattern */}
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-200/20 to-indigo-200/20 rounded-full blur-xl" />
+                        <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-200/20 to-indigo-200/20 rounded-full blur-xl" />
                         
-                        <div className="flex items-center space-x-4 relative z-10">
+                        <div className="flex items-center space-x-3 sm:space-x-4 relative z-10">
                           <div className="relative">
                             <motion.div
                               whileHover={{ scale: 1.1, rotate: 5 }}
-                              className="w-16 h-16 bg-gradient-to-r from-purple-400 to-indigo-400 rounded-full flex items-center justify-center shadow-lg"
+                              className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-purple-400 to-indigo-400 rounded-full flex items-center justify-center shadow-lg"
                             >
-                              <span className="text-white font-bold text-xl">
+                              <span className="text-white font-bold text-lg sm:text-xl">
                                 {participantName.charAt(0).toUpperCase()}
                               </span>
                             </motion.div>
@@ -538,40 +538,42 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                               <motion.div
                                 animate={{ rotate: [0, 10, -10, 0] }}
                                 transition={{ duration: 2, repeat: Infinity }}
-                                className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg"
+                                className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-6 h-6 sm:w-8 sm:h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg"
                               >
-                                <Crown className="w-4 h-4 text-white" />
+                                <Crown className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                               </motion.div>
                             )}
                             <motion.div
                               animate={{ scale: [1, 1.2, 1] }}
                               transition={{ duration: 2, repeat: Infinity }}
-                              className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 rounded-full border-2 border-white flex items-center justify-center"
+                              className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 w-5 h-5 sm:w-6 sm:h-6 bg-green-400 rounded-full border-2 border-white flex items-center justify-center"
                             >
-                              <div className="w-2 h-2 bg-white rounded-full" />
+                              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full" />
                             </motion.div>
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-1">
-                              <h4 className="font-bold text-slate-800 text-xl">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 mb-1">
+                              <h4 className="font-bold text-slate-800 text-lg sm:text-xl truncate">
                                 {participantName}
                               </h4>
-                              {participant.user_id === competition.creator_id && (
-                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">
-                                  CREATOR
-                                </span>
-                              )}
-                              {participant.user_id === user?.id && (
-                                <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full">
-                                  YOU
-                                </span>
-                              )}
+                              <div className="flex items-center space-x-1 sm:space-x-2">
+                                {participant.user_id === competition.creator_id && (
+                                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">
+                                    CREATOR
+                                  </span>
+                                )}
+                                {participant.user_id === user?.id && (
+                                  <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full">
+                                    YOU
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center space-x-2 text-sm text-green-600 mt-1">
-                              <Shield className="w-4 h-4" />
+                              <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
                               <span className="font-medium">Ready for battle</span>
                             </div>
-                            <div className="flex items-center space-x-4 mt-2 text-xs text-slate-500">
+                            <div className="flex items-center space-x-2 sm:space-x-4 mt-2 text-xs text-slate-500">
                               <span>Joined: {new Date(participant.joined_at || '').toLocaleTimeString()}</span>
                             </div>
                           </div>
@@ -585,7 +587,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="bg-gradient-to-r from-slate-50 to-slate-100 p-6 rounded-2xl border-2 border-dashed border-slate-300 flex items-center justify-center min-h-[140px] relative overflow-hidden"
+                      className="bg-gradient-to-r from-slate-50 to-slate-100 p-4 sm:p-6 rounded-2xl border-2 border-dashed border-slate-300 flex items-center justify-center min-h-[120px] sm:min-h-[140px] relative overflow-hidden"
                     >
                       <div className="absolute inset-0 bg-gradient-to-br from-slate-100/50 to-slate-200/50 rounded-2xl" />
                       <div className="text-center relative z-10">
@@ -593,7 +595,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                           animate={{ y: [0, -5, 0] }}
                           transition={{ duration: 2, repeat: Infinity }}
                         >
-                          <UserPlus className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                          <UserPlus className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-slate-400" />
                         </motion.div>
                         <span className="text-sm font-medium text-slate-500">Waiting for warriors...</span>
                         <p className="text-xs mt-1 text-slate-400">Share code: <strong>{competition.competition_code}</strong></p>
@@ -606,12 +608,12 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-8 p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-2xl"
+                    className="mt-6 sm:mt-8 p-4 sm:p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-2xl"
                   >
-                    <div className="flex items-center space-x-3 text-yellow-800">
-                      <Timer className="w-6 h-6" />
+                    <div className="flex items-start space-x-3 text-yellow-800">
+                      <Timer className="w-5 h-5 sm:w-6 sm:h-6 mt-0.5" />
                       <div>
-                        <span className="font-semibold text-lg">Gathering Warriors</span>
+                        <span className="font-semibold text-base sm:text-lg">Gathering Warriors</span>
                         <p className="text-sm mt-1">
                           {!apiKey 
                             ? 'Please set up your Gemini API key in settings to start the competition'
@@ -627,12 +629,12 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl"
+                    className="mt-6 sm:mt-8 p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl"
                   >
-                    <div className="flex items-center space-x-3 text-blue-800">
-                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="flex items-start space-x-3 text-blue-800">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mt-0.5" />
                       <div>
-                        <span className="font-semibold text-lg">Preparing Battle Arena</span>
+                        <span className="font-semibold text-base sm:text-lg">Preparing Battle Arena</span>
                         <p className="text-sm mt-1">Generating questions and setting up the competition...</p>
                       </div>
                     </div>
@@ -643,56 +645,56 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
 
             {/* Competition Details */}
             <Card className="shadow-2xl border-2 border-blue-100">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
-                <h3 className="text-2xl font-bold text-slate-800 flex items-center">
-                  <Settings className="w-7 h-7 mr-3 text-blue-600" />
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 sm:p-6">
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center">
+                  <Settings className="w-5 h-5 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-blue-600" />
                   Battle Configuration
                 </h3>
               </CardHeader>
-              <CardBody className="p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <CardBody className="p-4 sm:p-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   <motion.div 
                     whileHover={{ scale: 1.05 }}
-                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
+                    className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
                   >
                     <div className="flex items-center space-x-3 mb-3">
-                      <BookOpen className="w-6 h-6 text-purple-600" />
+                      <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
                       <span className="font-semibold text-slate-700">Course</span>
                     </div>
-                    <p className="text-slate-800 font-medium text-lg">{competition.quiz_preferences?.course}</p>
+                    <p className="text-slate-800 font-medium text-base sm:text-lg">{competition.quiz_preferences?.course}</p>
                   </motion.div>
                   
                   <motion.div 
                     whileHover={{ scale: 1.05 }}
-                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
+                    className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
                   >
                     <div className="flex items-center space-x-3 mb-3">
-                      <Target className="w-6 h-6 text-green-600" />
+                      <Target className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                       <span className="font-semibold text-slate-700">Questions</span>
                     </div>
-                    <p className="text-slate-800 font-medium text-lg">{competition.quiz_preferences?.questionCount}</p>
+                    <p className="text-slate-800 font-medium text-base sm:text-lg">{competition.quiz_preferences?.questionCount}</p>
                   </motion.div>
                   
                   <motion.div 
                     whileHover={{ scale: 1.05 }}
-                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
+                    className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
                   >
                     <div className="flex items-center space-x-3 mb-3">
-                      <Brain className="w-6 h-6 text-orange-600" />
+                      <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
                       <span className="font-semibold text-slate-700">Difficulty</span>
                     </div>
-                    <p className="text-slate-800 font-medium text-lg capitalize">{competition.quiz_preferences?.difficulty}</p>
+                    <p className="text-slate-800 font-medium text-base sm:text-lg capitalize">{competition.quiz_preferences?.difficulty}</p>
                   </motion.div>
                   
                   <motion.div 
                     whileHover={{ scale: 1.05 }}
-                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
+                    className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
                   >
                     <div className="flex items-center space-x-3 mb-3">
-                      <Clock className="w-6 h-6 text-red-600" />
+                      <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
                       <span className="font-semibold text-slate-700">Time Limit</span>
                     </div>
-                    <p className="text-slate-800 font-medium text-lg">
+                    <p className="text-slate-800 font-medium text-base sm:text-lg">
                       {competition.quiz_preferences?.timeLimitEnabled 
                         ? `${competition.quiz_preferences?.timeLimit}s per question`
                         : 'No time limit'
@@ -702,41 +704,41 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                   
                   <motion.div 
                     whileHover={{ scale: 1.05 }}
-                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
+                    className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
                   >
                     <div className="flex items-center space-x-3 mb-3">
-                      <Globe className="w-6 h-6 text-blue-600" />
+                      <Globe className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
                       <span className="font-semibold text-slate-700">Language</span>
                     </div>
-                    <p className="text-slate-800 font-medium text-lg">{competition.quiz_preferences?.language}</p>
+                    <p className="text-slate-800 font-medium text-base sm:text-lg">{competition.quiz_preferences?.language}</p>
                   </motion.div>
                   
                   <motion.div 
                     whileHover={{ scale: 1.05 }}
-                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
+                    className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300"
                   >
                     <div className="flex items-center space-x-3 mb-3">
-                      <Award className="w-6 h-6 text-yellow-600" />
+                      <Award className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600" />
                       <span className="font-semibold text-slate-700">Mode</span>
                     </div>
-                    <p className="text-slate-800 font-medium text-lg capitalize">{competition.quiz_preferences?.mode}</p>
+                    <p className="text-slate-800 font-medium text-base sm:text-lg capitalize">{competition.quiz_preferences?.mode}</p>
                   </motion.div>
                 </div>
 
                 {/* Question Types */}
-                <div className="mt-8">
-                  <h4 className="font-semibold text-slate-700 mb-4 flex items-center text-lg">
-                    <Star className="w-6 h-6 mr-2 text-purple-600" />
+                <div className="mt-6 sm:mt-8">
+                  <h4 className="font-semibold text-slate-700 mb-4 flex items-center text-base sm:text-lg">
+                    <Star className="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-purple-600" />
                     Question Arsenal
                   </h4>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-2 sm:gap-3">
                     {competition.quiz_preferences?.questionTypes?.map((type: string, index: number) => (
                       <motion.span
                         key={index}
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: index * 0.1 }}
-                        className="px-4 py-2 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 rounded-full text-sm font-medium border border-purple-200 shadow-sm"
+                        className="px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 rounded-full text-sm font-medium border border-purple-200 shadow-sm"
                       >
                         {type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </motion.span>
@@ -748,21 +750,21 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
           </div>
 
           {/* Side Panel */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Share Competition */}
             <Card className="shadow-2xl border-2 border-green-100">
-              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
-                <h3 className="text-xl font-bold text-slate-800 flex items-center">
-                  <Mail className="w-6 h-6 mr-2 text-green-600" />
+              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center">
+                  <Mail className="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-green-600" />
                   Invite Warriors
                 </h3>
               </CardHeader>
-              <CardBody className="p-6">
+              <CardBody className="p-4 sm:p-6">
                 <div className="space-y-4">
                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                     <p className="text-sm text-slate-600 mb-3 font-medium">Battle Code:</p>
                     <div className="flex items-center space-x-3">
-                      <code className="flex-1 font-mono text-3xl font-bold text-purple-600 bg-white p-4 rounded-lg border-2 border-purple-200">
+                      <code className="flex-1 font-mono text-2xl sm:text-3xl font-bold text-purple-600 bg-white p-3 sm:p-4 rounded-lg border-2 border-purple-200 text-center">
                         {competition.competition_code}
                       </code>
                       <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
@@ -796,11 +798,11 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Button
                 onClick={() => setShowChat(!showChat)}
-                className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 transition-all duration-300 py-4 text-lg font-bold shadow-xl"
+                className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 transition-all duration-300 py-3 sm:py-4 text-base sm:text-lg font-bold shadow-xl"
               >
-                <MessageCircle className="w-6 h-6 mr-2" />
+                <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
                 {showChat ? 'Hide Chat' : 'Battle Chat'}
-                <Sparkles className="w-5 h-5 ml-2" />
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
               </Button>
             </motion.div>
           </div>
@@ -813,20 +815,20 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-8"
+              className="mt-6 sm:mt-8"
             >
               <Card className="shadow-2xl border-2 border-indigo-100">
-                <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50">
-                  <h3 className="text-2xl font-bold text-slate-800 flex items-center">
-                    <MessageCircle className="w-7 h-7 mr-3 text-indigo-600" />
+                <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 p-4 sm:p-6">
+                  <h3 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center">
+                    <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-indigo-600" />
                     Battle Chat
                   </h3>
                 </CardHeader>
                 <CardBody className="p-0">
-                  <div className="h-80 overflow-y-auto p-6 space-y-4 bg-gradient-to-br from-slate-50 to-indigo-50">
+                  <div className="h-60 sm:h-80 overflow-y-auto p-4 sm:p-6 space-y-3 sm:space-y-4 bg-gradient-to-br from-slate-50 to-indigo-50">
                     {chatMessages.length === 0 ? (
                       <div className="text-center text-slate-500 py-8">
-                        <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <MessageCircle className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 opacity-50" />
                         <p>No messages yet. Start the conversation!</p>
                       </div>
                     ) : (
@@ -838,7 +840,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                           className={`flex ${message.user_id === user?.id ? 'justify-end' : 'justify-start'}`}
                         >
                           <div
-                            className={`max-w-xs px-4 py-3 rounded-2xl shadow-sm ${
+                            className={`max-w-xs px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-sm ${
                               message.user_id === user?.id
                                 ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white'
                                 : 'bg-white text-slate-800 border border-slate-200'
@@ -853,21 +855,21 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                       ))
                     )}
                   </div>
-                  <div className="p-6 border-t border-slate-200 bg-white">
-                    <div className="flex space-x-3">
+                  <div className="p-4 sm:p-6 border-t border-slate-200 bg-white">
+                    <div className="flex space-x-2 sm:space-x-3">
                       <input
                         type="text"
                         value={chatMessage}
                         onChange={(e) => setChatMessage(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                         placeholder="Type a message..."
-                        className="flex-1 px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base"
                       />
                       <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                         <Button
                           onClick={handleSendMessage}
                           disabled={!chatMessage.trim()}
-                          className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 px-6 py-3 font-bold"
+                          className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 px-4 sm:px-6 py-2 sm:py-3 font-bold"
                         >
                           Send
                         </Button>
@@ -887,21 +889,21 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl"
+                className="bg-white rounded-2xl p-6 sm:p-8 max-w-md mx-4 shadow-2xl w-full"
               >
                 <div className="text-center">
-                  <AlertTriangle className="w-16 h-16 text-orange-500 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-gray-800 mb-4">Leave Competition?</h3>
+                  <AlertTriangle className="w-12 h-12 sm:w-16 sm:h-16 text-orange-500 mx-auto mb-4" />
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Leave Competition?</h3>
                   <p className="text-gray-600 mb-6">
                     Are you sure you want to leave this competition? You won't be able to rejoin once you leave.
                   </p>
-                  <div className="flex space-x-4">
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                     <Button
                       onClick={() => setShowLeaveConfirm(false)}
                       variant="outline"
@@ -926,21 +928,21 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl"
+                className="bg-white rounded-2xl p-6 sm:p-8 max-w-md mx-4 shadow-2xl w-full"
               >
                 <div className="text-center">
-                  <Trash2 className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-gray-800 mb-4">Cancel Competition?</h3>
+                  <Trash2 className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 mx-auto mb-4" />
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Cancel Competition?</h3>
                   <p className="text-gray-600 mb-6">
                     Are you sure you want to cancel this competition? This action cannot be undone and all participants will be notified.
                   </p>
-                  <div className="flex space-x-4">
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                     <Button
                       onClick={() => setShowCancelConfirm(false)}
                       variant="outline"

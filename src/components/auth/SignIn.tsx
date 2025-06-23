@@ -92,7 +92,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
                   Email Address
                 </label>
                 <div className="relative">
-                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 ${
+                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 z-10 ${
                     focusedField === 'email' ? 'text-blue-600' : 'text-gray-400'
                   }`}>
                     <Mail className="w-5 h-5" />
@@ -122,7 +122,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
                   Password
                 </label>
                 <div className="relative">
-                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 ${
+                  <div className={`absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none transition-colors duration-300 z-10 ${
                     focusedField === 'password' ? 'text-blue-600' : 'text-gray-400'
                   }`}>
                     <Lock className="w-5 h-5" />
@@ -141,7 +141,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
                   <motion.button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 sm:pr-4 flex items-center hover:text-blue-600 transition-colors duration-300"
+                    className="absolute inset-y-0 right-0 pr-3 sm:pr-4 flex items-center hover:text-blue-600 transition-colors duration-300 z-10"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                   >
@@ -169,7 +169,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
                   Signing In...
                 </div>
               ) : (
-                <div className="flex items-center justify-center">
+                <div className="relative flex items-center justify-center">
                   <span>Sign In</span>
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
                 </div>
