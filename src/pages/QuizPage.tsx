@@ -106,12 +106,27 @@ const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
     initializeQuizPage();
   }, [user, loadApiKey, loadPreferences, loadUserCompetitions]);
 
-// Enhanced step determination with better competition completion tracking and results page protection
+// FIXED: Enhanced step determination with prioritized completion flags
 useEffect(() => {
   if (!isInitializedRef.current || !isComponentMountedRef.current) return;
 
   const determineStep = async () => {
     try {
+      // CRITICAL FIX: Check completion flags FIRST before any database checks
+      if (competitionCompletedRef.current && step !== 'competition-results') {
+        console.log('Competition completion flag is set, forcing results page');
+        setStep('competition-results');
+        currentStepRef.current = 'competition-results';
+        isOnResultsPageRef.current = true;
+        return; // Exit early to prevent any other logic from overriding this
+      }
+
+      // CRITICAL FIX: If user is currently on results page, don't auto-redirect
+      if (isOnResultsPageRef.current && step === 'competition-results') {
+        console.log('User is actively viewing results page, preventing auto-redirect');
+        return;
+      }
+
       // Handle competition mode from location state
       if (location.state?.mode === 'competition-lobby' && location.state?.competitionId) {
         if (isComponentMountedRef.current) {
@@ -119,12 +134,6 @@ useEffect(() => {
           setStep('competition-lobby');
           currentStepRef.current = 'competition-lobby';
         }
-        return;
-      }
-
-      // CRITICAL FIX: If user is currently on results page, don't auto-redirect
-      if (isOnResultsPageRef.current && step === 'competition-results') {
-        console.log('User is actively viewing results page, preventing auto-redirect');
         return;
       }
 
@@ -154,8 +163,9 @@ useEffect(() => {
 
             // If user completed OR competition is completed, go to results
             if ((userParticipant?.status === 'completed' || competition.status === 'completed') && isComponentMountedRef.current) {
-              // Only set results if not already there
-              if (step !== 'competition-results') {
+              // Only set results if not already there AND completion flag not set
+              if (step !== 'competition-results' && !competitionCompletedRef.current) {
+                console.log('Setting competition as completed from database check');
                 setStep('competition-results');
                 currentStepRef.current = 'competition-results';
                 competitionCompletedRef.current = true;
@@ -181,8 +191,19 @@ useEffect(() => {
         }
       }
 
-      // CRITICAL FIX: Check if we're in a competition context first
+      // CRITICAL FIX: Check if we're in a competition context
       if (currentCompetition && isComponentMountedRef.current) {
+        // PRIORITY CHECK: If completion flag is set, force results regardless of database state
+        if (competitionCompletedRef.current) {
+          console.log('Competition completion flag set, forcing results page');
+          if (step !== 'competition-results') {
+            setStep('competition-results');
+            currentStepRef.current = 'competition-results';
+            isOnResultsPageRef.current = true;
+          }
+          return;
+        }
+
         const { data: competitionCheck } = await supabase
           .from('competitions')
           .select('status')
@@ -210,9 +231,9 @@ useEffect(() => {
             .maybeSingle();
 
           // CRITICAL FIX: If user has completed OR competition is completed, go to results
-          // BUT only if not already on results page
+          // BUT only if not already on results page AND completion flag not already set
           if ((userParticipant?.status === 'completed' || competitionCheck.status === 'completed') && 
-              step !== 'competition-results' && isComponentMountedRef.current) {
+              step !== 'competition-results' && !competitionCompletedRef.current && isComponentMountedRef.current) {
             console.log('User completed or competition completed, going to results');
             setStep('competition-results');
             currentStepRef.current = 'competition-results';
@@ -222,8 +243,8 @@ useEffect(() => {
           }
         }
 
-        // Handle competition status changes (but not if on results page)
-        if (step !== 'competition-results' && isComponentMountedRef.current) {
+        // Handle competition status changes (but not if on results page or completion flag set)
+        if (step !== 'competition-results' && !competitionCompletedRef.current && isComponentMountedRef.current) {
           const newStep = competitionCheck.status === 'waiting' ? 'competition-lobby' :
                         competitionCheck.status === 'active' ? 'competition-quiz' :
                         competitionCheck.status === 'completed' ? 'competition-results' : 'mode-selector';
@@ -444,15 +465,25 @@ useEffect(() => {
     }
   }, [currentCompetition, user, apiKey]);
 
-  // Enhanced completion handler to ensure proper results display
+  // FIXED: Enhanced completion handler with stronger flag setting
   const handleCompetitionComplete = useCallback(() => {
     if (!isComponentMountedRef.current) return;
     
     console.log('Competition completed, setting completion flag and navigating to results');
+    
+    // CRITICAL: Set completion flags IMMEDIATELY and synchronously
     competitionCompletedRef.current = true;
     isOnResultsPageRef.current = true;
+    
+    // Force immediate step change
     setStep('competition-results');
     currentStepRef.current = 'competition-results';
+    
+    console.log('Competition completion flags set:', {
+      competitionCompleted: competitionCompletedRef.current,
+      isOnResultsPage: isOnResultsPageRef.current,
+      currentStep: currentStepRef.current
+    });
   }, []);
 
   const handleNewCompetition = useCallback(() => {
