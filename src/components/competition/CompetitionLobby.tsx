@@ -5,7 +5,7 @@ import { useQuizStore } from '../../store/useQuizStore';
 import { supabase } from '../../services/supabase';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
-import { Users, Clock, Trophy, Copy, CheckCircle, MessageCircle, Crown, Zap, Play, UserPlus, Hash, Mail, Timer, Target, Brain, Settings, Globe, BookOpen, Award, Star, Activity, Rocket, Shield, Bolt, Sparkles, X, LogOut, Trash2, AlertTriangle } from 'lucide-react';
+import { Users, Clock, Trophy, Copy, CheckCircle, MessageCircle, Crown, Zap, Play, UserPlus, Hash, Mail, Timer, Target, Brain, Settings, Globe, BookOpen, Award, Star, Activity, Rocket, Shield, CloudLightning as Lightning, Sparkles, X, LogOut, Trash2, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
 import { useNavigate } from 'react-router-dom';
@@ -777,7 +777,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                   </div>
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
                     <p className="text-sm text-blue-800 font-semibold mb-2">
-                      <Bolt className="w-4 h-4 inline mr-1" />
+                      <Lightning className="w-4 h-4 inline mr-1" />
                       How to join the battle:
                     </p>
                     <ol className="text-sm text-blue-700 space-y-1">
