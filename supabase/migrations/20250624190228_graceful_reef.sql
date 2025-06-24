@@ -10,15 +10,24 @@
     - Update existing competition results with correct rankings
 */
 
--- Drop and recreate the save_competition_result function with proper ranking logic
+-- Drop the trigger first, then the function to avoid dependency issues
+DROP TRIGGER IF EXISTS save_competition_result_trigger ON competition_participants;
 DROP FUNCTION IF EXISTS save_competition_result();
 
+-- Create the improved save_competition_result function with proper ranking logic
 CREATE OR REPLACE FUNCTION save_competition_result()
 RETURNS TRIGGER AS $$
 DECLARE
   competition_record RECORD;
   participant_rank INTEGER;
   total_participants INTEGER;
+  total_questions INTEGER;
+  incorrect_answers INTEGER;
+  skipped_answers INTEGER;
+  percentage_score NUMERIC;
+  accuracy_rate NUMERIC;
+  rank_percentile NUMERIC;
+  avg_time_per_question NUMERIC;
 BEGIN
   -- Only process if status changed to completed
   IF NEW.status = 'completed' AND (OLD.status IS NULL OR OLD.status != 'completed') THEN
@@ -62,101 +71,103 @@ BEGIN
       AND status = 'completed';
     
     -- Calculate additional metrics
-    DECLARE
-      total_questions INTEGER := COALESCE(array_length(competition_record.questions, 1), 0);
-      incorrect_answers INTEGER := GREATEST(0, COALESCE(NEW.questions_answered, 0) - COALESCE(NEW.correct_answers, 0));
-      skipped_answers INTEGER := GREATEST(0, total_questions - COALESCE(NEW.questions_answered, 0));
-      percentage_score NUMERIC := CASE 
-        WHEN total_questions > 0 THEN (COALESCE(NEW.score, 0) / total_questions) * 100
-        ELSE 0
-      END;
-      accuracy_rate NUMERIC := CASE 
-        WHEN (COALESCE(NEW.correct_answers, 0) + incorrect_answers) > 0 
-        THEN (COALESCE(NEW.correct_answers, 0)::NUMERIC / (COALESCE(NEW.correct_answers, 0) + incorrect_answers)) * 100
-        ELSE 0
-      END;
-      rank_percentile NUMERIC := CASE 
-        WHEN total_participants > 1 
-        THEN ((total_participants - participant_rank)::NUMERIC / (total_participants - 1)) * 100
-        ELSE 100
-      END;
-      avg_time_per_question NUMERIC := CASE 
-        WHEN total_questions > 0 
-        THEN COALESCE(NEW.time_taken, 0)::NUMERIC / total_questions
-        ELSE 0
-      END;
-    BEGIN
-      -- Create or update competition result with correct ranking
-      INSERT INTO competition_results (
-        competition_id,
-        user_id,
-        competition_title,
-        competition_type,
-        competition_code,
-        final_rank,
-        total_participants,
-        score,
-        correct_answers,
-        incorrect_answers,
-        skipped_answers,
-        total_questions,
-        time_taken,
-        average_time_per_question,
-        points_earned,
-        percentage_score,
-        accuracy_rate,
-        rank_percentile,
-        answers,
-        question_details,
-        quiz_preferences,
-        competition_date,
-        joined_at,
-        started_at,
-        completed_at
-      ) VALUES (
-        NEW.competition_id,
-        NEW.user_id,
-        competition_record.title,
-        competition_record.type,
-        competition_record.competition_code,
-        participant_rank,
-        total_participants,
-        COALESCE(NEW.score, 0),
-        COALESCE(NEW.correct_answers, 0),
-        incorrect_answers,
-        skipped_answers,
-        total_questions,
-        COALESCE(NEW.time_taken, 0),
-        avg_time_per_question,
-        COALESCE(NEW.points_earned, 0),
-        percentage_score,
-        accuracy_rate,
-        rank_percentile,
-        COALESCE(NEW.answers, '{}'::jsonb),
-        COALESCE(competition_record.questions, '[]'::jsonb),
-        COALESCE(competition_record.quiz_preferences, '{}'::jsonb),
-        competition_record.created_at,
-        NEW.joined_at,
-        NEW.quiz_start_time,
-        COALESCE(NEW.completed_at, NEW.quiz_end_time, NOW())
-      )
-      ON CONFLICT (competition_id, user_id) 
-      DO UPDATE SET
-        final_rank = participant_rank,
-        total_participants = EXCLUDED.total_participants,
-        score = EXCLUDED.score,
-        correct_answers = EXCLUDED.correct_answers,
-        incorrect_answers = EXCLUDED.incorrect_answers,
-        skipped_answers = EXCLUDED.skipped_answers,
-        time_taken = EXCLUDED.time_taken,
-        average_time_per_question = EXCLUDED.average_time_per_question,
-        points_earned = EXCLUDED.points_earned,
-        percentage_score = EXCLUDED.percentage_score,
-        accuracy_rate = EXCLUDED.accuracy_rate,
-        rank_percentile = EXCLUDED.rank_percentile,
-        answers = EXCLUDED.answers,
-        completed_at = EXCLUDED.completed_at;
+    total_questions := COALESCE(array_length(competition_record.questions, 1), 0);
+    incorrect_answers := GREATEST(0, COALESCE(NEW.questions_answered, 0) - COALESCE(NEW.correct_answers, 0));
+    skipped_answers := GREATEST(0, total_questions - COALESCE(NEW.questions_answered, 0));
+    
+    percentage_score := CASE 
+      WHEN total_questions > 0 THEN (COALESCE(NEW.score, 0) / total_questions) * 100
+      ELSE 0
     END;
+    
+    accuracy_rate := CASE 
+      WHEN (COALESCE(NEW.correct_answers, 0) + incorrect_answers) > 0 
+      THEN (COALESCE(NEW.correct_answers, 0)::NUMERIC / (COALESCE(NEW.correct_answers, 0) + incorrect_answers)) * 100
+      ELSE 0
+    END;
+    
+    rank_percentile := CASE 
+      WHEN total_participants > 1 
+      THEN ((total_participants - participant_rank)::NUMERIC / (total_participants - 1)) * 100
+      ELSE 100
+    END;
+    
+    avg_time_per_question := CASE 
+      WHEN total_questions > 0 
+      THEN COALESCE(NEW.time_taken, 0)::NUMERIC / total_questions
+      ELSE 0
+    END;
+    
+    -- Create or update competition result with correct ranking
+    INSERT INTO competition_results (
+      competition_id,
+      user_id,
+      competition_title,
+      competition_type,
+      competition_code,
+      final_rank,
+      total_participants,
+      score,
+      correct_answers,
+      incorrect_answers,
+      skipped_answers,
+      total_questions,
+      time_taken,
+      average_time_per_question,
+      points_earned,
+      percentage_score,
+      accuracy_rate,
+      rank_percentile,
+      answers,
+      question_details,
+      quiz_preferences,
+      competition_date,
+      joined_at,
+      started_at,
+      completed_at
+    ) VALUES (
+      NEW.competition_id,
+      NEW.user_id,
+      competition_record.title,
+      competition_record.type,
+      competition_record.competition_code,
+      participant_rank,
+      total_participants,
+      COALESCE(NEW.score, 0),
+      COALESCE(NEW.correct_answers, 0),
+      incorrect_answers,
+      skipped_answers,
+      total_questions,
+      COALESCE(NEW.time_taken, 0),
+      avg_time_per_question,
+      COALESCE(NEW.points_earned, 0),
+      percentage_score,
+      accuracy_rate,
+      rank_percentile,
+      COALESCE(NEW.answers, '{}'::jsonb),
+      COALESCE(competition_record.questions, '[]'::jsonb),
+      COALESCE(competition_record.quiz_preferences, '{}'::jsonb),
+      competition_record.created_at,
+      NEW.joined_at,
+      NEW.quiz_start_time,
+      COALESCE(NEW.completed_at, NEW.quiz_end_time, NOW())
+    )
+    ON CONFLICT (competition_id, user_id) 
+    DO UPDATE SET
+      final_rank = participant_rank,
+      total_participants = EXCLUDED.total_participants,
+      score = EXCLUDED.score,
+      correct_answers = EXCLUDED.correct_answers,
+      incorrect_answers = EXCLUDED.incorrect_answers,
+      skipped_answers = EXCLUDED.skipped_answers,
+      time_taken = EXCLUDED.time_taken,
+      average_time_per_question = EXCLUDED.average_time_per_question,
+      points_earned = EXCLUDED.points_earned,
+      percentage_score = EXCLUDED.percentage_score,
+      accuracy_rate = EXCLUDED.accuracy_rate,
+      rank_percentile = EXCLUDED.rank_percentile,
+      answers = EXCLUDED.answers,
+      completed_at = EXCLUDED.completed_at;
       
   END IF;
   
@@ -165,7 +176,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Recreate the trigger
-DROP TRIGGER IF EXISTS save_competition_result_trigger ON competition_participants;
 CREATE TRIGGER save_competition_result_trigger
   AFTER UPDATE ON competition_participants
   FOR EACH ROW
