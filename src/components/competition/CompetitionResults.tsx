@@ -6,10 +6,9 @@ import { Card, CardBody, CardHeader } from '../ui/Card';
 import { 
   Trophy, Crown, Medal, Star, Clock, Target, 
   TrendingUp, Award, Zap, Users, Home, RefreshCw,
-  ChevronDown, ChevronUp, BarChart3, Activity,
-  Brain, Timer, CheckCircle, XCircle, Sparkles,
-  LogOut, ArrowLeft, Eye, EyeOff, AlertTriangle,
-  Loader
+  ChevronDown, ChevronUp, BarChart3, PieChart, Activity,
+  Lightbulb, ThumbsUp, AlertTriangle, Sparkles,
+  LogOut, ArrowLeft, Eye, EyeOff, Loader
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
@@ -63,16 +62,17 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     p.status === 'completed' || p.status === 'joined'
   );
 
-  // Sort participants by completion status and then by score/time
+  // Sort participants by rank (ascending) for proper display order
   const sortedParticipants = [...allParticipants].sort((a, b) => {
-    // Completed participants first
+    // Completed participants first, then by rank
     if (a.status === 'completed' && b.status !== 'completed') return -1;
     if (b.status === 'completed' && a.status !== 'completed') return 1;
     
-    // Among completed participants, sort by score then time
+    // Among completed participants, sort by rank (ascending: 1, 2, 3...)
     if (a.status === 'completed' && b.status === 'completed') {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.time_taken - b.time_taken;
+      const rankA = a.rank || a.final_rank || 999;
+      const rankB = b.rank || b.final_rank || 999;
+      return rankA - rankB;
     }
     
     // Among active participants, sort by current progress
@@ -84,7 +84,8 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   });
 
   const userParticipant = sortedParticipants.find(p => p.user_id === user?.id);
-  const userRank = sortedParticipants.findIndex(p => p.user_id === user?.id) + 1;
+  const userRank = userParticipant?.rank || userParticipant?.final_rank || 
+    sortedParticipants.findIndex(p => p.user_id === user?.id) + 1;
   const completedCount = sortedParticipants.filter(p => p.status === 'completed').length;
   const totalParticipants = sortedParticipants.length;
   const isCompetitionFullyComplete = competitionStatus === 'completed';
@@ -124,12 +125,12 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
         try {
           console.log('Loading competition results for completed competition...');
           
-          // First, try to get competition results with user profiles
+          // Get competition results with user profiles, ordered by rank
           const { data: resultsData, error: resultsError } = await supabase
             .from('competition_results')
             .select('*')
             .eq('competition_id', competition.id)
-            .order('final_rank', { ascending: true });
+            .order('final_rank', { ascending: true })
 
           if (resultsError) {
             console.error('Error loading competition results:', resultsError);
@@ -149,11 +150,13 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                 .in('user_id', userIds);
 
               if (!profilesError && profilesData) {
-                // Merge results with profile data
-                const resultsWithProfiles = resultsData.map(result => ({
-                  ...result,
-                  profile: profilesData.find(profile => profile.user_id === result.user_id)
-                }));
+                // Merge results with profile data and sort by rank
+                const resultsWithProfiles = resultsData
+                  .map(result => ({
+                    ...result,
+                    profile: profilesData.find(profile => profile.user_id === result.user_id)
+                  }))
+                  .sort((a, b) => (a.final_rank || 999) - (b.final_rank || 999));
                 
                 if (isComponentMountedRef.current) {
                   console.log('Successfully loaded competition results with profiles:', resultsWithProfiles);
@@ -162,12 +165,12 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
               } else {
                 console.warn('Could not load profiles, using results without names');
                 if (isComponentMountedRef.current) {
-                  setCompetitionResults(resultsData);
+                  setCompetitionResults(resultsData.sort((a, b) => (a.final_rank || 999) - (b.final_rank || 999)));
                 }
               }
             } else {
               if (isComponentMountedRef.current) {
-                setCompetitionResults(resultsData);
+                setCompetitionResults(resultsData.sort((a, b) => (a.final_rank || 999) - (b.final_rank || 999)));
               }
             }
           } else {
@@ -207,9 +210,6 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     return () => clearTimeout(timer);
   }, [user, loadUserStats]);
 
-  // REMOVED: Auto-redirect timer that was causing the page to close automatically
-  // The results page should stay open until the user manually navigates away
-
   const handleCancelTimer = () => {
     if (resultsTimerRef.current) {
       clearTimeout(resultsTimerRef.current);
@@ -228,7 +228,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     const unsubscribe = subscribeToCompetition(competition.id);
     subscriptionCleanupRef.current = unsubscribe;
     
-    // Check competition status periodically - REMOVED AUTOMATIC RELOAD
+    // Check competition status periodically
     statusCheckIntervalRef.current = setInterval(async () => {
       if (!isComponentMountedRef.current) return;
       
@@ -422,8 +422,6 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-4 sm:py-8 relative overflow-hidden">
-      {/* REMOVED: Auto-redirect timer warning that was causing confusion */}
-
       {/* Confetti Animation */}
       <AnimatePresence>
         {confettiVisible && userParticipant?.status === 'completed' && isCompetitionFullyComplete && userRank <= 3 && (
@@ -648,7 +646,10 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
             <CardBody className="p-4 sm:p-6">
               <div className="space-y-3 sm:space-y-4">
                 {(isCompetitionFullyComplete && competitionResults.length > 0 ? competitionResults : sortedParticipants).map((participant, index) => {
-                  const rank = isCompetitionFullyComplete && competitionResults.length > 0 ? participant.final_rank : index + 1;
+                  // Use the correct rank from the database or calculated rank
+                  const rank = isCompetitionFullyComplete && competitionResults.length > 0 
+                    ? participant.final_rank 
+                    : participant.rank || participant.final_rank || (index + 1);
                   const isCompleted = isCompetitionFullyComplete || participant.status === 'completed';
                   const isCurrentUser = participant.user_id === user?.id;
                   const progressPercentage = getProgressPercentage(participant);
@@ -713,14 +714,14 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                               </span>
                             </div>
                             <div className="flex items-center space-x-1 sm:space-x-2">
-                              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                              <Target className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
                               <span className="text-gray-600">Correct:</span>
                               <span className="font-bold text-green-600">
                                 {participant.correct_answers || 0}/{competition.questions?.length || 0}
                               </span>
                             </div>
                             <div className="flex items-center space-x-1 sm:space-x-2">
-                              <Target className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+                              <Activity className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
                               <span className="text-gray-600">Progress:</span>
                               <span className="font-bold text-blue-600">
                                 {isCompleted ? '100%' : `${progressPercentage.toFixed(0)}%`}

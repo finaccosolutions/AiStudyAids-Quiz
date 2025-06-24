@@ -70,10 +70,10 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Check if all participants have completed
+    // Get all participants to check completion status and calculate rankings
     const { data: allParticipants, error: participantsError } = await supabase
       .from('competition_participants')
-      .select('status, user_id, score, correct_answers, time_taken')
+      .select('status, user_id, score, correct_answers, time_taken, completed_at')
       .eq('competition_id', competitionId)
       .in('status', ['joined', 'completed'])
 
@@ -90,6 +90,31 @@ Deno.serve(async (req) => {
 
     const completedParticipants = allParticipants.filter(p => p.status === 'completed')
     const allCompleted = allParticipants.length === completedParticipants.length
+
+    // Calculate and update rankings for all completed participants
+    if (completedParticipants.length > 0) {
+      // Sort participants by score (desc) and time (asc) for ranking
+      const sortedParticipants = [...completedParticipants].sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score
+        if (a.time_taken !== b.time_taken) return a.time_taken - b.time_taken
+        return new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime()
+      })
+
+      // Update ranks for all completed participants
+      for (let i = 0; i < sortedParticipants.length; i++) {
+        const participant = sortedParticipants[i]
+        const rank = i + 1
+
+        await supabase
+          .from('competition_participants')
+          .update({ 
+            rank: rank,
+            final_rank: rank 
+          })
+          .eq('competition_id', competitionId)
+          .eq('user_id', participant.user_id)
+      }
+    }
 
     let competitionCompleted = false
 
@@ -109,42 +134,32 @@ Deno.serve(async (req) => {
         competitionCompleted = true
         console.log('Competition marked as completed')
 
-        // Calculate final rankings and save to competition_results
-        const sortedParticipants = completedParticipants.sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score
-          return a.time_taken - b.time_taken
-        })
+        // Get the final sorted participants with their ranks
+        const { data: finalParticipants, error: finalParticipantsError } = await supabase
+          .from('competition_participants')
+          .select(`
+            *,
+            profiles!competition_participants_user_id_profiles_fkey(full_name)
+          `)
+          .eq('competition_id', competitionId)
+          .eq('status', 'completed')
+          .order('rank', { ascending: true })
 
-        // Save results for each participant
-        for (let i = 0; i < sortedParticipants.length; i++) {
-          const participant = sortedParticipants[i]
-          const rank = i + 1
-
-          // Get participant details
-          const { data: participantDetails } = await supabase
-            .from('competition_participants')
-            .select(`
-              *,
-              profiles!competition_participants_user_id_profiles_fkey(full_name)
-            `)
-            .eq('competition_id', competitionId)
-            .eq('user_id', participant.user_id)
-            .single()
-
-          if (participantDetails) {
-            // Calculate additional metrics
+        if (!finalParticipantsError && finalParticipants) {
+          // Save results for each participant with correct ranking
+          for (const participant of finalParticipants) {
             const totalQuestions = competition.questions?.length || 0
-            const incorrectAnswers = totalQuestions - participant.correct_answers
-            const skippedAnswers = totalQuestions - (participant.correct_answers + incorrectAnswers)
+            const incorrectAnswers = Math.max(0, totalQuestions - participant.correct_answers)
+            const skippedAnswers = Math.max(0, totalQuestions - (participant.correct_answers + incorrectAnswers))
             const percentageScore = totalQuestions > 0 ? (participant.score / totalQuestions) * 100 : 0
             const accuracyRate = (participant.correct_answers + incorrectAnswers) > 0 
               ? (participant.correct_answers / (participant.correct_answers + incorrectAnswers)) * 100 
               : 0
-            const rankPercentile = sortedParticipants.length > 1 
-              ? ((sortedParticipants.length - rank) / (sortedParticipants.length - 1)) * 100 
+            const rankPercentile = finalParticipants.length > 1 
+              ? ((finalParticipants.length - participant.rank) / (finalParticipants.length - 1)) * 100 
               : 100
 
-            // Save to competition_results
+            // Save to competition_results with correct ranking
             const { error: resultError } = await supabase
               .from('competition_results')
               .upsert({
@@ -153,8 +168,8 @@ Deno.serve(async (req) => {
                 competition_title: competition.title,
                 competition_type: competition.type,
                 competition_code: competition.competition_code,
-                final_rank: rank,
-                total_participants: sortedParticipants.length,
+                final_rank: participant.rank, // Use the correctly calculated rank
+                total_participants: finalParticipants.length,
                 score: participant.score,
                 correct_answers: participant.correct_answers,
                 incorrect_answers: incorrectAnswers,
@@ -162,17 +177,17 @@ Deno.serve(async (req) => {
                 total_questions: totalQuestions,
                 time_taken: participant.time_taken,
                 average_time_per_question: totalQuestions > 0 ? participant.time_taken / totalQuestions : 0,
-                points_earned: participantDetails.points_earned || 0,
+                points_earned: participant.points_earned || 0,
                 percentage_score: percentageScore,
                 accuracy_rate: accuracyRate,
                 rank_percentile: rankPercentile,
-                answers: participantDetails.answers || {},
+                answers: participant.answers || {},
                 question_details: competition.questions || [],
                 quiz_preferences: competition.quiz_preferences || {},
                 competition_date: competition.created_at,
-                joined_at: participantDetails.joined_at,
+                joined_at: participant.joined_at,
                 started_at: competition.start_time,
-                completed_at: participantDetails.completed_at
+                completed_at: participant.completed_at
               }, {
                 onConflict: 'competition_id,user_id'
               })
@@ -181,18 +196,6 @@ Deno.serve(async (req) => {
               console.error('Error saving competition result:', resultError)
             }
           }
-        }
-
-        // Update participant ranks
-        for (let i = 0; i < sortedParticipants.length; i++) {
-          const participant = sortedParticipants[i]
-          const rank = i + 1
-
-          await supabase
-            .from('competition_participants')
-            .update({ rank })
-            .eq('competition_id', competitionId)
-            .eq('user_id', participant.user_id)
         }
       }
     }
@@ -204,7 +207,7 @@ Deno.serve(async (req) => {
         totalParticipants: allParticipants.length,
         completedParticipants: completedParticipants.length,
         message: allCompleted 
-          ? 'Competition completed and results saved' 
+          ? 'Competition completed and results saved with correct rankings' 
           : 'Participant completed, waiting for others'
       }),
       { 
