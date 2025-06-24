@@ -5,7 +5,7 @@ import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
-import { Zap, Users, Search, MessageCircle, Clock, Target, Brain, Globe, X, Send, Crown, Star, Trophy, Timer, Activity, Sparkles, Rocket, Shield, CloudLightning as Lightning, Gamepad2 } from 'lucide-react';
+import { Zap, Users, Search, MessageCircle, Clock, Target, Brain, Globe, X, Send, Crown, Star, Trophy, Timer, Activity, Sparkles, Rocket, Shield, Bolt, Gamepad2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface RandomMatchmakingProps {

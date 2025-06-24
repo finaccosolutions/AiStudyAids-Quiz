@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '../ui/Button';
 import { Card, CardBody } from '../ui/Card';
-import { BookOpen, Crown, Hash, Users, Zap, Target, Brain, Trophy, Sparkles, ArrowRight, Star, Clock, Award, TrendingUp, Play, Gamepad2, Rocket, Shield, Globe, CloudLightning as Lightning, Settings } from 'lucide-react';
+import { BookOpen, Crown, Hash, Users, Zap, Target, Brain, Trophy, Sparkles, ArrowRight, Star, Clock, Award, TrendingUp, Play, Gamepad2, Rocket, Shield, Globe, Bolt, Settings } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface QuizModeSelectorProps {
