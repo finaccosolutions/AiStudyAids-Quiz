@@ -675,7 +675,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                       } ${!isCompleted && !isCompetitionFullyComplete ? 'border-l-4 border-l-orange-400' : ''}`}
                     >
                       <div className="flex items-center space-x-3 sm:space-x-6">
-                        {/* Rank Badge */}
+                        {/* Rank Badge with Medal/Crown Icons */}
                         <div className={`w-12 h-12 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-2xl shadow-lg bg-gradient-to-r ${getRankColor(rank, isCompleted)}`}>
                           {getRankIcon(rank, isCompleted)}
                         </div>

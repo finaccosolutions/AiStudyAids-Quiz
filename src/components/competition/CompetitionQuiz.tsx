@@ -232,38 +232,58 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   ]);
 
   // New function to handle competition completion with proper database updates
-  const handleCompetitionCompletion = async (finalScore: number, correctAnswers: number, timeTaken: number, answers: Record<number, string>) => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/competition-completion`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          competitionId: competition.id,
-          userId: user?.id,
-          finalScore,
-          correctAnswers,
-          timeTaken,
-          answers
-        })
+const handleCompetitionCompletion = async (finalScore: number, correctAnswers: number, timeTaken: number, answers: Record<number, string>) => {
+  try {
+    console.log('Attempting to complete competition with:', {
+      competitionId: competition.id,
+      userId: user?.id,
+      finalScore,
+      correctAnswers,
+      timeTaken,
+      answers
+    });
+
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/competition-completion`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        competitionId: competition.id,
+        userId: user?.id,
+        finalScore,
+        correctAnswers,
+        timeTaken,
+        answers
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('API Error Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to complete competition');
-      }
-
-      const result = await response.json();
-      console.log('Competition completion result:', result);
-      
-      return result;
-    } catch (error) {
-      console.error('Error completing competition:', error);
-      // Fallback to original method
-      await completeCompetition(competition.id);
+      throw new Error(errorData.error || 'Failed to complete competition');
     }
-  };
+
+    const result = await response.json();
+    console.log('Competition completion result:', result);
+    
+    return result;
+  } catch (error) {
+    console.error('Detailed competition completion error:', error);
+    // Fallback to original method
+    try {
+      await completeCompetition(competition.id);
+    } catch (fallbackError) {
+      console.error('Fallback method also failed:', fallbackError);
+      throw fallbackError;
+    }
+  }
+};
 
   const handleLeaveQuiz = async () => {
     if (isSubmitting) return;
