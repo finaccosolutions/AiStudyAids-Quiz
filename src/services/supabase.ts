@@ -4,123 +4,183 @@ import { ApiKeyData, QuizPreferences, UserProfile, QuizResultData, FavoriteQuest
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Enhanced validation and error logging
 if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables:', {
+    url: supabaseUrl ? 'present' : 'missing',
+    key: supabaseAnonKey ? 'present' : 'missing'
+  });
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Validate URL format
+try {
+  new URL(supabaseUrl);
+} catch (error) {
+  console.error('Invalid Supabase URL format:', supabaseUrl);
+  throw new Error('Invalid Supabase URL format');
+}
+
+console.log('Initializing Supabase client with URL:', supabaseUrl);
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'quiz-app'
+    }
+  }
+});
+
+// Test connection function
+export const testConnection = async () => {
+  try {
+    const { data, error } = await supabase.from('profiles').select('count').limit(1);
+    if (error) {
+      console.error('Supabase connection test failed:', error);
+      return false;
+    }
+    console.log('Supabase connection test successful');
+    return true;
+  } catch (error) {
+    console.error('Supabase connection test error:', error);
+    return false;
+  }
+};
 
 // API Key functions
 export const getApiKey = async (userId: string): Promise<string | null> => {
-  const { data, error } = await supabase
-    .from('api_keys')
-    .select('gemini_api_key')
-    .eq('user_id', userId)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('gemini_api_key')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  if (error) throw error;
-  return data?.gemini_api_key || null;
+    if (error) {
+      console.error('Error fetching API key:', error);
+      throw error;
+    }
+    return data?.gemini_api_key || null;
+  } catch (error) {
+    console.error('getApiKey error:', error);
+    throw error;
+  }
 };
 
 export const saveApiKey = async (userId: string, apiKey: string) => {
-  // First try to update existing key
-  const { data: existingKey } = await supabase
-    .from('api_keys')
-    .select('id')
-    .eq('user_id', userId)
-    .maybeSingle();
+  try {
+    // First try to update existing key
+    const { data: existingKey } = await supabase
+      .from('api_keys')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  if (existingKey) {
-    // Update existing key
-    return supabase
-      .from('api_keys')
-      .update({ gemini_api_key: apiKey })
-      .eq('user_id', userId);
-  } else {
-    // Insert new key
-    return supabase
-      .from('api_keys')
-      .insert({ user_id: userId, gemini_api_key: apiKey });
+    if (existingKey) {
+      // Update existing key
+      return supabase
+        .from('api_keys')
+        .update({ gemini_api_key: apiKey })
+        .eq('user_id', userId);
+    } else {
+      // Insert new key
+      return supabase
+        .from('api_keys')
+        .insert({ user_id: userId, gemini_api_key: apiKey });
+    }
+  } catch (error) {
+    console.error('saveApiKey error:', error);
+    throw error;
   }
 };
 
-  // Quiz preferences functions
+// Quiz preferences functions
 export const getQuizPreferences = async (userId: string): Promise<QuizPreferences | null> => {
-  const { data, error } = await supabase
-    .from('quiz_preferences')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from('quiz_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  if (error) throw error;
+    if (error) {
+      console.error('Error fetching quiz preferences:', error);
+      throw error;
+    }
 
-  if (!data) return null;
+    if (!data) return null;
 
-return {
-  course: data.course || '',
-  topic: data.topic || '',
-  subtopic: data.subtopic || '',
-  questionCount: data.question_count || 5,
-  questionTypes: data.question_types || ['multiple-choice'],
-  language: data.language || 'English',
-  difficulty: data.difficulty || 'medium',
-  // Updated time limits - keep as string or null
-  timeLimit: data.time_limit || null,
-  totalTimeLimit: data.total_time_limit || null, 
-  timeLimitEnabled: data.time_limit_enabled || false,
-  negativeMarking: data.negative_marking || false,
-  negativeMarks: data.negative_marks || 0,
-  mode: data.mode || 'practice',
-  answerMode: data.mode === 'practice' ? 'immediate' : 'end'
+    return {
+      course: data.course || '',
+      topic: data.topic || '',
+      subtopic: data.subtopic || '',
+      questionCount: data.question_count || 5,
+      questionTypes: data.question_types || ['multiple-choice'],
+      language: data.language || 'English',
+      difficulty: data.difficulty || 'medium',
+      // Updated time limits - keep as string or null
+      timeLimit: data.time_limit || null,
+      totalTimeLimit: data.total_time_limit || null, 
+      timeLimitEnabled: data.time_limit_enabled || false,
+      negativeMarking: data.negative_marking || false,
+      negativeMarks: data.negative_marks || 0,
+      mode: data.mode || 'practice',
+      answerMode: data.mode === 'practice' ? 'immediate' : 'end'
+    };
+  } catch (error) {
+    console.error('getQuizPreferences error:', error);
+    throw error;
+  }
 };
-};
-
-
-
 
 export const saveQuizPreferences = async (userId: string, preferences: QuizPreferences) => {
-  // First try to update existing preferences
-  const { data: existingPrefs } = await supabase
-    .from('quiz_preferences')
-    .select('id')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-// Replace this section in saveQuizPreferences function:
-const prefsData = {
-  user_id: userId,
-  course: preferences.course || '',
-  topic: preferences.topic || '',
-  subtopic: preferences.subtopic || '',
-  question_count: preferences.questionCount || 5,
-  question_types: preferences.questionTypes || ['multiple-choice'],
-  language: preferences.language || 'English',
-  difficulty: preferences.difficulty || 'medium',
-  // Updated time limit handling
-  time_limit: preferences.timeLimitEnabled && preferences.timeLimit ? preferences.timeLimit : null,
-  total_time_limit: preferences.timeLimitEnabled && preferences.totalTimeLimit ? preferences.totalTimeLimit : null,
-  time_limit_enabled: preferences.timeLimitEnabled || false,
-  negative_marking: preferences.negativeMarking || false,
-  negative_marks: preferences.negativeMarks || 0,
-  mode: preferences.mode || 'practice'
-};
-
-
-  if (existingPrefs) {
-    return supabase
+  try {
+    // First try to update existing preferences
+    const { data: existingPrefs } = await supabase
       .from('quiz_preferences')
-      .update(prefsData)
-      .eq('user_id', userId);
-  } else {
-    return supabase
-      .from('quiz_preferences')
-      .insert(prefsData);
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    // Replace this section in saveQuizPreferences function:
+    const prefsData = {
+      user_id: userId,
+      course: preferences.course || '',
+      topic: preferences.topic || '',
+      subtopic: preferences.subtopic || '',
+      question_count: preferences.questionCount || 5,
+      question_types: preferences.questionTypes || ['multiple-choice'],
+      language: preferences.language || 'English',
+      difficulty: preferences.difficulty || 'medium',
+      // Updated time limit handling
+      time_limit: preferences.timeLimitEnabled && preferences.timeLimit ? preferences.timeLimit : null,
+      total_time_limit: preferences.timeLimitEnabled && preferences.totalTimeLimit ? preferences.totalTimeLimit : null,
+      time_limit_enabled: preferences.timeLimitEnabled || false,
+      negative_marking: preferences.negativeMarking || false,
+      negative_marks: preferences.negativeMarks || 0,
+      mode: preferences.mode || 'practice'
+    };
+
+    if (existingPrefs) {
+      return supabase
+        .from('quiz_preferences')
+        .update(prefsData)
+        .eq('user_id', userId);
+    } else {
+      return supabase
+        .from('quiz_preferences')
+        .insert(prefsData);
+    }
+  } catch (error) {
+    console.error('saveQuizPreferences error:', error);
+    throw error;
   }
 };
-
-
-
-
 
 // Auth functions
 export const signUp = async (
@@ -131,97 +191,116 @@ export const signUp = async (
   countryCode: string = 'IN',
   countryName: string = 'India'
 ) => {
-  // Sign up user with email confirmation required
-  const { data, error } = await supabase.auth.signUp({ 
-    email, 
-    password,
-    options: {
-      data: {
-        full_name: fullName,
-        registration_status: 'pending_verification',
-        registration_date: new Date().toISOString(),
-      },
-      emailRedirectTo: `${window.location.origin}/auth?mode=signin`,
-    }
-  });
+  try {
+    // Sign up user with email confirmation required
+    const { data, error } = await supabase.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          registration_status: 'pending_verification',
+          registration_date: new Date().toISOString(),
+        },
+        emailRedirectTo: `${window.location.origin}/auth?mode=signin`,
+      }
+    });
 
-  if (error) {
-    // Check if email already exists
-    if (error.message.includes('already registered') || error.message.includes('already been registered')) {
-      throw new Error('This email address is already registered. Please sign in instead.');
+    if (error) {
+      console.error('SignUp error:', error);
+      // Check if email already exists
+      if (error.message.includes('already registered') || error.message.includes('already been registered')) {
+        throw new Error('This email address is already registered. Please sign in instead.');
+      }
+      throw error;
     }
+
+    if (data?.user) {
+      // Use the send-verification Edge Function to create profile with service role privileges
+      try {
+        const response = await fetch(`${supabaseUrl}/functions/v1/send-verification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({
+            userId: data.user.id,
+            email: email,
+            name: fullName,
+            mobileNumber: mobileNumber,
+            countryCode: countryCode,
+            countryName: countryName
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          const errorMessage = errorData?.error || 'Failed to create profile';
+          const errorDetails = errorData?.details || '';
+          console.error('Profile creation via Edge Function failed:', errorMessage, errorDetails);
+          throw new Error(`${errorMessage}${errorDetails ? ': ' + errorDetails : ''}`);
+        }
+
+        const responseData = await response.json();
+        console.log('Profile creation successful:', responseData);
+      } catch (fetchError: any) {
+        console.error('Profile creation error:', fetchError);
+        // If it's a network error or other fetch error, provide a more specific message
+        if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
+          throw new Error('Network error: Unable to complete registration');
+        }
+        throw new Error(fetchError.message || 'Failed to create profile');
+      }
+    } else {
+      throw new Error('User registration failed - no user data returned');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('signUp error:', error);
     throw error;
   }
-
-  if (data?.user) {
-    // Use the send-verification Edge Function to create profile with service role privileges
-    try {
-      const response = await fetch(`${supabaseUrl}/functions/v1/send-verification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({
-          userId: data.user.id,
-          email: email,
-          name: fullName,
-          mobileNumber: mobileNumber,
-          countryCode: countryCode,
-          countryName: countryName
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const errorMessage = errorData?.error || 'Failed to create profile';
-        const errorDetails = errorData?.details || '';
-        console.error('Profile creation via Edge Function failed:', errorMessage, errorDetails);
-        throw new Error(`${errorMessage}${errorDetails ? ': ' + errorDetails : ''}`);
-      }
-
-      const responseData = await response.json();
-      console.log('Profile creation successful:', responseData);
-    } catch (fetchError: any) {
-      console.error('Profile creation error:', fetchError);
-      // If it's a network error or other fetch error, provide a more specific message
-      if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
-        throw new Error('Network error: Unable to complete registration');
-      }
-      throw new Error(fetchError.message || 'Failed to create profile');
-    }
-  } else {
-    throw new Error('User registration failed - no user data returned');
-  }
-
-  return data;
 };
 
 export const signIn = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  
-  if (error) throw error;
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    if (error) {
+      console.error('SignIn error:', error);
+      throw error;
+    }
 
-  // Check if email is confirmed
-  if (!data.user.email_confirmed_at) {
-    throw new Error('Please confirm your email address before signing in');
+    // Check if email is confirmed
+    if (!data.user.email_confirmed_at) {
+      throw new Error('Please confirm your email address before signing in');
+    }
+
+    return { data, error };
+  } catch (error) {
+    console.error('signIn error:', error);
+    throw error;
   }
-
-  return { data, error };
 };
 
 export const signOut = async () => {
-  return supabase.auth.signOut();
+  try {
+    return supabase.auth.signOut();
+  } catch (error) {
+    console.error('signOut error:', error);
+    throw error;
+  }
 };
 
 export const getCurrentUser = async () => {
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  
-  if (userError || !user) {
-    return { data: null, error: userError };
-  }
-
   try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      return { data: null, error: userError };
+    }
+
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -229,7 +308,10 @@ export const getCurrentUser = async () => {
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (profileError) throw profileError;
+    if (profileError) {
+      console.error('Profile fetch error:', profileError);
+      throw profileError;
+    }
 
     if (!profile) {
       // If no profile is found, this is an error state
@@ -257,6 +339,7 @@ export const getCurrentUser = async () => {
       error: null,
     };
   } catch (err: any) {
+    console.error('getCurrentUser error:', err);
     return {
       data: null,
       error: {
@@ -268,85 +351,126 @@ export const getCurrentUser = async () => {
 };
 
 export const resetPassword = async (email: string) => {
-  return supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/reset-password`,
-  });
+  try {
+    return supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+  } catch (error) {
+    console.error('resetPassword error:', error);
+    throw error;
+  }
 };
 
 export const updatePassword = async (newPassword: string) => {
-  return supabase.auth.updateUser({ password: newPassword });
+  try {
+    return supabase.auth.updateUser({ password: newPassword });
+  } catch (error) {
+    console.error('updatePassword error:', error);
+    throw error;
+  }
 };
 
 export const updateProfile = async (userId: string, profile: Partial<UserProfile>) => {
-  return supabase
-    .from('profiles')
-    .update({
-      full_name: profile.fullName,
-      mobile_number: profile.mobileNumber,
-      avatar_url: profile.avatarUrl,
-      country_code: profile.countryCode,
-      country_name: profile.countryName,
-    })
-    .eq('user_id', userId);
+  try {
+    return supabase
+      .from('profiles')
+      .update({
+        full_name: profile.fullName,
+        mobile_number: profile.mobileNumber,
+        avatar_url: profile.avatarUrl,
+        country_code: profile.countryCode,
+        country_name: profile.countryName,
+      })
+      .eq('user_id', userId);
+  } catch (error) {
+    console.error('updateProfile error:', error);
+    throw error;
+  }
 };
 
 export const getQuizResults = async (userId: string) => {
-  const { data, error } = await supabase
-    .from('quiz_results')
-    .select('*')
-    .eq('user_id', userId)
-    .order('quiz_date', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('quiz_results')
+      .select('*')
+      .eq('user_id', userId)
+      .order('quiz_date', { ascending: false });
 
-  if (error) throw error;
+    if (error) {
+      console.error('Error fetching quiz results:', error);
+      throw error;
+    }
 
-  return data.map(result => ({
-    id: result.id,
-    quizDate: new Date(result.quiz_date),
-    topic: result.topic,
-    score: result.score,
-    totalQuestions: result.total_questions,
-    timeTaken: result.time_taken,
-  }));
+    return data.map(result => ({
+      id: result.id,
+      quizDate: new Date(result.quiz_date),
+      topic: result.topic,
+      score: result.score,
+      totalQuestions: result.total_questions,
+      timeTaken: result.time_taken,
+    }));
+  } catch (error) {
+    console.error('getQuizResults error:', error);
+    throw error;
+  }
 };
 
 // Favorite questions functions
 export const saveFavoriteQuestion = async (userId: string, question: Omit<FavoriteQuestion, 'id' | 'createdAt'>) => {
-  return supabase
-    .from('favorite_questions')
-    .insert({
-      user_id: userId,
-      question_text: question.questionText,
-      answer: question.answer,
-      explanation: question.explanation,
-      topic: question.topic,
-    });
+  try {
+    return supabase
+      .from('favorite_questions')
+      .insert({
+        user_id: userId,
+        question_text: question.questionText,
+        answer: question.answer,
+        explanation: question.explanation,
+        topic: question.topic,
+      });
+  } catch (error) {
+    console.error('saveFavoriteQuestion error:', error);
+    throw error;
+  }
 };
 
 export const getFavoriteQuestions = async (userId: string) => {
-  const { data, error } = await supabase
-    .from('favorite_questions')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('favorite_questions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-  if (error) throw error;
+    if (error) {
+      console.error('Error fetching favorite questions:', error);
+      throw error;
+    }
 
-  return data.map(question => ({
-    id: question.id,
-    questionText: question.question_text,
-    answer: question.answer,
-    explanation: question.explanation,
-    topic: question.topic,
-    createdAt: new Date(question.created_at),
-  }));
+    return data.map(question => ({
+      id: question.id,
+      questionText: question.question_text,
+      answer: question.answer,
+      explanation: question.explanation,
+      topic: question.topic,
+      createdAt: new Date(question.created_at),
+    }));
+  } catch (error) {
+    console.error('getFavoriteQuestions error:', error);
+    throw error;
+  }
 };
 
 export const removeFavoriteQuestion = async (userId: string, questionId: string) => {
-  return supabase
-    .from('favorite_questions')
-    .delete()
-    .eq('user_id', userId)
-    .eq('id', questionId);
+  try {
+    return supabase
+      .from('favorite_questions')
+      .delete()
+      .eq('user_id', userId)
+      .eq('id', questionId);
+  } catch (error) {
+    console.error('removeFavoriteQuestion error:', error);
+    throw error;
+  }
 };
 
 // Enhanced quiz results functions
@@ -356,86 +480,115 @@ export const saveQuizResultToDatabase = async (
   preferences: QuizPreferences,
   sessionMetadata?: any
 ) => {
-  const sessionId = `quiz_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-  
-  const quizResultData = {
-    user_id: userId,
-    course: preferences.course || '',
-    topic: preferences.topic,
-    subtopic: preferences.subtopic,
-    difficulty: preferences.difficulty,
-    question_types: preferences.questionTypes,
-    language: preferences.language,
-    mode: preferences.mode,
+  try {
+    const sessionId = `quiz_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
     
-    total_questions: result.totalQuestions,
-    questions_attempted: result.questionsAttempted,
-    questions_skipped: result.questionsSkipped,
-    questions_correct: result.correctAnswers,
-    questions_incorrect: result.questionsAttempted - result.correctAnswers,
-    
-    raw_score: result.rawScore,
-    percentage_score: result.percentage,
-    final_score: result.finalScore,
-    negative_marking_applied: preferences.negativeMarking || false,
-    negative_marks_deducted: result.negativeMarksDeducted || 0,
-    
-    time_limit_enabled: preferences.timeLimitEnabled || false,
-    time_limit_per_question: preferences.timeLimit ? parseInt(preferences.timeLimit) : null,
-    total_time_limit: preferences.totalTimeLimit ? parseInt(preferences.totalTimeLimit) : null,
-    
-    question_type_performance: result.questionTypePerformance,
-    question_details: result.questions,
-    
-    session_id: sessionId,
-    device_info: sessionMetadata || {},
-    
-    completed_at: new Date().toISOString()
-  };
+    const quizResultData = {
+      user_id: userId,
+      course: preferences.course || '',
+      topic: preferences.topic,
+      subtopic: preferences.subtopic,
+      difficulty: preferences.difficulty,
+      question_types: preferences.questionTypes,
+      language: preferences.language,
+      mode: preferences.mode,
+      
+      total_questions: result.totalQuestions,
+      questions_attempted: result.questionsAttempted,
+      questions_skipped: result.questionsSkipped,
+      questions_correct: result.correctAnswers,
+      questions_incorrect: result.questionsAttempted - result.correctAnswers,
+      
+      raw_score: result.rawScore,
+      percentage_score: result.percentage,
+      final_score: result.finalScore,
+      negative_marking_applied: preferences.negativeMarking || false,
+      negative_marks_deducted: result.negativeMarksDeducted || 0,
+      
+      time_limit_enabled: preferences.timeLimitEnabled || false,
+      time_limit_per_question: preferences.timeLimit ? parseInt(preferences.timeLimit) : null,
+      total_time_limit: preferences.totalTimeLimit ? parseInt(preferences.totalTimeLimit) : null,
+      
+      question_type_performance: result.questionTypePerformance,
+      question_details: result.questions,
+      
+      session_id: sessionId,
+      device_info: sessionMetadata || {},
+      
+      completed_at: new Date().toISOString()
+    };
 
-  return supabase
-    .from('quiz_results')
-    .insert(quizResultData);
+    return supabase
+      .from('quiz_results')
+      .insert(quizResultData);
+  } catch (error) {
+    console.error('saveQuizResultToDatabase error:', error);
+    throw error;
+  }
 };
 
 export const getQuizResultsWithAnalytics = async (userId: string, limit = 50) => {
-  const { data, error } = await supabase
-    .from('quiz_results')
-    .select('*')
-    .eq('user_id', userId)
-    .order('quiz_date', { ascending: false })
-    .limit(limit);
+  try {
+    const { data, error } = await supabase
+      .from('quiz_results')
+      .select('*')
+      .eq('user_id', userId)
+      .order('quiz_date', { ascending: false })
+      .limit(limit);
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.error('Error fetching quiz results with analytics:', error);
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    console.error('getQuizResultsWithAnalytics error:', error);
+    throw error;
+  }
 };
 
 export const getQuizAnalytics = async (userId: string) => {
-  const { data, error } = await supabase
-    .from('quiz_results')
-    .select(`
-      course,
-      difficulty,
-      percentage_score,
-      accuracy_rate,
-      completion_rate,
-      question_type_performance,
-      quiz_date
-    `)
-    .eq('user_id', userId)
-    .order('quiz_date', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('quiz_results')
+      .select(`
+        course,
+        difficulty,
+        percentage_score,
+        accuracy_rate,
+        completion_rate,
+        question_type_performance,
+        quiz_date
+      `)
+      .eq('user_id', userId)
+      .order('quiz_date', { ascending: false });
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.error('Error fetching quiz analytics:', error);
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    console.error('getQuizAnalytics error:', error);
+    throw error;
+  }
 };
 
 export const getCompetitionResultsHistory = async (userId: string) => {
-  const { data, error } = await supabase
-    .from('competition_results')
-    .select('*')
-    .eq('user_id', userId)
-    .order('competition_date', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('competition_results')
+      .select('*')
+      .eq('user_id', userId)
+      .order('competition_date', { ascending: false });
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.error('Error fetching competition results history:', error);
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    console.error('getCompetitionResultsHistory error:', error);
+    throw error;
+  }
 };

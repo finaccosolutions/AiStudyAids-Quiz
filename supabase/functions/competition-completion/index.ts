@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Calculate questions_answered from answers object
+    // Calculate questions_answered from answers object using JSONB function
     const questionsAnswered = answers ? Object.keys(answers).length : 0
 
     // Update participant status to completed
@@ -55,10 +55,10 @@ Deno.serve(async (req) => {
         status: 'completed',
         score: finalScore,
         correct_answers: correctAnswers,
-        questions_answered: questionsAnswered,
         time_taken: timeTaken,
         answers: answers || {},
         completed_at: new Date().toISOString()
+        // Note: questions_answered will be automatically calculated by the trigger
       })
       .eq('competition_id', competitionId)
       .eq('user_id', userId)
@@ -161,16 +161,8 @@ Deno.serve(async (req) => {
             // Calculate incorrect and skipped answers based on actual questions answered
             const incorrectAnswers = Math.max(0, questionsAnsweredByParticipant - correctAnswers)
             const skippedAnswers = Math.max(0, totalQuestions - questionsAnsweredByParticipant)
-            
-            const percentageScore = totalQuestions > 0 ? (participant.score / totalQuestions) * 100 : 0
-            const accuracyRate = questionsAnsweredByParticipant > 0 
-              ? (correctAnswers / questionsAnsweredByParticipant) * 100 
-              : 0
-            const rankPercentile = finalParticipants.length > 1 
-              ? ((finalParticipants.length - participant.rank) / (finalParticipants.length - 1)) * 100 
-              : 100
 
-            // Save to competition_results with correct ranking
+            // Save to competition_results - let triggers calculate percentage_score, accuracy_rate, rank_percentile
             const { error: resultError } = await supabase
               .from('competition_results')
               .upsert({
@@ -189,9 +181,7 @@ Deno.serve(async (req) => {
                 time_taken: participant.time_taken,
                 average_time_per_question: totalQuestions > 0 ? participant.time_taken / totalQuestions : 0,
                 points_earned: participant.points_earned || 0,
-                percentage_score: percentageScore,
-                accuracy_rate: accuracyRate,
-                rank_percentile: rankPercentile,
+                // Removed percentage_score, accuracy_rate, rank_percentile - these will be calculated by triggers
                 answers: participant.answers || {},
                 question_details: competition.questions || [],
                 quiz_preferences: competition.quiz_preferences || {},
