@@ -116,9 +116,13 @@ const validatedPreferences = {
   difficulty: preferences.difficulty || 'medium',
   language: preferences.language || 'English',
   timeLimitEnabled: preferences.timeLimitEnabled || false,
-  // Updated time limit handling - don't convert to string here
-  timeLimit: preferences.timeLimitEnabled ? preferences.timeLimit : null,
-  totalTimeLimit: preferences.timeLimitEnabled ? preferences.totalTimeLimit : null,
+  // Fixed time limit handling - ensure only one is set at a time
+  timeLimit: preferences.timeLimitEnabled && preferences.totalTimeLimit === null 
+    ? preferences.timeLimit 
+    : null,
+  totalTimeLimit: preferences.timeLimitEnabled && preferences.timeLimit === null 
+    ? preferences.totalTimeLimit 
+    : null,
   negativeMarking: preferences.negativeMarking || false,
   negativeMarks: preferences.negativeMarking ? (preferences.negativeMarks || -0.25) : 0,
   mode: preferences.mode || 'practice',

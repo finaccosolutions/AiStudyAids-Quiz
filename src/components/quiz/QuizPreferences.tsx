@@ -11,7 +11,7 @@ import {
   ChevronRight, Star, Trophy, Timer, Award,
   Sparkles, CheckCircle, AlertCircle, Crown,
   Rocket, Shield, Activity, TrendingUp,
-  ChevronDown, Search, ChevronUp
+  ChevronDown, Search, ChevronUp, Infinity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -184,11 +184,18 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
     }
   ];
 
+  const finalPreferences = {
+  ...preferences,
+  // Force exam mode for competitions
+  mode: onStartCompetition ? 'exam' : preferences.mode,
+  answerMode: onStartCompetition ? 'end' : preferences.answerMode
+};
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      await savePreferences(userId, preferences);
+      await savePreferences(userId, finalPreferences);
       
       if (isCompetitionMode && onStartCompetition) {
         setIsCreatingCompetition(true);
@@ -694,138 +701,167 @@ const decrementTime = () => {
                       </div>
                     </div>
 
-                    {/* Time Settings */}
-<div>
-  <div className="flex items-center justify-between mb-3 sm:mb-4">
-    <label className="block text-base sm:text-lg font-semibold text-slate-700">
-      Time Settings
-    </label>
-    <div className="flex items-center space-x-2">
-      {/* Per Question Button */}
-      <button
+ {/* Time Settings */}
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.6 }}
+  className="space-y-4"
+>
+  <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+    <Clock className="w-5 h-5 mr-2 text-orange-600" />
+    Time Settings
+  </h3>
+  
+  <div className="space-y-4">
+    {/* Time Limit Toggle */}
+    <div className="flex items-center justify-between p-4 bg-orange-50 rounded-xl border border-orange-200">
+      <div>
+        <label className="text-base font-medium text-gray-800">Enable Time Limit</label>
+        <p className="text-sm text-gray-600">Set time constraints for the quiz</p>
+      </div>
+      <motion.button
         type="button"
-        onClick={() => {
-          setTimeInputMode('perQuestion');
-          setPreferences(prev => ({
-            ...prev,
-            timeLimit: prev.timeLimit === '0' ? '30' : prev.timeLimit,
-            totalTimeLimit: (parseInt(prev.timeLimit === '0' ? '30' : prev.timeLimit) * prev.questionCount).toString()
-          }));
-        }}
-        className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-          preferences.timeLimit !== '0' && timeInputMode === 'perQuestion'
-            ? 'bg-blue-500 text-white shadow-md'
-            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+        onClick={() => setPreferences(prev => ({ 
+          ...prev, 
+          timeLimitEnabled: !prev.timeLimitEnabled,
+          timeLimit: null,
+          totalTimeLimit: null
+        }))}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+          preferences.timeLimitEnabled ? 'bg-orange-600' : 'bg-gray-300'
         }`}
+        whileTap={{ scale: 0.95 }}
       >
-        Per Question
-      </button>
-
-      {/* Total Time Button */}
-      <button
-        type="button"
-        onClick={() => {
-          setTimeInputMode('totalTime');
-          setPreferences(prev => ({
-            ...prev,
-            totalTimeLimit: prev.totalTimeLimit === '0' ? (30 * prev.questionCount).toString() : prev.totalTimeLimit,
-            timeLimit: Math.round(
-              parseInt(prev.totalTimeLimit === '0' ? (30 * prev.questionCount).toString() : prev.totalTimeLimit) / 
-              prev.questionCount
-            ).toString()
-          }));
-        }}
-        className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-          preferences.timeLimit !== '0' && timeInputMode === 'totalTime'
-            ? 'bg-blue-500 text-white shadow-md'
-            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-        }`}
-      >
-        Total Time
-      </button>
-
-      {/* No Limit Button */}
-      <button
-        type="button"
-        onClick={() => {
-          setPreferences(prev => ({
-            ...prev,
-            timeLimit: '0',
-            totalTimeLimit: '0'
-          }));
-        }}
-        className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-          preferences.timeLimit === '0'
-            ? 'bg-green-500 text-white shadow-md'
-            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-        }`}
-      >
-        No Limit
-      </button>
+        <motion.span
+          className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+          animate={{ x: preferences.timeLimitEnabled ? 24 : 4 }}
+        />
+      </motion.button>
     </div>
-  </div>
 
-  {/* Time Input Controls (only shown when not "No Limit") */}
-  {preferences.timeLimit !== '0' ? (
-    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm sm:text-base font-medium text-slate-700">
-          {timeInputMode === 'perQuestion' ? 'Time per Question (seconds)' : 'Total Quiz Time (seconds)'}
-        </span>
-        <div className="flex items-center space-x-2">
-          <button
+    {/* Time Limit Options */}
+    {preferences.timeLimitEnabled && (
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        exit={{ opacity: 0, height: 0 }}
+        className="space-y-4"
+      >
+        {/* Time Limit Type Selection */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <motion.button
             type="button"
-            onClick={decrementTime}
-            className="w-8 h-8 flex items-center justify-center bg-slate-200 hover:bg-slate-300 rounded-lg transition-colors"
+            onClick={() => setPreferences(prev => ({ 
+              ...prev, 
+              timeLimit: prev.timeLimit || '30',
+              totalTimeLimit: null
+            }))}
+            className={`p-3 rounded-lg border-2 transition-all duration-300 ${
+              preferences.timeLimit && !preferences.totalTimeLimit
+                ? 'border-orange-500 bg-orange-50 text-orange-700'
+                : 'border-gray-200 hover:border-orange-300 text-gray-700'
+            }`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <ChevronDown className="w-4 h-4 text-slate-700" />
-          </button>
-          <input
-            type="number"
-            min={timeInputMode === 'perQuestion' ? 5 : 30}
-            value={calculateTimeValue()}
-            onChange={(e) => {
-              const value = parseInt(e.target.value) || (timeInputMode === 'perQuestion' ? 5 : 30);
-              handleTimeInputChange(
-                Math.max(timeInputMode === 'perQuestion' ? 5 : 30, value),
-                timeInputMode
-              );
-            }}
-            className="w-16 sm:w-20 text-center font-bold text-slate-800 border border-slate-300 rounded-lg py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <button
+            <Timer className="w-5 h-5 mx-auto mb-2" />
+            <div className="text-sm font-medium">Per Question</div>
+          </motion.button>
+          
+          <motion.button
             type="button"
-            onClick={incrementTime}
-            className="w-8 h-8 flex items-center justify-center bg-slate-200 hover:bg-slate-300 rounded-lg transition-colors"
+            onClick={() => setPreferences(prev => ({ 
+              ...prev, 
+              timeLimit: null,
+              totalTimeLimit: prev.totalTimeLimit || '300'
+            }))}
+            className={`p-3 rounded-lg border-2 transition-all duration-300 ${
+              preferences.totalTimeLimit && !preferences.timeLimit
+                ? 'border-orange-500 bg-orange-50 text-orange-700'
+                : 'border-gray-200 hover:border-orange-300 text-gray-700'
+            }`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <ChevronUp className="w-4 h-4 text-slate-700" />
-          </button>
+            <Clock className="w-5 h-5 mx-auto mb-2" />
+            <div className="text-sm font-medium">Total Time</div>
+          </motion.button>
+          
+          <motion.button
+            type="button"
+            onClick={() => setPreferences(prev => ({ 
+              ...prev, 
+              timeLimit: null,
+              totalTimeLimit: null
+            }))}
+            className={`p-3 rounded-lg border-2 transition-all duration-300 ${
+              !preferences.timeLimit && !preferences.totalTimeLimit
+                ? 'border-orange-500 bg-orange-50 text-orange-700'
+                : 'border-gray-200 hover:border-orange-300 text-gray-700'
+            }`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <Infinity className="w-5 h-5 mx-auto mb-2" />
+            <div className="text-sm font-medium">No Limit</div>
+          </motion.button>
         </div>
-      </div>
-      <div className="text-xs sm:text-sm text-slate-500 mt-2">
-        {timeInputMode === 'perQuestion' ? (
-          <>
-            Total quiz time: {calculateTimeValue() * preferences.questionCount} seconds
-            ({Math.floor((calculateTimeValue() * preferences.questionCount) / 60)} min {calculateTimeValue() * preferences.questionCount % 60} sec)
-          </>
-        ) : (
-          <>
-            Time per question: {Math.round(calculateTimeValue() / preferences.questionCount)} seconds
-          </>
+
+        {/* Time Input Fields */}
+        {preferences.timeLimit && !preferences.totalTimeLimit && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center space-x-3"
+          >
+            <label className="text-sm font-medium text-gray-700 min-w-0 flex-shrink-0">
+              Seconds per question:
+            </label>
+            <input
+              type="number"
+              min="10"
+              max="300"
+              value={preferences.timeLimit || '30'}
+              onChange={(e) => setPreferences(prev => ({ 
+                ...prev, 
+                timeLimit: e.target.value 
+              }))}
+              className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            />
+            <span className="text-sm text-gray-500">seconds</span>
+          </motion.div>
         )}
-      </div>
-    </div>
-  ) : (
-    <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-      <div className="flex items-center space-x-2">
-        <CheckCircle className="w-5 h-5 text-green-500" />
-        <span className="text-sm sm:text-base font-medium text-green-700">
-          This quiz will have no time limit
-        </span>
-      </div>
-    </div>
-  )}
-</div>
+
+        {preferences.totalTimeLimit && !preferences.timeLimit && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center space-x-3"
+          >
+            <label className="text-sm font-medium text-gray-700 min-w-0 flex-shrink-0">
+              Total quiz time:
+            </label>
+            <input
+              type="number"
+              min="60"
+              max="3600"
+              value={preferences.totalTimeLimit || '300'}
+              onChange={(e) => setPreferences(prev => ({ 
+                ...prev, 
+                totalTimeLimit: e.target.value 
+              }))}
+              className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            />
+            <span className="text-sm text-gray-500">seconds</span>
+          </motion.div>
+        )}
+      </motion.div>
+    )}
+  </div>
+</motion.div>
+
+
                   </div> 
                 </div>
               </CardBody>
@@ -908,81 +944,62 @@ const decrementTime = () => {
           </motion.div>
 
           {/* Quiz Mode */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <Card className="shadow-2xl border-2 border-indigo-100 overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50">
-                <h3 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center">
-                  <Rocket className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-indigo-600" />
-                  Quiz Mode
-                </h3>
-              </CardHeader>
-              <CardBody className="p-4 sm:p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-                  {modeOptions.map((option) => {
-                    const isSelected = preferences.mode === option.value;
-                    return (
-                      <motion.button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setPreferences(prev => ({ ...prev, mode: option.value as any }))}
-                        className={`p-6 sm:p-8 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 text-left relative overflow-hidden ${
-                          isSelected
-                            ? 'border-indigo-500 bg-indigo-50 shadow-xl scale-[1.02] ring-2 sm:ring-4 ring-indigo-200'
-                            : 'border-slate-200 bg-white hover:border-indigo-300 hover:shadow-lg hover:scale-[1.01]'
-                        }`}
-                        whileHover={{ scale: isSelected ? 1.02 : 1.01 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/5 to-purple-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                        <div className="relative z-10">
-                          <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 mb-4 sm:mb-6">
-                            <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg sm:rounded-2xl flex items-center justify-center ${
-                              isSelected 
-                                ? `bg-gradient-to-r ${option.color} text-white shadow-md sm:shadow-lg`
-                                : 'bg-slate-100 text-slate-600'
-                            }`}>
-                              <option.icon className="w-6 h-6 sm:w-8 sm:h-8" />
-                            </div>
-                            <div className="flex-1">
-                              <h4 className={`text-lg sm:text-xl font-bold ${
-                                isSelected ? 'text-indigo-700' : 'text-slate-800'
-                              }`}>
-                                {option.label}
-                              </h4>
-                              <p className="text-sm sm:text-base text-slate-600 mt-1">{option.description}</p>
-                            </div>
-                            {isSelected && (
-                              <motion.div
-                                initial={{ scale: 0, rotate: -180 }}
-                                animate={{ scale: 1, rotate: 0 }}
-                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                              >
-                                <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-500" />
-                              </motion.div>
-                            )}
-                          </div>
-                          <div className="space-y-2 sm:space-y-3">
-                            {option.features.map((feature, index) => (
-                              <div key={index} className="flex items-center space-x-2 sm:space-x-3">
-                                <div className={`w-2 h-2 rounded-full ${
-                                  isSelected ? 'bg-indigo-500' : 'bg-slate-400'
-                                }`} />
-                                <span className="text-xs sm:text-sm text-slate-700 font-medium">{feature}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </CardBody>
-            </Card>
-          </motion.div>
+  {!onStartCompetition && (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: 0.7 }}
+    className="space-y-4"
+  >
+    <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+      <Target className="w-5 h-5 mr-2 text-purple-600" />
+      Quiz Mode
+    </h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {[
+        {
+          value: 'practice',
+          label: 'Practice Mode',
+          description: 'Get instant feedback after each question',
+          icon: BookOpen,
+          color: 'from-green-500 to-emerald-500'
+        },
+        {
+          value: 'exam',
+          label: 'Exam Mode',
+          description: 'See results only at the end',
+          icon: Award,
+          color: 'from-red-500 to-pink-500'
+        }
+      ].map((mode) => (
+        <motion.button
+          key={mode.value}
+          type="button"
+          onClick={() => setPreferences(prev => ({ 
+            ...prev, 
+            mode: mode.value as 'practice' | 'exam',
+            answerMode: mode.value === 'practice' ? 'immediate' : 'end'
+          }))}
+          className={`p-4 rounded-xl border-2 transition-all duration-300 text-left ${
+            preferences.mode === mode.value
+              ? 'border-purple-500 bg-purple-50 shadow-lg'
+              : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+          }`}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <div className="flex items-center space-x-3 mb-3">
+            <div className={`w-10 h-10 bg-gradient-to-r ${mode.color} rounded-lg flex items-center justify-center`}>
+              <mode.icon className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-semibold text-gray-800">{mode.label}</span>
+          </div>
+          <p className="text-sm text-gray-600">{mode.description}</p>
+        </motion.button>
+      ))}
+    </div>
+  </motion.div>
+)}
 
           {/* Scoring Settings */}
           <motion.div
