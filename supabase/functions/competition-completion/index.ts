@@ -45,6 +45,9 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Calculate questions_answered from answers object
+    const questionsAnswered = answers ? Object.keys(answers).length : 0
+
     // Update participant status to completed
     const { error: participantError } = await supabase
       .from('competition_participants')
@@ -52,6 +55,7 @@ Deno.serve(async (req) => {
         status: 'completed',
         score: finalScore,
         correct_answers: correctAnswers,
+        questions_answered: questionsAnswered,
         time_taken: timeTaken,
         answers: answers || {},
         completed_at: new Date().toISOString()
@@ -62,7 +66,7 @@ Deno.serve(async (req) => {
     if (participantError) {
       console.error('Error updating participant:', participantError)
       return new Response(
-        JSON.stringify({ error: 'Failed to update participant' }),
+        JSON.stringify({ error: 'Failed to update participant', details: participantError.message }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -73,7 +77,7 @@ Deno.serve(async (req) => {
     // Get all participants to check completion status and calculate rankings
     const { data: allParticipants, error: participantsError } = await supabase
       .from('competition_participants')
-      .select('status, user_id, score, correct_answers, time_taken, completed_at')
+      .select('status, user_id, score, correct_answers, questions_answered, time_taken, completed_at')
       .eq('competition_id', competitionId)
       .in('status', ['joined', 'completed'])
 
@@ -149,11 +153,18 @@ Deno.serve(async (req) => {
           // Save results for each participant with correct ranking
           for (const participant of finalParticipants) {
             const totalQuestions = competition.questions?.length || 0
-            const incorrectAnswers = Math.max(0, totalQuestions - participant.correct_answers)
-            const skippedAnswers = Math.max(0, totalQuestions - (participant.correct_answers + incorrectAnswers))
+            
+            // Use the explicitly calculated questions_answered from the participant record
+            const questionsAnsweredByParticipant = participant.questions_answered || 0
+            const correctAnswers = participant.correct_answers || 0
+            
+            // Calculate incorrect and skipped answers based on actual questions answered
+            const incorrectAnswers = Math.max(0, questionsAnsweredByParticipant - correctAnswers)
+            const skippedAnswers = Math.max(0, totalQuestions - questionsAnsweredByParticipant)
+            
             const percentageScore = totalQuestions > 0 ? (participant.score / totalQuestions) * 100 : 0
-            const accuracyRate = (participant.correct_answers + incorrectAnswers) > 0 
-              ? (participant.correct_answers / (participant.correct_answers + incorrectAnswers)) * 100 
+            const accuracyRate = questionsAnsweredByParticipant > 0 
+              ? (correctAnswers / questionsAnsweredByParticipant) * 100 
               : 0
             const rankPercentile = finalParticipants.length > 1 
               ? ((finalParticipants.length - participant.rank) / (finalParticipants.length - 1)) * 100 
@@ -171,7 +182,7 @@ Deno.serve(async (req) => {
                 final_rank: participant.rank, // Use the correctly calculated rank
                 total_participants: finalParticipants.length,
                 score: participant.score,
-                correct_answers: participant.correct_answers,
+                correct_answers: correctAnswers,
                 incorrect_answers: incorrectAnswers,
                 skipped_answers: skippedAnswers,
                 total_questions: totalQuestions,
