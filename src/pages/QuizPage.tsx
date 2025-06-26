@@ -29,8 +29,7 @@ const QuizPage: React.FC = () => {
     questions, generateQuiz, 
     currentQuestionIndex, answers, answerQuestion, 
     nextQuestion, prevQuestion, 
-    finishQuiz, resetQuiz, result,
-    totalTimeRemaining, updateTotalTimeRemaining
+    finishQuiz, resetQuiz, result 
   } = useQuizStore();
   
   const {
@@ -67,6 +66,7 @@ const [step, setStep] = useState<
 const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
+  const [totalTimeRemaining, setTotalTimeRemaining] = useState<number | null>(null);
   const [competitionQuestions, setCompetitionQuestions] = useState<Question[]>([]);
 
   // Component lifecycle management
@@ -278,6 +278,10 @@ useEffect(() => {
           newStep = 'results';
         } else if (questions.length > 0 && !result) {
           newStep = 'quiz';
+          // Initialize total time if set
+          if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
+            setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
+          }
         } else {
           newStep = 'mode-selector';
         }
@@ -301,30 +305,6 @@ useEffect(() => {
   return () => clearTimeout(timeoutId);
 }, [questions, result, location.state, currentCompetition, navigate, user, isInitializedRef.current, isGeneratingQuiz, preferences, step, selectedMode]);
 
-  // Total quiz timer effect - using store's totalTimeRemaining
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (totalTimeRemaining !== null && totalTimeRemaining > 0 && step === 'quiz' && questions.length > 0 && isComponentMountedRef.current) {
-      timer = setInterval(() => {
-        updateTotalTimeRemaining();
-        
-        // Check if time is up after updating
-        const currentTime = useQuizStore.getState().totalTimeRemaining;
-        if (currentTime !== null && currentTime <= 0) {
-          setTimeout(() => {
-            if (isComponentMountedRef.current) {
-              handleFinishQuiz();
-            }
-          }, 100);
-        }
-      }, 1000);
-    }
-    return () => {
-      if (timer) {
-        clearInterval(timer);
-      }
-    };
-  }, [totalTimeRemaining, step, questions.length, updateTotalTimeRemaining]);
 
   const handleFinishQuiz = useCallback(() => {
     if (!isComponentMountedRef.current) return;
@@ -334,7 +314,36 @@ useEffect(() => {
     // Force step change to results
     setStep('results');
     currentStepRef.current = 'results';
+    setTotalTimeRemaining(null);
   }, [finishQuiz]);
+
+  
+  // Total quiz timer effect
+    useEffect(() => {
+      let timer: NodeJS.Timeout;
+      // Check if totalTimeLimit is enabled and timeLimit (per question) is NOT set
+      if (totalTimeRemaining !== null && totalTimeRemaining > 0 && step === 'quiz' && questions.length > 0 && isComponentMountedRef.current && preferences?.timeLimitEnabled && preferences?.totalTimeLimit && preferences?.timeLimit === null) {
+        timer = setInterval(() => {
+          setTotalTimeRemaining(prev => {
+            if (prev === null || prev <= 1) {
+              setTimeout(() => {
+                if (isComponentMountedRef.current) {
+                  handleFinishQuiz();
+                }
+              }, 100);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+      return () => {
+        if (timer) {
+          clearInterval(timer);
+        }
+      };
+    }, [totalTimeRemaining, step, questions.length, handleFinishQuiz, preferences]);
+
 
   
   if (!isLoggedIn) {
@@ -366,6 +375,7 @@ useEffect(() => {
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
     setSelectedMode(null);
+    setTotalTimeRemaining(null);
     setCompetitionQuestions([]);
     setStep('mode-selector');
     currentStepRef.current = 'mode-selector';
@@ -409,6 +419,7 @@ useEffect(() => {
     resetQuiz();
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
+    setTotalTimeRemaining(null);
     setStep('mode-selector');
     currentStepRef.current = 'mode-selector';
   }, [resetQuiz]);
@@ -417,6 +428,7 @@ useEffect(() => {
     if (!isComponentMountedRef.current) return;
     
     resetQuiz();
+    setTotalTimeRemaining(null);
     const newStep = selectedMode === 'solo' ? 'solo-preferences' : 'mode-selector';
     setStep(newStep);
     currentStepRef.current = newStep;
@@ -800,6 +812,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
                 mode={preferences.mode || 'practice'}
                 answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
                 onQuitQuiz={handleBackToModeSelector}
+                totalTimeElapsed={Math.floor((Date.now() - Date.now()) / 1000)} // You'll need to track this properly 
                 showQuitButton={true}
               />
 

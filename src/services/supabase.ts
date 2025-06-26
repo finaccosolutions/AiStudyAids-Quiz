@@ -123,9 +123,9 @@ export const getQuizPreferences = async (userId: string): Promise<QuizPreference
       questionTypes: data.question_types || ['multiple-choice'],
       language: data.language || 'English',
       difficulty: data.difficulty || 'medium',
-      // Fixed time limits - parse to number or keep as null
-      timeLimit: data.time_limit ? Number(data.time_limit) : null,
-      totalTimeLimit: data.total_time_limit ? Number(data.total_time_limit) : null, 
+      // Updated time limits - keep as string or null
+      timeLimit: data.time_limit || null,
+      totalTimeLimit: data.total_time_limit || null, 
       timeLimitEnabled: data.time_limit_enabled || false,
       negativeMarking: data.negative_marking || false,
       negativeMarks: data.negative_marks || 0,
@@ -147,28 +147,28 @@ export const saveQuizPreferences = async (userId: string, preferences: QuizPrefe
       .eq('user_id', userId)
       .maybeSingle();
 
-    // Fixed time limit handling - store as numbers
-    const prefsData = {
-      user_id: userId,
-      course: preferences.course || '',
-      topic: preferences.topic || '',
-      subtopic: preferences.subtopic || '',
-      question_count: preferences.questionCount || 5,
-      question_types: preferences.questionTypes || ['multiple-choice'],
-      language: preferences.language || 'English',
-      difficulty: preferences.difficulty || 'medium',
-      // Store time limits as numbers directly
-      time_limit: preferences.timeLimitEnabled && preferences.timeLimit && preferences.totalTimeLimit === null 
-        ? preferences.timeLimit 
-        : null,
-      total_time_limit: preferences.timeLimitEnabled && preferences.totalTimeLimit && preferences.timeLimit === null 
-        ? preferences.totalTimeLimit 
-        : null,
-      time_limit_enabled: preferences.timeLimitEnabled || false,
-      negative_marking: preferences.negativeMarking || false,
-      negative_marks: preferences.negativeMarks || 0,
-      mode: preferences.mode || 'practice'
-    };
+    // Replace this section in saveQuizPreferences function:
+const prefsData = {
+  user_id: userId,
+  course: preferences.course || '',
+  topic: preferences.topic || '',
+  subtopic: preferences.subtopic || '',
+  question_count: preferences.questionCount || 5,
+  question_types: preferences.questionTypes || ['multiple-choice'],
+  language: preferences.language || 'English',
+  difficulty: preferences.difficulty || 'medium',
+  // Fixed time limit handling
+  time_limit: preferences.timeLimitEnabled && preferences.timeLimit && preferences.totalTimeLimit === null 
+    ? parseInt(preferences.timeLimit) 
+    : null,
+  total_time_limit: preferences.timeLimitEnabled && preferences.totalTimeLimit && preferences.timeLimit === null 
+    ? parseInt(preferences.totalTimeLimit) 
+    : null,
+  time_limit_enabled: preferences.timeLimitEnabled || false,
+  negative_marking: preferences.negativeMarking || false,
+  negative_marks: preferences.negativeMarks || 0,
+  mode: preferences.mode || 'practice'
+};
 
     if (existingPrefs) {
       return supabase
@@ -510,9 +510,8 @@ export const saveQuizResultToDatabase = async (
       negative_marks_deducted: result.negativeMarksDeducted || 0,
       
       time_limit_enabled: preferences.timeLimitEnabled || false,
-      time_limit_per_question: preferences.timeLimit || null,
-      total_time_limit: preferences.totalTimeLimit || null,
-      total_time_taken: result.timeTaken || 0,
+      time_limit_per_question: preferences.timeLimit ? parseInt(preferences.timeLimit) : null,
+      total_time_limit: preferences.totalTimeLimit ? parseInt(preferences.totalTimeLimit) : null,
       
       question_type_performance: result.questionTypePerformance,
       question_details: result.questions,
