@@ -70,7 +70,7 @@ const [step, setStep] = useState<
   const [competitionQuestions, setCompetitionQuestions] = useState<Question[]>([]);
   const [totalTimeElapsed, setTotalTimeElapsed] = useState(0);
 
-
+  
   // Component lifecycle management
   useEffect(() => {
     isComponentMountedRef.current = true;
