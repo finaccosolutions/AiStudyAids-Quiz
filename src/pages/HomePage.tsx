@@ -272,7 +272,7 @@ const HomePage: React.FC = () => {
               className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-4 text-lg font-semibold shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 group relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              <div className="relative flex items-center">
+              <div className="relative flex items-center text-white group-hover:text-white transition-colors duration-300">
                 <Rocket className="w-6 h-6 mr-2 group-hover:animate-bounce" />
                 Start Learning Now
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
@@ -552,17 +552,21 @@ const HomePage: React.FC = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button
-                onClick={handleGetStarted}
-                className="bg-white text-purple-700 hover:bg-purple-50 px-8 py-4 text-lg font-semibold shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 group relative overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-100/0 via-purple-100/50 to-purple-100/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                <div className="relative flex items-center">
-                  <Zap className="w-6 h-6 mr-2 group-hover:animate-pulse" />
-                  Start Learning Free
-                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
-                </div>
-              </Button>
+        <Button
+          onClick={handleGetStarted}
+          className="bg-purple-600 text-transparent group-hover:text-white px-8 py-4 text-lg font-semibold shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 group relative overflow-hidden"
+        >
+          {/* Animated Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-100/0 via-purple-100/50 to-purple-100/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+        
+          {/* Button Content */}
+          <div className="relative flex items-center text-transparent group-hover:text-white transition-colors duration-300">
+            <Zap className="w-6 h-6 mr-2 group-hover:animate-pulse" />
+            Start Learning Free
+            <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+          </div>
+        </Button>
+
               
               <div className="flex items-center space-x-2 text-purple-100">
                 <CheckCircle className="w-5 h-5" />

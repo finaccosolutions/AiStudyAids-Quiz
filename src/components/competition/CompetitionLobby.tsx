@@ -185,40 +185,52 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     useEffect(() => {
       if (!isComponentMounted) return;
     
-      if (competition.status === 'active') {
-        if (!countdownInitiated) { // Only initiate if not already initiated for this active phase
-          console.log('Initiating countdown for competition:', competition.id);
-          setCountdownInitiated(true);
-          setCountdown(5); // Start countdown from 5
+      let timer: NodeJS.Timeout | null = null;
     
-          const timer = setInterval(() => {
+      // Add this console.log to see the status and current countdown value
+      console.log('Countdown useEffect triggered. Status:', competition.status, 'Current countdown:', countdown);
+    
+      if (competition.status === 'active') {
+        // If countdown is not yet set, initialize it
+        if (countdown === null) {
+          setCountdown(5);
+          console.log('Countdown initialized to 5.');
+        }
+    
+        // Start the interval if countdown is active and not yet finished
+        if (countdown !== null && countdown > 0) {
+          console.log('Starting countdown interval for:', countdown);
+          timer = setInterval(() => {
             setCountdown(prev => {
+              // Add this console.log to see the value inside the interval
+              console.log('Interval tick. Previous countdown:', prev);
               if (prev === null || prev <= 1) {
-                clearInterval(timer);
+                clearInterval(timer!);
                 if (isComponentMounted) {
                   console.log('Countdown finished, calling onStartQuiz');
-                  onStartQuiz();
+                  onStartQuiz(); // Call the function to start the quiz
                 }
                 return null;
               }
               return prev - 1;
             });
           }, 1000);
-    
-          return () => {
-            console.log('Cleaning up countdown timer');
-            clearInterval(timer);
-          };
         }
       } else {
-        // Reset countdown state if competition is not active
-        if (countdownInitiated) {
+        // Reset countdown if competition is not active
+        if (countdown !== null) {
           console.log('Competition not active, resetting countdown state.');
-          setCountdown(null);
-          setCountdownInitiated(false);
         }
+        setCountdown(null);
       }
-    }, [competition.status, countdownInitiated, onStartQuiz, isComponentMounted, competition.id]);
+    
+      return () => {
+        if (timer) {
+          console.log('Clearing countdown interval.');
+          clearInterval(timer);
+        }
+      };
+    }, [competition.status, countdown, onStartQuiz, isComponentMounted]);
 
   // Periodic data refresh to ensure consistency - using centralized function
   useEffect(() => {
