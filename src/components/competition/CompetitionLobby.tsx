@@ -231,7 +231,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
         }
       };
     }, [competition.status, countdown, onStartQuiz, isComponentMounted]);
-
+ 
   // Periodic data refresh to ensure consistency - using centralized function
   useEffect(() => {
     if (!competition.id || !isComponentMounted) return;
