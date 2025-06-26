@@ -42,7 +42,8 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     sendChatMessage,
     subscribeToChat,
     loadParticipants,
-    leaveCompetition
+    leaveCompetition,
+    cancelCompetition
   } = useCompetitionStore();
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -289,6 +290,10 @@ const handleCompetitionCompletion = async (finalScore: number, correctAnswers: n
     
     setIsSubmitting(true);
     try {
+        if (isCreator) {
+          await cancelCompetition(competition.id); // Creator cancels the competition
+        }
+        // All participants (including creator if not cancelled) leave
       await leaveCompetition(competition.id);
       if (onLeave) {
         onLeave();
@@ -468,8 +473,8 @@ const handleCompetitionCompletion = async (finalScore: number, correctAnswers: n
     onFinish={handleNextQuestion} // handleNextQuestion will check if it's last question
     language={competition.quiz_preferences?.language || 'English'}
     timeLimitEnabled={competition.quiz_preferences?.timeLimitEnabled || false}
-    timeLimit={competition.quiz_preferences?.timeLimit}
-    totalTimeLimit={competition.quiz_preferences?.totalTimeLimit}
+    timeLimit={competition.quiz_preferences?.timeLimit} // Per-question limit
+    totalTimeLimit={competition.quiz_preferences?.totalTimeLimit} // Total quiz limit
     totalTimeRemaining={totalTimeElapsed} // Use totalTimeElapsed for overall timer
     mode="exam" // Competition is always exam mode
     answerMode="immediate" // Answers are recorded immediately

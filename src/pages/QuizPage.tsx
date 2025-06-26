@@ -63,11 +63,12 @@ const [step, setStep] = useState<
 >('mode-selector');
 
 // Add a new state for tracking quiz generation
-const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
-  
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
   const [totalTimeRemaining, setTotalTimeRemaining] = useState<number | null>(null);
   const [competitionQuestions, setCompetitionQuestions] = useState<Question[]>([]);
+  const [totalTimeElapsed, setTotalTimeElapsed] = useState(0);
+
 
   // Component lifecycle management
   useEffect(() => {
@@ -344,6 +345,21 @@ useEffect(() => {
       };
     }, [totalTimeRemaining, step, questions.length, handleFinishQuiz, preferences]);
 
+    // Total time elapsed timer for solo quiz
+    useEffect(() => {
+      let timer: NodeJS.Timeout;
+      if (step === 'quiz' && questions.length > 0 && isComponentMountedRef.current) {
+        timer = setInterval(() => {
+          setTotalTimeElapsed(prev => prev + 1);
+        }, 1000);
+      }
+      return () => {
+        if (timer) {
+          clearInterval(timer);
+        }
+        setTotalTimeElapsed(0); // Reset when quiz ends or component unmounts
+      };
+    }, [step, questions.length]);
 
   
   if (!isLoggedIn) {
@@ -812,7 +828,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
                 mode={preferences.mode || 'practice'}
                 answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
                 onQuitQuiz={handleBackToModeSelector}
-                totalTimeElapsed={Math.floor((Date.now() - Date.now()) / 1000)} // You'll need to track this properly 
+                totalTimeElapsed={totalTimeElapsed}
                 showQuitButton={true}
               />
 

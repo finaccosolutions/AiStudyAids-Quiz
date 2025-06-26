@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { speechService } from '../../services/speech';
-
+ 
 interface QuizQuestionProps {
   question: Question;
   questionNumber: number;
@@ -388,7 +388,7 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
                         key={step}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="flex items-center space-x-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm"
+                        className="flex items-center space-x-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm text-gray-800"
                       >
                         <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
                           {index + 1}
@@ -602,20 +602,29 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
               )}
 
               {/* Total Timer */}
-              {totalTimeRemaining !== null && (
-                <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${
-                  totalTimeRemaining <= 60 
-                    ? 'bg-red-100 text-red-700 animate-pulse' 
-                    : totalTimeRemaining <= 300 
-                      ? 'bg-yellow-100 text-yellow-700' 
-                      : 'bg-green-100 text-green-700'
-                }`}>
-                  <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="font-mono font-bold text-sm sm:text-base">
-                    {formatTime(totalTimeRemaining)}
-                  </span>
-                </div>
-              )}
+              {(totalTimeRemaining !== null && timeLimitEnabled && totalTimeLimit && !timeLimit) ? (
+                 <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${
+                    totalTimeRemaining <= 60
+                      ? 'bg-red-100 text-red-700 animate-pulse'
+                      : totalTimeRemaining <= 300
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-green-100 text-green-700'
+                  }`}>
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="font-mono font-bold text-sm sm:text-base">
+                      {formatTime(totalTimeRemaining)}
+                    </span>
+                  </div>
+                ) : (totalTimeElapsed !== undefined && !timeLimitEnabled) && (
+                  // This block runs when no time limits are enabled (neither per-question nor total).
+                  // It displays the 'totalTimeElapsed'.
+                  <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-700">
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="font-mono font-bold text-sm sm:text-base">
+                      {formatTime(totalTimeElapsed)}
+                    </span>
+                  </div>
+                )}
 
               {/* Speech Button */}
               <button
@@ -720,7 +729,7 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
                 <div className="flex items-center space-x-3">
                   <Button
                     onClick={onPrevious}
-                    disabled={questionNumber === 1}
+                    disabled={questionNumber === 1 || (timeLimitEnabled && timeLimit !== null)} 
                     variant="outline"
                     className="flex items-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   >

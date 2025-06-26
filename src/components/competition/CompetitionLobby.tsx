@@ -196,7 +196,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
           if (prev === null || prev <= 1) {
             clearInterval(timer);
             if (isComponentMounted) {
-              console.log('Countdown finished, starting quiz');
+              console.log('Countdown finished, calling onStartQuiz');
               onStartQuiz();
             }
             return null;
@@ -277,6 +277,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
 
   // Show countdown screen
   if (countdown !== null) {
+  if (countdown !== null && competition.status === 'active') { 
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative overflow-hidden px-4">
         {/* Animated Background */}
@@ -342,7 +343,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
         </motion.div>
       </div>
     );
-  }
+  }}
 
   // Show cancelled/completed message
   if (competition.status === 'cancelled' || competition.status === 'completed') {
