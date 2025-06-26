@@ -182,35 +182,43 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     }, [competition.id, isComponentMounted, loadParticipants]);
 
   // Enhanced status monitoring with countdown flickering fix
-  useEffect(() => {
-    if (!isComponentMounted) return;
+    useEffect(() => {
+      if (!isComponentMounted) return;
     
-    // Only initiate countdown if competition is active AND countdown hasn't been initiated yet
-    if (competition.status === 'active' && !countdownInitiated) {
-      console.log('Initiating countdown for competition:', competition.id);
-      setCountdownInitiated(true);
-      setCountdown(5);
-      
-      const timer = setInterval(() => {
-        setCountdown(prev => {
-          if (prev === null || prev <= 1) {
+      if (competition.status === 'active') {
+        if (!countdownInitiated) { // Only initiate if not already initiated for this active phase
+          console.log('Initiating countdown for competition:', competition.id);
+          setCountdownInitiated(true);
+          setCountdown(5); // Start countdown from 5
+    
+          const timer = setInterval(() => {
+            setCountdown(prev => {
+              if (prev === null || prev <= 1) {
+                clearInterval(timer);
+                if (isComponentMounted) {
+                  console.log('Countdown finished, calling onStartQuiz');
+                  onStartQuiz();
+                }
+                return null;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+    
+          return () => {
+            console.log('Cleaning up countdown timer');
             clearInterval(timer);
-            if (isComponentMounted) {
-              console.log('Countdown finished, calling onStartQuiz');
-              onStartQuiz();
-            }
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      return () => {
-        console.log('Cleaning up countdown timer');
-        clearInterval(timer);
-      };
-    }
-  }, [competition.status, countdownInitiated, onStartQuiz, isComponentMounted, competition.id]);
+          };
+        }
+      } else {
+        // Reset countdown state if competition is not active
+        if (countdownInitiated) {
+          console.log('Competition not active, resetting countdown state.');
+          setCountdown(null);
+          setCountdownInitiated(false);
+        }
+      }
+    }, [competition.status, countdownInitiated, onStartQuiz, isComponentMounted, competition.id]);
 
   // Periodic data refresh to ensure consistency - using centralized function
   useEffect(() => {
@@ -692,10 +700,13 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
                       <span className="font-semibold text-slate-700">Time Limit</span>
                     </div>
                     <p className="text-slate-800 font-medium text-base sm:text-lg">
-                      {competition.quiz_preferences?.timeLimitEnabled 
-                        ? `${competition.quiz_preferences?.timeLimit}s per question`
-                        : 'No time limit'
-                      }
+                      {competition.quiz_preferences?.timeLimitEnabled ? (
+                        competition.quiz_preferences?.timeLimit ?
+                          `${competition.quiz_preferences.timeLimit}s per question` :
+                          competition.quiz_preferences?.totalTimeLimit ?
+                            `${competition.quiz_preferences.totalTimeLimit}s total` :
+                            'Configured' // Fallback if enabled but no specific limit
+                      ) : 'No time limit'}
                     </p>
                   </motion.div>
                   

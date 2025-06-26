@@ -60,73 +60,84 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isAnswered, setIsAnswered] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState(userAnswer);
+  const prevQuestionId = useRef<number | null>(null);
   
   const questionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const totalTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isComponentMountedRef = useRef(true);
 
   // Initialize timers based on preferences
-  useEffect(() => {
-    isComponentMountedRef.current = true;
-    
-    // Set up per-question timer if enabled and timeLimit is set
-    if (timeLimitEnabled && timeLimit && !totalTimeLimit) {
-      const timeInSeconds = parseInt(timeLimit);
-      if (!isNaN(timeInSeconds) && timeInSeconds > 0) {
-        setQuestionTimeLeft(timeInSeconds);
-      }
+useEffect(() => {
+  isComponentMountedRef.current = true;
+
+  // Reset questionTimeLeft for each new question if per-question time limit is enabled
+  if (timeLimitEnabled && timeLimit && !totalTimeLimit) {
+    const timeInSeconds = parseInt(timeLimit);
+    if (!isNaN(timeInSeconds) && timeInSeconds > 0) {
+      setQuestionTimeLeft(timeInSeconds);
     }
+  } else {
+    setQuestionTimeLeft(null); // Clear per-question timer if not applicable
+  }
 
-    return () => {
-      isComponentMountedRef.current = false;
-      if (questionTimerRef.current) {
-        clearInterval(questionTimerRef.current);
-      }
-      if (totalTimerRef.current) {
-        clearInterval(totalTimerRef.current);
-      }
-    };
-  }, [question.id, timeLimitEnabled, timeLimit, totalTimeLimit]);
-
-  // Per-question timer countdown
-  useEffect(() => {
+  return () => {
+    isComponentMountedRef.current = false;
     if (questionTimerRef.current) {
       clearInterval(questionTimerRef.current);
     }
-
-    if (questionTimeLeft !== null && questionTimeLeft > 0 && isComponentMountedRef.current) {
-      questionTimerRef.current = setInterval(() => {
-        setQuestionTimeLeft(prev => {
-          if (prev === null || prev <= 1) {
-            // Auto-advance to next question when time runs out
-            if (isComponentMountedRef.current) {
-              setTimeout(() => {
-                if (isLastQuestion) {
-                  onFinish();
-                } else {
-                  onNext();
-                }
-              }, 100);
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (totalTimerRef.current) {
+      clearInterval(totalTimerRef.current);
     }
+  };
+}, [question.id, timeLimitEnabled, timeLimit, totalTimeLimit]);
 
-    return () => {
-      if (questionTimerRef.current) {
-        clearInterval(questionTimerRef.current);
-      }
-    };
-  }, [questionTimeLeft, isLastQuestion, onNext, onFinish]);
+
+  // Per-question timer countdown
+useEffect(() => {
+  if (questionTimerRef.current) {
+    clearInterval(questionTimerRef.current);
+  }
+
+  if (timeLimitEnabled && timeLimit && !totalTimeLimit && questionTimeLeft !== null && questionTimeLeft > 0) {
+    questionTimerRef.current = setInterval(() => {
+      setQuestionTimeLeft(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(questionTimerRef.current!); // Clear interval immediately
+          if (isComponentMountedRef.current) {
+            setTimeout(() => {
+              if (isLastQuestion) {
+                onFinish();
+              } else {
+                onNext();
+              }
+            }, 100); // Small delay to ensure state update
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  return () => {
+    if (questionTimerRef.current) {
+      clearInterval(questionTimerRef.current);
+    }
+  };
+}, [questionTimeLeft, timeLimitEnabled, timeLimit, totalTimeLimit, isLastQuestion, onNext, onFinish]); // Add all relevant dependencies
 
   // Update selected answer when userAnswer prop changes
   useEffect(() => {
-    setSelectedAnswer(userAnswer);
-    setIsAnswered(!!userAnswer && userAnswer.trim() !== '');
-  }, [userAnswer]);
+    // Reset selectedAnswer if question changes or userAnswer is empty
+    if (question.id !== prevQuestionId.current) {
+      setSelectedAnswer('');
+      setIsAnswered(false);
+    } else {
+      setSelectedAnswer(userAnswer);
+      setIsAnswered(!!userAnswer && userAnswer.trim() !== '');
+    }
+    prevQuestionId.current = question.id;
+  }, [userAnswer, question.id]);
 
   const handleAnswerSelect = useCallback((answer: string) => {
     setSelectedAnswer(answer);
@@ -427,7 +438,7 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
                       const newOrder = [...sequenceOrder, step];
                       handleAnswerSelect(newOrder.join(','));
                     }}
-                    className="p-3 sm:p-4 text-left rounded-xl border-2 border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 transition-all duration-300 text-sm sm:text-base"
+                    className="p-3 sm:p-4 text-left rounded-xl border-2 border-gray-200 bg-white text-gray-800 hover:border-purple-300 hover:bg-purple-50 transition-all duration-300 text-sm sm:text-base"
                   >
                     {step}
                   </motion.button>
@@ -561,94 +572,80 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative">
-      {/* Header with Progress and Timer */}
-      <div className="bg-white/80 backdrop-blur-lg border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-            {/* Progress Info */}
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
-                <span className="font-bold text-gray-800 text-sm sm:text-base">
-                  Question {questionNumber} of {totalQuestions}
-                </span>
-              </div>
-              <div className="hidden sm:block w-px h-6 bg-gray-300" />
-              <div className="flex items-center space-x-2">
-                <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                <span className="text-gray-600 text-sm sm:text-base capitalize">
-                  {question.difficulty || 'Medium'} • {question.type.replace('-', ' ')}
-                </span>
-              </div>
-            </div>
-
-            {/* Timer and Actions */}
-            <div className="flex items-center space-x-3 sm:space-x-4">
-              {/* Question Timer */}
-              {questionTimeLeft !== null && (
-                <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${
-                  questionTimeLeft <= 10 
-                    ? 'bg-red-100 text-red-700 animate-pulse' 
-                    : questionTimeLeft <= 30 
-                      ? 'bg-yellow-100 text-yellow-700' 
-                      : 'bg-blue-100 text-blue-700'
-                }`}>
-                  <Timer className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="font-mono font-bold text-sm sm:text-base">
-                    {formatTime(questionTimeLeft)}
-                  </span>
-                </div>
-              )}
-
-              {/* Total Timer */}
-              {(totalTimeRemaining !== null && timeLimitEnabled && totalTimeLimit && !timeLimit) ? (
-                 <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${
-                    totalTimeRemaining <= 60
-                      ? 'bg-red-100 text-red-700 animate-pulse'
-                      : totalTimeRemaining <= 300
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-green-100 text-green-700'
-                  }`}>
-                    <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="font-mono font-bold text-sm sm:text-base">
-                      {formatTime(totalTimeRemaining)}
-                    </span>
-                  </div>
-                ) : (totalTimeElapsed !== undefined && !timeLimitEnabled) && (
-                  // This block runs when no time limits are enabled (neither per-question nor total).
-                  // It displays the 'totalTimeElapsed'.
-                  <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-700">
-                    <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="font-mono font-bold text-sm sm:text-base">
-                      {formatTime(totalTimeElapsed)}
-                    </span>
-                  </div>
-                )}
-
-              {/* Speech Button */}
-              <button
-                onClick={handleSpeech}
-                className={`p-2 rounded-lg transition-all duration-300 ${
-                  isSpeaking 
-                    ? 'bg-purple-500 text-white shadow-lg' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600'
-                }`}
-              >
-                {isSpeaking ? <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />}
-              </button>
-
-              {/* Quit Button */}
-              {showQuitButton && onQuitQuiz && (
-                <button
-                  onClick={() => setShowLeaveConfirm(true)}
-                  className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-all duration-300"
-                >
-                  <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
-                </button>
-              )}
-            </div>
+<div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+  {/* Header with live stats */}
+  <div className="bg-black bg-opacity-30 backdrop-blur-sm border-b border-white border-opacity-20">
+    <div className="max-w-7xl mx-auto px-4 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2">
+            <Brain className="w-6 h-6 text-purple-400" />
+            <span className="text-xl font-bold text-white">Solo Quiz</span>
           </div>
+          <div className="flex items-center space-x-2">
+            <Target className="w-5 h-5 text-blue-400" />
+            <span className="text-white">Question {questionNumber}/{totalQuestions}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-4">
+          {/* Question Timer */}
+          {timeLimitEnabled && timeLimit && (
+            <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+              questionTimeLeft !== null && questionTimeLeft <= 10 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
+            }`}>
+              <Clock className={`w-5 h-5 ${questionTimeLeft !== null && questionTimeLeft <= 10 ? 'text-red-300' : 'text-white'}`} />
+              <span className={`font-mono text-lg font-bold ${
+                questionTimeLeft !== null && questionTimeLeft <= 10 ? 'text-red-300' : 'text-white'
+              }`}>
+                {questionTimeLeft !== null ? formatTime(questionTimeLeft) : 'N/A'}
+              </span>
+            </div>
+          )}
+
+          {/* Total Timer */}
+          {timeLimitEnabled && totalTimeLimit && !timeLimit && (
+            <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+              totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
+            }`}>
+              <Clock className={`w-5 h-5 ${totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'text-red-300' : 'text-white'}`} />
+              <span className={`font-mono text-lg font-bold ${
+                totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'text-red-300' : 'text-white'
+              }`}>
+                {totalTimeRemaining !== null ? formatTime(totalTimeRemaining) : 'N/A'}
+              </span>
+            </div>
+          )}
+
+          {/* Total Time Elapsed (if no specific time limits are enabled) */}
+          {!timeLimitEnabled && (
+            <div className="flex items-center space-x-2 bg-white bg-opacity-20 px-3 py-2 rounded-lg">
+              <Timer className="w-5 h-5 text-cyan-400" />
+              <span className="font-mono text-lg font-bold text-white">{formatTime(totalTimeElapsed)}</span>
+            </div>
+          )}
+
+          {/* Speech Button */}
+          <button
+            onClick={handleSpeech}
+            className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white"
+          >
+            {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            <span className="text-sm">Speech</span>
+          </button>
+
+          {/* Quit Button */}
+          {showQuitButton && onQuitQuiz && (
+            <button
+              onClick={() => setShowLeaveConfirm(true)}
+              className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-red-500 bg-opacity-30 hover:bg-opacity-50 transition-all text-red-200 hover:text-white"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="text-sm">Quit</span>
+            </button>
+          )}
+        </div>
+      </div>
 
           {/* Progress Bar */}
           <div className="mt-4">

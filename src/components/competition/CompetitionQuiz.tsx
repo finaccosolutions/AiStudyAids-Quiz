@@ -54,7 +54,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const [totalTimeElapsed, setTotalTimeElapsed] = useState(0);
   const [score, setScore] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
-  const [startTime] = useState(Date.now());
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [selectedAnswer, setSelectedAnswer] = useState('');
@@ -102,10 +101,19 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   }, [competition.id, loadParticipants, isQuizCompleted]);
 
   useEffect(() => {
-    setQuestionStartTime(Date.now());
-    setTimeLeft(parseInt(competition.quiz_preferences?.timeLimit || '30'));
-    setSelectedAnswer(answers[currentQuestion?.id] || '');
-  }, [currentQuestionIndex, currentQuestion]);
+    let timer: NodeJS.Timeout | null = null;
+    if (competition.quiz_preferences?.timeLimitEnabled && competition.quiz_preferences?.timeLimit && timeLeft !== null && timeLeft > 0 && questions.length > 0 && !isQuizCompleted) {
+      timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+    } else if (timeLeft === 0 && questions.length > 0 && competition.quiz_preferences?.timeLimitEnabled && !isQuizCompleted) {
+      handleNextQuestion();
+    }
+  
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [timeLeft, questions.length, isQuizCompleted, competition.quiz_preferences, handleNextQuestion]);
 
   // Per-question timer
   useEffect(() => {
@@ -118,14 +126,20 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   }, [timeLeft, questions.length, isQuizCompleted]);
 
   // Total time elapsed timer
-  useEffect(() => {
-    if (questions.length > 0 && !isQuizCompleted) {
-      const timer = setInterval(() => {
-        setTotalTimeElapsed(Math.floor((Date.now() - startTime) / 1000));
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [startTime, questions.length, isQuizCompleted]);
+    useEffect(() => {
+      let timer: NodeJS.Timeout;
+      if (competition.quiz_start_time && questions.length > 0 && !isQuizCompleted) {
+        timer = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - new Date(competition.quiz_start_time!).getTime()) / 1000);
+          setTotalTimeElapsed(elapsed);
+        }, 1000);
+      }
+      return () => {
+        if (timer) {
+          clearInterval(timer);
+        }
+      };
+    }, [competition.quiz_start_time, questions.length, isQuizCompleted]);
 
   const calculateScore = useCallback((questionId: number, userAnswer: string) => {
     const question = questions.find(q => q.id === questionId);
@@ -193,9 +207,11 @@ const handleNextQuestion = useCallback(async () => {
       updatedAnswers,
       Math.max(0, newScore),
       newCorrectAnswers,
-      timeTaken,
+      totalTimeElapsed, // Use totalTimeElapsed
       currentQuestionIndex + 1
     );
+    // ...
+    await handleCompetitionCompletion(Math.max(0, newScore), newCorrectAnswers, totalTimeElapsed, updatedAnswers);
 
     if (isLastQuestion) {
       console.log('Quiz completed, finishing...');
@@ -458,7 +474,7 @@ const handleCompetitionCompletion = async (finalScore: number, correctAnswers: n
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className={`grid gap-8 ${showLeaderboard ? 'grid-cols-1 lg:grid-cols-4' : 'grid-cols-1'}`}>
+        <div className={showLeaderboard ? 'lg:col-span-4' : 'max-w-6xl mx-auto w-full'}>
           {/* Main Quiz Area */}
 <div className={showLeaderboard ? 'lg:col-span-3' : 'max-w-4xl mx-auto w-full'}>
   <QuizQuestion
