@@ -49,6 +49,7 @@ interface QuizState {
   currentQuestionIndex: number;
   answers: Record<number, string>;
   result: QuizResult | null;
+  quizStartTime: number | null;
   isLoading: boolean;
   error: string | null;
   explanation: string | null;
@@ -96,6 +97,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   currentQuestionIndex: 0,
   answers: {},
   result: null,
+  quizStartTime: null,
   isLoading: false,
   error: null,
   explanation: null,
@@ -132,11 +134,12 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     
       // Attempt to load quiz state from local storage
       const savedState = loadQuizStateFromLocal();
-      if (savedState && savedState.questions.length > 0) {
+      if (savedState && savedState.questions.length > 0 && savedState.quizStartTime) {
         set({
           questions: savedState.questions,
           currentQuestionIndex: savedState.currentQuestionIndex,
           answers: savedState.answers,
+          quizStartTime: savedState.quizStartTime,
           result: null, // Ensure result is null if loading an ongoing quiz
         });
       }
@@ -192,7 +195,7 @@ const validatedPreferences = {
   
   generateQuiz: async (userId) => {
     const { preferences, apiKey } = get();
-    clearQuizStateFromLocal(); // Clear previous state before generating a new quiz
+     clearQuizStateFromLocal(); // Clear previous state before generating a new quiz or starting a new one
     set({ isLoading: true, error: null, questions: [], answers: {}, result: null });
     
     if (!preferences || !apiKey) {
@@ -210,6 +213,7 @@ const validatedPreferences = {
       set({ 
         questions, 
         currentQuestionIndex: 0,
+        quizStartTime: Date.now(), // Set start time when quiz is generated
         answers: {},
       });
     } catch (error: any) {
@@ -227,7 +231,8 @@ const validatedPreferences = {
           [questionId]: answer
         }
       };
-      saveQuizStateToLocal({ ...state, ...newState }); // Save updated state
+      // Save updated state including quizStartTime
+       saveQuizStateToLocal({ ...state, ...newState, quizStartTime: state.quizStartTime });
       return newState;
     });
   },
@@ -236,7 +241,7 @@ const validatedPreferences = {
     set((state) => {
       if (state.currentQuestionIndex < state.questions.length - 1) {
         const newIndex = state.currentQuestionIndex + 1;
-        saveQuizStateToLocal({ ...state, currentQuestionIndex: newIndex }); // Save updated state
+        saveQuizStateToLocal({ ...state, currentQuestionIndex: newIndex, quizStartTime: state.quizStartTime });
         return { currentQuestionIndex: newIndex };
       }
       return state;
@@ -388,6 +393,7 @@ finishQuiz: () => {
       questions: [],
       currentQuestionIndex: 0,
       answers: {},
+      quizStartTime: null, // Reset start time
       result: null,
       error: null
     });

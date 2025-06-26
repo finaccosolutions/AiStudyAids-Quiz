@@ -29,7 +29,8 @@ const QuizPage: React.FC = () => {
     questions, generateQuiz, 
     currentQuestionIndex, answers, answerQuestion, 
     nextQuestion, prevQuestion, 
-    finishQuiz, resetQuiz, result 
+    finishQuiz, resetQuiz, result,
+    quizStartTime
   } = useQuizStore();
   
   const {
@@ -347,19 +348,20 @@ useEffect(() => {
 
     // Total time elapsed timer for solo quiz
     useEffect(() => {
-      let timer: NodeJS.Timeout;
-      if (step === 'quiz' && questions.length > 0 && isComponentMountedRef.current) {
-        timer = setInterval(() => {
-          setTotalTimeElapsed(prev => prev + 1);
+      let interval: NodeJS.Timeout;
+      if (step === 'quiz' && quizStartTime !== null && isComponentMountedRef.current) {
+        interval = setInterval(() => {
+          setTotalTimeElapsed(Math.floor((Date.now() - quizStartTime) / 1000));
         }, 1000);
       }
       return () => {
-        if (timer) {
-          clearInterval(timer);
+        if (interval) {
+          clearInterval(interval);
         }
-        setTotalTimeElapsed(0); // Reset when quiz ends or component unmounts
+        // Only reset if quiz is truly finished or unmounted, not just changing questions
+        if (step !== 'quiz') setTotalTimeElapsed(0);
       };
-    }, [step, questions.length]);
+    }, [step, quizStartTime]);
 
   
   if (!isLoggedIn) {
@@ -788,52 +790,141 @@ const handleCreateCompetitionSuccess = useCallback(() => {
           />
         );
       
-      case 'quiz':
-        if (currentQuestionIndex < 0 || currentQuestionIndex >= questions.length) {
-          return null;
-        }
-        
-        const currentQuestion = questions[currentQuestionIndex];
-        if (!currentQuestion || !preferences) {
-          return null;
-        }
-        
-        return (
-          <div className="max-w-4xl mx-auto px-2 sm:px-4">
-            <div className="flex justify-between items-center mb-4">
-              <Button
-                variant="ghost"
-                onClick={handleBackToModeSelector}
-                className="text-gray-600 hover:text-gray-800"
-              >
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Back to Quiz Modes
-              </Button>
-            </div>
-              <QuizQuestion
-                question={currentQuestion}
-                questionNumber={currentQuestionIndex + 1}
-                totalQuestions={questions.length}
-                userAnswer={answers[currentQuestion.id]}
-                onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)}
-                onPrevious={handlePrevious}
-                onNext={handleNext}
-                isLastQuestion={currentQuestionIndex === questions.length - 1}
-                onFinish={handleFinishQuiz}
-                language={preferences.language || 'en'}
-                timeLimitEnabled={preferences.timeLimitEnabled || false}
-                timeLimit={preferences.timeLimit}
-                totalTimeLimit={preferences.totalTimeLimit}
-                totalTimeRemaining={totalTimeRemaining}
-                mode={preferences.mode || 'practice'}
-                answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
-                onQuitQuiz={handleBackToModeSelector}
-                totalTimeElapsed={totalTimeElapsed}
-                showQuitButton={true}
-              />
+case 'quiz':
+  if (currentQuestionIndex < 0 || currentQuestionIndex >= questions.length) return null;
 
+  const currentQuestion = questions[currentQuestionIndex];
+  if (!currentQuestion || !preferences) return null;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative">
+      {/* Header */}
+      <div className="bg-white/80 backdrop-blur-lg border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+            {/* Progress Info */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+                <span className="font-bold text-gray-800 text-sm sm:text-base">
+                  Question {currentQuestionIndex + 1} of {questions.length}
+                </span>
+              </div>
+              <div className="hidden sm:block w-px h-6 bg-gray-300" />
+              <div className="flex items-center space-x-2">
+                <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                <span className="text-gray-600 text-sm sm:text-base capitalize">
+                  {currentQuestion?.difficulty || 'Medium'} • {currentQuestion?.type?.replace('-', ' ')}
+                </span>
+              </div>
+            </div>
+
+            {/* Timer + Controls */}
+            <div className="flex items-center space-x-3 sm:space-x-4">
+              {/* Question Timer */}
+              {(preferences.timeLimitEnabled && preferences.timeLimit && !preferences.totalTimeLimit) && (
+                <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${
+                  totalTimeRemaining <= 10
+                    ? 'bg-red-100 text-red-700 animate-pulse'
+                    : totalTimeRemaining <= 30
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-blue-100 text-blue-700'
+                }`}>
+                  <Timer className="w-5 h-5" />
+                  <span className="font-mono font-bold text-sm sm:text-base">
+                    {Math.floor(totalTimeRemaining / 60)}:{(totalTimeRemaining % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+              )}
+
+              {/* Total Time Timer */}
+              {(preferences.timeLimitEnabled && preferences.totalTimeLimit && !preferences.timeLimit) && (
+                <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${
+                  totalTimeRemaining <= 60
+                    ? 'bg-red-100 text-red-700 animate-pulse'
+                    : totalTimeRemaining <= 300
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-green-100 text-green-700'
+                }`}>
+                  <Clock className="w-5 h-5" />
+                  <span className="font-mono font-bold text-sm sm:text-base">
+                    {Math.floor(totalTimeRemaining / 60)}:{(totalTimeRemaining % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+              )}
+
+              {/* Elapsed Time */}
+              {(!preferences.timeLimitEnabled || (preferences.timeLimit && !preferences.totalTimeLimit)) && (
+                <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-700">
+                  <Clock className="w-5 h-5" />
+                  <span className="font-mono font-bold text-sm sm:text-base">
+                    {Math.floor(totalTimeElapsed / 60)}:{(totalTimeElapsed % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+              )}
+
+              {/* Speech Toggle Placeholder */}
+              <button
+                onClick={() => {}}
+                className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600 transition"
+              >
+                <Volume2 className="w-5 h-5" />
+              </button>
+
+              {/* Quit Button */}
+              <button
+                onClick={handleBackToModeSelector}
+                className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-        );
+
+          {/* Progress Bar */}
+          <div className="mt-4">
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <motion.div
+                className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>{Math.round(((currentQuestionIndex + 1) / questions.length) * 100)}% Complete</span>
+              <span>{questions.length - (currentQuestionIndex + 1)} remaining</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Quiz Content */}
+      <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
+        <QuizQuestion
+          question={currentQuestion}
+          questionNumber={currentQuestionIndex + 1}
+          totalQuestions={questions.length}
+          userAnswer={answers[currentQuestion.id]}
+          onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)}
+          onPrevious={handlePrevious}
+          onNext={handleNext}
+          isLastQuestion={currentQuestionIndex === questions.length - 1}
+          onFinish={handleFinishQuiz}
+          language={preferences.language || 'en'}
+          timeLimitEnabled={preferences.timeLimitEnabled || false}
+          timeLimit={preferences.timeLimit}
+          totalTimeLimit={preferences.totalTimeLimit}
+          totalTimeRemaining={totalTimeRemaining}
+          totalTimeElapsed={totalTimeElapsed}
+          mode={preferences.mode || 'practice'}
+          answerMode={preferences.mode === 'practice' ? 'immediate' : 'end'}
+          onQuitQuiz={handleBackToModeSelector}
+          showQuitButton={true}
+        />
+      </div>
+    </div>
+  );
+
       
       case 'results':
         if (!result) return null;
