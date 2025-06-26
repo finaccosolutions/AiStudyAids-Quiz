@@ -254,8 +254,10 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     if (user && userParticipant && isComponentMounted) {
       try {
         await leaveCompetition(competition.id);
-        // Navigate to preferences page instead of quiz page
-        navigate('/preferences');
+        // Call the onLeave prop instead of navigating directly
+        if (onLeave) {
+          onLeave();
+        }
       } catch (error) {
         console.error('Failed to leave competition:', error);
       }
@@ -267,7 +269,10 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     if (isCreator && isComponentMounted) {
       try {
         await cancelCompetition(competition.id);
-        navigate('/preferences');
+        // Call the onLeave prop instead of navigating directly
+        if (onLeave) {
+          onLeave();
+        }
       } catch (error) {
         console.error('Failed to cancel competition:', error);
       }
@@ -366,7 +371,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
             }
           </p>
           <Button
-            onClick={() => navigate('/preferences')}
+            onClick={() => onLeave && onLeave()}
             className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 px-6 sm:px-8 py-3 text-base sm:text-lg font-bold w-full sm:w-auto"
           >
             Back to Quiz

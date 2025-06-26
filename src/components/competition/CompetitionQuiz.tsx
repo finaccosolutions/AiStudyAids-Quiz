@@ -9,7 +9,7 @@ import {
   Activity, Star, Award, TrendingUp,
   Brain, Eye, EyeOff, XCircle, MessageCircle,
   Send, Sparkles, Volume2, VolumeX, ArrowLeft,
-  LogOut, AlertTriangle
+  LogOut, AlertTriangle, Circle, Lightbulb, HelpCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
@@ -46,7 +46,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState<number>(
-    parseInt(competition.quiz_preferences?.timeLimit || '30')
+    competition.quiz_preferences?.timeLimit || 30
   );
   const [totalTimeElapsed, setTotalTimeElapsed] = useState(0);
   const [score, setScore] = useState(0);
@@ -100,7 +100,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
   useEffect(() => {
     setQuestionStartTime(Date.now());
-    setTimeLeft(parseInt(competition.quiz_preferences?.timeLimit || '30'));
+    setTimeLeft(competition.quiz_preferences?.timeLimit || 30);
     setSelectedAnswer(answers[currentQuestion?.id] || '');
   }, [currentQuestionIndex, currentQuestion]);
 
@@ -186,7 +186,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
       // Update progress in real-time
       const timeTaken = Math.floor((Date.now() - startTime) / 1000);
-      const updatedAnswers = { ...answers, [currentQuestion.id]: userAnswer };
+      const updatedAnswers = { ...answers, [currentQuestion.id]:userAnswer };
       
       await updateParticipantProgress(
         competition.id,
@@ -342,6 +342,17 @@ const handleCompetitionCompletion = async (finalScore: number, correctAnswers: n
   const renderQuestionContent = () => {
     if (!currentQuestion) return null;
 
+    const optionVariants = {
+      hidden: { opacity: 0, y: 20 },
+      visible: (i: number) => ({
+        opacity: 1,
+        y: 0,
+        transition: { delay: i * 0.1 }
+      }),
+      hover: { scale: 1.02, y: -2 },
+      tap: { scale: 0.98 }
+    };
+
     switch (currentQuestion.type) {
       case 'multiple-choice':
         return (
@@ -401,6 +412,268 @@ const handleCompetitionCompletion = async (finalScore: number, correctAnswers: n
                 {option}
               </motion.button>
             ))}
+          </div>
+        );
+
+      case 'multi-select':
+        const selectedOptions = selectedAnswer ? selectedAnswer.split(',') : [];
+        
+        return (
+          <div className="space-y-3 sm:space-y-4 mt-8">
+            <div className="bg-blue-50 p-3 sm:p-4 rounded-xl border border-blue-200 mb-4 sm:mb-6">
+              <p className="text-blue-800 font-medium text-sm sm:text-base">
+                <Target className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
+                Select all correct answers ({selectedOptions.length} selected)
+              </p>
+            </div>
+            
+            {currentQuestion.options?.map((option, index) => {
+              const isSelected = selectedOptions.includes(option);
+              
+              return (
+                <motion.button
+                  key={index}
+                  custom={index}
+                  variants={optionVariants}
+                  initial="hidden"
+                  animate="visible"
+                  whileHover="hover"
+                  whileTap="tap"
+                  onClick={() => {
+                    const newSelected = isSelected
+                      ? selectedOptions.filter(opt => opt !== option)
+                      : [...selectedOptions, option];
+                    handleAnswerSelect(newSelected.join(','));
+                  }}
+                  disabled={isSubmitting}
+                  className={`w-full p-4 sm:p-6 text-left rounded-2xl border-2 transition-all duration-300 group ${
+                    isSelected
+                      ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-xl'
+                      : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg'
+                  } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded border-2 flex items-center justify-center transition-all duration-300 flex-shrink-0 ${
+                      isSelected
+                        ? 'border-purple-600 bg-purple-600 shadow-lg'
+                        : 'border-gray-300 group-hover:border-purple-400'
+                    }`}>
+                      {isSelected && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                        >
+                          <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                        </motion.div>
+                      )}
+                    </div>
+                    <span className={`font-medium text-base sm:text-lg transition-colors duration-300 ${
+                      isSelected ? 'text-purple-800' : 'text-gray-800 group-hover:text-purple-700'
+                    }`}>
+                      {option}
+                    </span>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
+        );
+
+      case 'sequence':
+        const sequenceOrder = selectedAnswer ? selectedAnswer.split(',') : [];
+        const availableSteps = currentQuestion.sequence?.filter(step => !sequenceOrder.includes(step)) || [];
+        
+        return (
+          <div className="space-y-6 mt-8">
+            <div className="bg-orange-50 p-3 sm:p-4 rounded-xl border border-orange-200">
+              <p className="text-orange-800 font-medium text-sm sm:text-base">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
+                Arrange the steps in the correct order
+              </p>
+            </div>
+            
+            {/* Selected sequence */}
+            <div className="space-y-3">
+              <h4 className="font-semibold text-gray-800 text-base sm:text-lg">Your Sequence:</h4>
+              <div className="min-h-[120px] border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gray-50">
+                {sequenceOrder.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">Drag steps here to arrange them</p>
+                ) : (
+                  <div className="space-y-2">
+                    {sequenceOrder.map((step, index) => (
+                      <motion.div
+                        key={step}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="flex items-center space-x-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm"
+                      >
+                        <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                          {index + 1}
+                        </div>
+                        <span className="flex-1 text-sm sm:text-base">{step}</span>
+                        <button
+                          onClick={() => {
+                            const newOrder = sequenceOrder.filter(s => s !== step);
+                            handleAnswerSelect(newOrder.join(','));
+                          }}
+                          disabled={isSubmitting}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          ×
+                        </button>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Available steps */}
+            <div className="space-y-3">
+              <h4 className="font-semibold text-gray-800 text-base sm:text-lg">Available Steps:</h4>
+              <div className="grid grid-cols-1 gap-2">
+                {availableSteps.map((step, index) => (
+                  <motion.button
+                    key={step}
+                    custom={index}
+                    variants={optionVariants}
+                    initial="hidden"
+                    animate="visible"
+                    whileHover="hover"
+                    whileTap="tap"
+                    onClick={() => {
+                      const newOrder = [...sequenceOrder, step];
+                      handleAnswerSelect(newOrder.join(','));
+                    }}
+                    disabled={isSubmitting}
+                    className={`p-3 sm:p-4 text-left rounded-xl border-2 border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 transition-all duration-300 text-sm sm:text-base ${
+                      isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {step}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'case-study':
+      case 'situation':
+        return (
+          <div className="space-y-6 mt-8">
+            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 sm:p-6 rounded-2xl border border-blue-200">
+              <h4 className="font-bold text-blue-800 mb-3 text-base sm:text-lg">
+                {currentQuestion.type === 'case-study' ? 'Case Study:' : 'Situation:'}
+              </h4>
+              <p className="text-blue-700 leading-relaxed text-sm sm:text-base">
+                {currentQuestion.caseStudy || currentQuestion.situation}
+              </p>
+            </div>
+            
+            <div className="bg-purple-50 p-3 sm:p-4 rounded-xl border border-purple-200">
+              <p className="text-purple-800 font-medium text-sm sm:text-base">
+                <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
+                {currentQuestion.question}
+              </p>
+            </div>
+            
+            <div className="space-y-3 sm:space-y-4">
+              {currentQuestion.options?.map((option, index) => {
+                const isSelected = selectedAnswer === option;
+                const optionLetter = String.fromCharCode(65 + index);
+                
+                return (
+                  <motion.button
+                    key={index}
+                    custom={index}
+                    variants={optionVariants}
+                    initial="hidden"
+                    animate="visible"
+                    whileHover="hover"
+                    whileTap="tap"
+                    onClick={() => handleAnswerSelect(option)}
+                    disabled={isSubmitting}
+                    className={`w-full p-4 sm:p-6 text-left rounded-2xl border-2 transition-all duration-300 group ${
+                      isSelected
+                        ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-xl ring-4 ring-purple-200'
+                        : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg'
+                    } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <div className="flex items-start space-x-4">
+                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center font-bold text-sm sm:text-base transition-all duration-300 flex-shrink-0 ${
+                        isSelected
+                          ? 'border-purple-600 bg-purple-600 text-white shadow-lg'
+                          : 'border-gray-300 text-gray-500 group-hover:border-purple-400 group-hover:text-purple-600'
+                      }`}>
+                        {isSelected ? (
+                          <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+                        ) : (
+                          optionLetter
+                        )}
+                      </div>
+                      <span className={`font-medium text-sm sm:text-base leading-relaxed transition-colors duration-300 ${
+                        isSelected ? 'text-purple-800' : 'text-gray-800 group-hover:text-purple-700'
+                      }`}>
+                        {option}
+                      </span>
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        );
+
+      case 'short-answer':
+      case 'fill-blank':
+        return (
+          <div className="space-y-4 sm:space-y-6 mt-8">
+            <div className="bg-green-50 p-3 sm:p-4 rounded-xl border border-green-200">
+              <p className="text-green-800 font-medium text-sm sm:text-base">
+                <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
+                {currentQuestion.type === 'fill-blank' 
+                  ? 'Fill in the blank with the most appropriate word or phrase'
+                  : 'Provide a short, concise answer'
+                }
+              </p>
+            </div>
+            
+            <div className="relative">
+              <input
+                type="text"
+                placeholder={currentQuestion.type === 'fill-blank' 
+                  ? 'Enter the missing word or phrase...'
+                  : 'Type your answer here...'
+                }
+                value={selectedAnswer}
+                onChange={(e) => handleAnswerSelect(e.target.value)}
+                disabled={isSubmitting}
+                className={`w-full p-4 sm:p-6 text-base sm:text-xl border-2 border-gray-300 rounded-2xl focus:border-purple-500 focus:ring-4 focus:ring-purple-200 focus:outline-none transition-all duration-300 bg-white shadow-sm hover:shadow-md ${
+                  isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                autoComplete="off"
+              />
+              {selectedAnswer && (
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center"
+                >
+                  <CheckCircle className="w-5 h-5 text-white" />
+                </motion.div>
+              )}
+            </div>
+            
+            {currentQuestion.keywords && currentQuestion.keywords.length > 0 && (
+              <div className="bg-yellow-50 p-3 sm:p-4 rounded-xl border border-yellow-200">
+                <p className="text-yellow-800 text-xs sm:text-sm">
+                  <Star className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                  Hint: Consider terms related to {currentQuestion.keywords.slice(0, 2).join(', ')}
+                </p>
+              </div>
+            )}
           </div>
         );
 

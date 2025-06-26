@@ -42,8 +42,8 @@ export type QuizPreferences = {
   questionTypes: QuestionType[];
   language: QuizLanguage;
   timeLimitEnabled: boolean;
-  timeLimit?: string | null;  // Keep as string
-  totalTimeLimit?: string | null;  // Keep as string
+  timeLimit?: number | null;  // Changed from string to number
+  totalTimeLimit?: number | null;  // Changed from string to number
   negativeMarking?: boolean;
   negativeMarks?: number;
   mode: 'practice' | 'exam';
@@ -162,6 +162,7 @@ export type Question =
   strengths?: string[];
   weaknesses?: string[];
   recommendations?: string[];
+  timeTaken?: number; // Added for tracking total time taken
 };
 
 

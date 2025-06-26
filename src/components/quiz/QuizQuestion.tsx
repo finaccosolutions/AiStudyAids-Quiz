@@ -6,7 +6,8 @@ import {
   ChevronLeft, ChevronRight, Clock, Flag, Volume2, VolumeX, 
   CheckCircle, Circle, Square, ArrowLeft, LogOut, AlertTriangle,
   Timer, Target, Brain, Zap, Star, Award, Trophy, Activity,
-  Play, Pause, RotateCcw, Eye, EyeOff, Lightbulb, HelpCircle
+  Play, Pause, RotateCcw, Eye, EyeOff, Lightbulb, HelpCircle,
+  Sparkles, Flame, Rocket, Crown, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { speechService } from '../../services/speech';
@@ -23,13 +24,12 @@ interface QuizQuestionProps {
   onFinish: () => void;
   language?: string;
   timeLimitEnabled?: boolean;
-  timeLimit?: string | null;
-  totalTimeLimit?: string | null;
+  timeLimit?: number | null;
+  totalTimeLimit?: number | null;
   totalTimeRemaining?: number | null;
   mode?: 'practice' | 'exam';
   answerMode?: 'immediate' | 'end';
   onQuitQuiz?: () => void;
-  totalTimeElapsed?: number;
   showQuitButton?: boolean;
 }
 
@@ -51,7 +51,6 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   mode = 'practice',
   answerMode = 'immediate',
   onQuitQuiz,
-  totalTimeElapsed = 0,
   showQuitButton = true
 }) => {
   const [questionTimeLeft, setQuestionTimeLeft] = useState<number | null>(null);
@@ -62,28 +61,21 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   const [selectedAnswer, setSelectedAnswer] = useState(userAnswer);
   
   const questionTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const totalTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isComponentMountedRef = useRef(true);
 
   // Initialize timers based on preferences
   useEffect(() => {
     isComponentMountedRef.current = true;
     
-    // Set up per-question timer if enabled and timeLimit is set
+    // Set up per-question timer if enabled and timeLimit is set (and no total time limit)
     if (timeLimitEnabled && timeLimit && !totalTimeLimit) {
-      const timeInSeconds = parseInt(timeLimit);
-      if (!isNaN(timeInSeconds) && timeInSeconds > 0) {
-        setQuestionTimeLeft(timeInSeconds);
-      }
+      setQuestionTimeLeft(timeLimit);
     }
 
     return () => {
       isComponentMountedRef.current = false;
       if (questionTimerRef.current) {
         clearInterval(questionTimerRef.current);
-      }
-      if (totalTimerRef.current) {
-        clearInterval(totalTimerRef.current);
       }
     };
   }, [question.id, timeLimitEnabled, timeLimit, totalTimeLimit]);
@@ -120,7 +112,7 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
         clearInterval(questionTimerRef.current);
       }
     };
-  }, [questionTimeLeft, isLastQuestion, onNext, onFinish]);
+  }, [questionTimeLeft, isLastQuestion, onNext, onFinish, question.id]);
 
   // Update selected answer when userAnswer prop changes
   useEffect(() => {
@@ -561,24 +553,44 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-200/30 to-pink-200/30 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/30 to-cyan-200/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-indigo-200/20 to-purple-200/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '4s' }} />
+      </div>
+
       {/* Header with Progress and Timer */}
-      <div className="bg-white/80 backdrop-blur-lg border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+      <div className="bg-white/90 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 z-40 shadow-lg">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
             {/* Progress Info */}
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
-                <span className="font-bold text-gray-800 text-sm sm:text-base">
-                  Question {questionNumber} of {totalQuestions}
-                </span>
+                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                </div>
+                <div>
+                  <span className="font-bold text-gray-800 text-sm sm:text-base">
+                    Question {questionNumber} of {totalQuestions}
+                  </span>
+                  <div className="text-xs text-gray-500">
+                    {Math.round(getProgressPercentage())}% Complete
+                  </div>
+                </div>
               </div>
-              <div className="hidden sm:block w-px h-6 bg-gray-300" />
+              <div className="hidden sm:block w-px h-8 bg-gray-300" />
               <div className="flex items-center space-x-2">
-                <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                <span className="text-gray-600 text-sm sm:text-base capitalize">
-                  {question.difficulty || 'Medium'} • {question.type.replace('-', ' ')}
+                <div className="flex items-center space-x-1">
+                  <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                  <span className="text-gray-600 text-sm sm:text-base capitalize font-medium">
+                    {question.difficulty || 'Medium'}
+                  </span>
+                </div>
+                <span className="text-gray-400">•</span>
+                <span className="text-gray-600 text-sm sm:text-base">
+                  {question.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                 </span>
               </div>
             </div>
@@ -587,86 +599,110 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
             <div className="flex items-center space-x-3 sm:space-x-4">
               {/* Question Timer */}
               {questionTimeLeft !== null && (
-                <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${
-                  questionTimeLeft <= 10 
-                    ? 'bg-red-100 text-red-700 animate-pulse' 
-                    : questionTimeLeft <= 30 
-                      ? 'bg-yellow-100 text-yellow-700' 
-                      : 'bg-blue-100 text-blue-700'
-                }`}>
+                <motion.div 
+                  animate={{ scale: questionTimeLeft <= 10 ? [1, 1.05, 1] : 1 }}
+                  transition={{ duration: 0.5, repeat: questionTimeLeft <= 10 ? Infinity : 0 }}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-xl transition-all duration-300 shadow-lg ${
+                    questionTimeLeft <= 10 
+                      ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white animate-pulse' 
+                      : questionTimeLeft <= 30 
+                        ? 'bg-gradient-to-r from-yellow-400 to-orange-400 text-white' 
+                        : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
+                  }`}
+                >
                   <Timer className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="font-mono font-bold text-sm sm:text-base">
                     {formatTime(questionTimeLeft)}
                   </span>
-                </div>
+                </motion.div>
               )}
 
               {/* Total Timer */}
               {totalTimeRemaining !== null && (
-                <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${
-                  totalTimeRemaining <= 60 
-                    ? 'bg-red-100 text-red-700 animate-pulse' 
-                    : totalTimeRemaining <= 300 
-                      ? 'bg-yellow-100 text-yellow-700' 
-                      : 'bg-green-100 text-green-700'
-                }`}>
+                <motion.div 
+                  animate={{ scale: totalTimeRemaining <= 60 ? [1, 1.05, 1] : 1 }}
+                  transition={{ duration: 0.5, repeat: totalTimeRemaining <= 60 ? Infinity : 0 }}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-xl transition-all duration-300 shadow-lg ${
+                    totalTimeRemaining <= 60 
+                      ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white animate-pulse' 
+                      : totalTimeRemaining <= 300 
+                        ? 'bg-gradient-to-r from-yellow-400 to-orange-400 text-white' 
+                        : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
+                  }`}
+                >
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="font-mono font-bold text-sm sm:text-base">
                     {formatTime(totalTimeRemaining)}
                   </span>
-                </div>
+                </motion.div>
               )}
 
               {/* Speech Button */}
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={handleSpeech}
-                className={`p-2 rounded-lg transition-all duration-300 ${
+                className={`p-2 rounded-xl transition-all duration-300 shadow-lg ${
                   isSpeaking 
-                    ? 'bg-purple-500 text-white shadow-lg' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600'
+                    ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white' 
+                    : 'bg-white text-gray-600 hover:bg-purple-100 hover:text-purple-600 border border-gray-200'
                 }`}
               >
                 {isSpeaking ? <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />}
-              </button>
+              </motion.button>
 
               {/* Quit Button */}
               {showQuitButton && onQuitQuiz && (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => setShowLeaveConfirm(true)}
-                  className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-all duration-300"
+                  className="p-2 rounded-xl bg-red-100 text-red-600 hover:bg-red-200 transition-all duration-300 shadow-lg border border-red-200"
                 >
                   <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
-                </button>
+                </motion.button>
               )}
             </div>
           </div>
 
-          {/* Progress Bar */}
+          {/* Enhanced Progress Bar */}
           <div className="mt-4">
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
               <motion.div
-                className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-500"
+                className="bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 h-3 rounded-full shadow-lg relative overflow-hidden"
                 initial={{ width: 0 }}
                 animate={{ width: `${getProgressPercentage()}%` }}
-              />
+                transition={{ duration: 0.8, ease: "easeOut" }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 animate-pulse" />
+              </motion.div>
             </div>
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>{Math.round(getProgressPercentage())}% Complete</span>
-              <span>{totalQuestions - questionNumber} remaining</span>
+            <div className="flex justify-between text-xs text-gray-500 mt-2">
+              <span className="flex items-center">
+                <Rocket className="w-3 h-3 mr-1" />
+                {Math.round(getProgressPercentage())}% Complete
+              </span>
+              <span className="flex items-center">
+                <Flag className="w-3 h-3 mr-1" />
+                {totalQuestions - questionNumber} remaining
+              </span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
+      <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8 relative z-10">
         <motion.div
           key={question.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.6 }}
         >
-          <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm overflow-hidden">
+          <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm overflow-hidden relative">
+            {/* Card Header Decoration */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500" />
+            
             <CardBody className="p-6 sm:p-8">
               {/* Question Text */}
               <div className="mb-6 sm:mb-8">
@@ -674,24 +710,45 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 leading-relaxed mb-4"
+                  className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 leading-relaxed mb-6"
                 >
                   {question.text}
                 </motion.h2>
                 
-                {/* Question Type Badge */}
+                {/* Question Type Badges */}
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs sm:text-sm font-medium rounded-full">
+                  <motion.span 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.3 }}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 text-xs sm:text-sm font-bold rounded-full border border-purple-200 shadow-sm"
+                  >
+                    <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
                     {question.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </span>
-                  <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs sm:text-sm font-medium rounded-full capitalize">
-                    {question.difficulty || 'Medium'}
-                  </span>
+                  </motion.span>
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-full border shadow-sm ${
+                      question.difficulty === 'basic' 
+                        ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border-green-200'
+                        : question.difficulty === 'advanced'
+                          ? 'bg-gradient-to-r from-red-100 to-pink-100 text-red-700 border-red-200'
+                          : 'bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-700 border-yellow-200'
+                    }`}
+                  >
+                    {question.difficulty === 'basic' && <Shield className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />}
+                    {question.difficulty === 'intermediate' && <Star className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />}
+                    {question.difficulty === 'advanced' && <Crown className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />}
+                    {question.difficulty?.charAt(0).toUpperCase() + question.difficulty?.slice(1) || 'Medium'}
+                  </motion.span>
                   {isAnswered && (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="px-3 py-1 bg-green-100 text-green-700 text-xs sm:text-sm font-medium rounded-full flex items-center"
+                      transition={{ delay: 0.5 }}
+                      className="px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 text-xs sm:text-sm font-bold rounded-full flex items-center border border-green-200 shadow-sm"
                     >
                       <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                       Answered
@@ -718,31 +775,37 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
                 className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 pt-6 border-t border-gray-200"
               >
                 <div className="flex items-center space-x-3">
-                  <Button
-                    onClick={onPrevious}
-                    disabled={questionNumber === 1}
-                    variant="outline"
-                    className="flex items-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="hidden sm:inline">Previous</span>
-                  </Button>
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Button
+                      onClick={onPrevious}
+                      disabled={questionNumber === 1}
+                      variant="outline"
+                      className="flex items-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-gray-300 hover:border-purple-300 hover:bg-purple-50"
+                    >
+                      <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="hidden sm:inline">Previous</span>
+                    </Button>
+                  </motion.div>
                   
-                  <span className="text-sm text-gray-500 px-2">
-                    {questionNumber} / {totalQuestions}
-                  </span>
+                  <div className="flex items-center space-x-2 px-3 py-2 bg-gray-100 rounded-lg">
+                    <span className="text-sm text-gray-600 font-medium">
+                      {questionNumber} / {totalQuestions}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center space-x-3">
                   {/* Skip Button for Practice Mode */}
                   {mode === 'practice' && (
-                    <Button
-                      onClick={handleNext}
-                      variant="outline"
-                      className="px-4 sm:px-6 py-2 sm:py-3 text-gray-600 hover:text-gray-800"
-                    >
-                      Skip
-                    </Button>
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                      <Button
+                        onClick={handleNext}
+                        variant="outline"
+                        className="px-4 sm:px-6 py-2 sm:py-3 text-gray-600 hover:text-gray-800 border-2 border-gray-300 hover:border-gray-400"
+                      >
+                        Skip
+                      </Button>
+                    </motion.div>
                   )}
 
                   {/* Next/Finish Button */}
@@ -750,18 +813,19 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
                     <Button
                       onClick={handleNext}
                       disabled={!isAnswered && mode === 'exam'}
-                      className={`px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold shadow-xl transition-all duration-300 ${
+                      className={`px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold shadow-xl transition-all duration-300 relative overflow-hidden group ${
                         isAnswered 
-                          ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600' 
+                          ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white' 
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
                     >
-                      <div className="flex items-center space-x-2">
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                      <div className="relative flex items-center space-x-2">
                         <span>{isLastQuestion ? 'Finish Quiz' : 'Next Question'}</span>
                         {isLastQuestion ? (
-                          <Flag className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
                         ) : (
-                          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform duration-300" />
                         )}
                       </div>
                     </Button>
@@ -789,16 +853,18 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
               className="bg-white rounded-2xl p-6 sm:p-8 max-w-md mx-4 shadow-2xl w-full"
             >
               <div className="text-center">
-                <AlertTriangle className="w-12 h-12 sm:w-16 sm:h-16 text-orange-500 mx-auto mb-4" />
+                <div className="w-16 h-16 bg-gradient-to-r from-orange-400 to-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertTriangle className="w-8 h-8 text-white" />
+                </div>
                 <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Leave Quiz?</h3>
                 <p className="text-gray-600 mb-6 text-sm sm:text-base">
-                  Are you sure you want to leave this quiz? Your progress will be lost.
+                  Are you sure you want to leave this quiz? Your progress will be lost and you'll need to start over.
                 </p>
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                   <Button
                     onClick={() => setShowLeaveConfirm(false)}
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 border-2 border-gray-300 hover:border-gray-400"
                   >
                     Continue Quiz
                   </Button>
@@ -807,7 +873,7 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
                       setShowLeaveConfirm(false);
                       onQuitQuiz?.();
                     }}
-                    className="flex-1 bg-red-500 hover:bg-red-600"
+                    className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white"
                   >
                     Leave Quiz
                   </Button>

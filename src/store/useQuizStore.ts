@@ -14,6 +14,8 @@ interface QuizState {
   isLoading: boolean;
   error: string | null;
   explanation: string | null;
+  quizStartTime: number | null;
+  totalTimeRemaining: number | null;
   
   // Preference actions
   loadApiKey: (userId: string) => Promise<void>;
@@ -28,6 +30,7 @@ interface QuizState {
   prevQuestion: () => void;
   finishQuiz: () => void;
   resetQuiz: () => void;
+  updateTotalTimeRemaining: () => void;
   
   // Explanation
   getExplanation: (questionId: number) => Promise<void>;
@@ -61,6 +64,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   isLoading: false,
   error: null,
   explanation: null,
+  quizStartTime: null,
+  totalTimeRemaining: null,
   
   loadApiKey: async (userId) => {
     set({ isLoading: true, error: null });
@@ -98,49 +103,47 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     }
   },
   
-savePreferences: async (userId, preferences) => {
-  set({ isLoading: true, error: null });
-  try {
-    // Ensure at least one question type is selected
-    if (!preferences.questionTypes || preferences.questionTypes.length === 0) {
-      preferences.questionTypes = ['multiple-choice'];
+  savePreferences: async (userId, preferences) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Ensure at least one question type is selected
+      if (!preferences.questionTypes || preferences.questionTypes.length === 0) {
+        preferences.questionTypes = ['multiple-choice'];
+      }
+      
+      // Validate preferences with proper time limit handling
+      const validatedPreferences = {
+        ...preferences,
+        course: preferences.course || '',
+        topic: preferences.topic || '',
+        subtopic: preferences.subtopic || '',
+        questionCount: Math.max(1, Math.min(50, preferences.questionCount || 5)),
+        difficulty: preferences.difficulty || 'medium',
+        language: preferences.language || 'English',
+        timeLimitEnabled: preferences.timeLimitEnabled || false,
+        // Fixed time limit handling - ensure only one is set at a time
+        timeLimit: preferences.timeLimitEnabled && preferences.totalTimeLimit === null 
+          ? preferences.timeLimit 
+          : null,
+        totalTimeLimit: preferences.timeLimitEnabled && preferences.timeLimit === null 
+          ? preferences.totalTimeLimit 
+          : null,
+        negativeMarking: preferences.negativeMarking || false,
+        negativeMarks: preferences.negativeMarking ? (preferences.negativeMarks || -0.25) : 0,
+        mode: preferences.mode || 'practice',
+        answerMode: preferences.mode === 'practice' ? 'immediate' : 'end'
+      };
+      
+      await saveQuizPreferences(userId, validatedPreferences);
+      set({ preferences: validatedPreferences });
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to save preferences' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
     }
-    
-    // Validate preferences with proper time limit handling
-const validatedPreferences = {
-  ...preferences,
-  course: preferences.course || '',
-  topic: preferences.topic || '',
-  subtopic: preferences.subtopic || '',
-  questionCount: Math.max(1, Math.min(50, preferences.questionCount || 5)),
-  difficulty: preferences.difficulty || 'medium',
-  language: preferences.language || 'English',
-  timeLimitEnabled: preferences.timeLimitEnabled || false,
-  // Fixed time limit handling - ensure only one is set at a time
-  timeLimit: preferences.timeLimitEnabled && preferences.totalTimeLimit === null 
-    ? preferences.timeLimit 
-    : null,
-  totalTimeLimit: preferences.timeLimitEnabled && preferences.timeLimit === null 
-    ? preferences.totalTimeLimit 
-    : null,
-  negativeMarking: preferences.negativeMarking || false,
-  negativeMarks: preferences.negativeMarking ? (preferences.negativeMarks || -0.25) : 0,
-  mode: preferences.mode || 'practice',
-  answerMode: preferences.mode === 'practice' ? 'immediate' : 'end'
-};
-    
-    await saveQuizPreferences(userId, validatedPreferences);
-    set({ preferences: validatedPreferences });
-  } catch (error: any) {
-    set({ error: error.message || 'Failed to save preferences' });
-    throw error;
-  } finally {
-    set({ isLoading: false });
-  }
-},
+  },
 
-
-  
   generateQuiz: async (userId) => {
     const { preferences, apiKey } = get();
     set({ isLoading: true, error: null, questions: [], answers: {}, result: null });
@@ -157,10 +160,20 @@ const validatedPreferences = {
     
     try {
       const questions = await generateQuiz(apiKey, preferences);
+      const startTime = Date.now();
+      let totalTimeRemaining = null;
+      
+      // Initialize total time remaining if enabled
+      if (preferences.timeLimitEnabled && preferences.totalTimeLimit) {
+        totalTimeRemaining = preferences.totalTimeLimit;
+      }
+      
       set({ 
         questions, 
         currentQuestionIndex: 0,
         answers: {},
+        quizStartTime: startTime,
+        totalTimeRemaining
       });
     } catch (error: any) {
       set({ error: error.message || 'Failed to generate quiz' });
@@ -196,141 +209,155 @@ const validatedPreferences = {
     });
   },
   
-finishQuiz: () => {
-  const { questions, answers, preferences } = get();
-  
-  console.log('Starting finishQuiz with:', { questionsCount: questions.length, answersCount: Object.keys(answers).length });
-  
-  if (questions.length === 0) {
-    console.warn('No questions available to finish quiz');
-    return;
-  }
-  
-  let correctAnswers = 0;
-  let finalScore = 0;
-  let questionsAttempted = 0;
-  let questionsSkipped = 0;
-  const questionTypePerformance: Record<string, { correct: number; total: number }> = {};
-  
-  const questionsWithAnswers = questions.map(question => {
-    const userAnswer = answers[question.id];
-    const isAnswered = userAnswer && userAnswer.trim() !== '';
+  updateTotalTimeRemaining: () => {
+    set((state) => {
+      if (state.totalTimeRemaining !== null && state.totalTimeRemaining > 0) {
+        return { totalTimeRemaining: state.totalTimeRemaining - 1 };
+      }
+      return state;
+    });
+  },
+
+  finishQuiz: () => {
+    const { questions, answers, preferences, quizStartTime } = get();
     
-    if (isAnswered) {
-      questionsAttempted++;
-    } else {
-      questionsSkipped++;
+    console.log('Starting finishQuiz with:', { questionsCount: questions.length, answersCount: Object.keys(answers).length });
+    
+    if (questions.length === 0) {
+      console.warn('No questions available to finish quiz');
+      return;
     }
     
-    // Initialize question type tracking
-    if (!questionTypePerformance[question.type]) {
-      questionTypePerformance[question.type] = { correct: 0, total: 0 };
-    }
-    questionTypePerformance[question.type].total++;
+    let correctAnswers = 0;
+    let finalScore = 0;
+    let questionsAttempted = 0;
+    let questionsSkipped = 0;
+    const questionTypePerformance: Record<string, { correct: number; total: number }> = {};
     
-    let isCorrect = false;
+    // Calculate time taken
+    const timeTaken = quizStartTime ? Math.floor((Date.now() - quizStartTime) / 1000) : 0;
     
-    // Handle different question types correctly
-    switch (question.type) {
-      case 'multiple-choice':
-      case 'true-false':
-      case 'case-study':
-      case 'situation':
-        isCorrect = userAnswer && question.correctAnswer && 
-                   userAnswer.toLowerCase() === question.correctAnswer.toLowerCase();
-        break;
-        
-      case 'multi-select':
-        if (userAnswer && question.correctOptions) {
-          const userOptions = userAnswer.split(',').sort();
-          const correctOptions = question.correctOptions.sort();
-          isCorrect = userOptions.length === correctOptions.length &&
-                     userOptions.every((opt, index) => opt === correctOptions[index]);
-        }
-        break;
-        
-      case 'sequence':
-        if (userAnswer && question.correctSequence) {
-          const userSequence = userAnswer.split(',');
-          isCorrect = userSequence.length === question.correctSequence.length &&
-                     userSequence.every((step, index) => step === question.correctSequence![index]);
-        }
-        break;
-        
-      case 'short-answer':
-      case 'fill-blank':
-        if (userAnswer && question.correctAnswer) {
-          const userLower = userAnswer.toLowerCase().trim();
-          const correctLower = question.correctAnswer.toLowerCase().trim();
-          isCorrect = userLower === correctLower;
+    const questionsWithAnswers = questions.map(question => {
+      const userAnswer = answers[question.id];
+      const isAnswered = userAnswer && userAnswer.trim() !== '';
+      
+      if (isAnswered) {
+        questionsAttempted++;
+      } else {
+        questionsSkipped++;
+      }
+      
+      // Initialize question type tracking
+      if (!questionTypePerformance[question.type]) {
+        questionTypePerformance[question.type] = { correct: 0, total: 0 };
+      }
+      questionTypePerformance[question.type].total++;
+      
+      let isCorrect = false;
+      
+      // Handle different question types correctly
+      switch (question.type) {
+        case 'multiple-choice':
+        case 'true-false':
+        case 'case-study':
+        case 'situation':
+          isCorrect = userAnswer && question.correctAnswer && 
+                     userAnswer.toLowerCase() === question.correctAnswer.toLowerCase();
+          break;
           
-          if (!isCorrect && question.keywords) {
-            isCorrect = question.keywords.some(keyword => 
-              userLower.includes(keyword.toLowerCase())
-            );
+        case 'multi-select':
+          if (userAnswer && question.correctOptions) {
+            const userOptions = userAnswer.split(',').sort();
+            const correctOptions = question.correctOptions.sort();
+            isCorrect = userOptions.length === correctOptions.length &&
+                       userOptions.every((opt, index) => opt === correctOptions[index]);
           }
-        }
-        break;
-        
-      default:
-        isCorrect = false;
-    }
+          break;
+          
+        case 'sequence':
+          if (userAnswer && question.correctSequence) {
+            const userSequence = userAnswer.split(',');
+            isCorrect = userSequence.length === question.correctSequence.length &&
+                       userSequence.every((step, index) => step === question.correctSequence![index]);
+          }
+          break;
+          
+        case 'short-answer':
+        case 'fill-blank':
+          if (userAnswer && question.correctAnswer) {
+            const userLower = userAnswer.toLowerCase().trim();
+            const correctLower = question.correctAnswer.toLowerCase().trim();
+            isCorrect = userLower === correctLower;
+            
+            if (!isCorrect && question.keywords) {
+              isCorrect = question.keywords.some(keyword => 
+                userLower.includes(keyword.toLowerCase())
+              );
+            }
+          }
+          break;
+          
+        default:
+          isCorrect = false;
+      }
+      
+      if (isCorrect) {
+        correctAnswers++;
+        finalScore += 1;
+        questionTypePerformance[question.type].correct++;
+      } else if (userAnswer && preferences?.negativeMarking) {
+        finalScore += preferences.negativeMarks || 0;
+      }
+      
+      return {
+        ...question,
+        userAnswer,
+        isCorrect
+      };
+    });
     
-    if (isCorrect) {
-      correctAnswers++;
-      finalScore += 1;
-      questionTypePerformance[question.type].correct++;
-    } else if (userAnswer && preferences?.negativeMarking) {
-      finalScore += preferences.negativeMarks || 0;
-    }
+    finalScore = Math.max(0, finalScore);
     
-    return {
-      ...question,
-      userAnswer,
-      isCorrect
+    const result: QuizResult = {
+      totalQuestions: questions.length,
+      correctAnswers,
+      questionsAttempted,
+      questionsSkipped,
+      percentage: questions.length > 0 ? Math.round((finalScore / questions.length) * 100) : 0,
+      questions: questionsWithAnswers,
+      questionTypePerformance,
+      finalScore,
+      rawScore: correctAnswers,
+      negativeMarksDeducted: preferences?.negativeMarking ? 
+        Math.abs((correctAnswers - finalScore) * (preferences.negativeMarks || 0)) : 0,
+      timeTaken
     };
-  });
-  
-  finalScore = Math.max(0, finalScore);
-  
-  const result: QuizResult = {
-    totalQuestions: questions.length,
-    correctAnswers,
-    questionsAttempted,
-    questionsSkipped,
-    percentage: questions.length > 0 ? Math.round((finalScore / questions.length) * 100) : 0,
-    questions: questionsWithAnswers,
-    questionTypePerformance,
-    finalScore,
-    rawScore: correctAnswers,
-    negativeMarksDeducted: preferences?.negativeMarking ? 
-      Math.abs((correctAnswers - finalScore) * (preferences.negativeMarks || 0)) : 0
-  };
-  
-  console.log('Quiz result created:', result);
-  
-  // Set result and clear questions to prevent re-generation
-  set({ 
-    result,
-    currentQuestionIndex: 0 // Reset question index
-  });
-  
-  // Save to database
-  const { user } = useAuthStore.getState();
-  if (user && preferences) {
-    saveQuizResultToDatabase(user.id, result, preferences).catch(console.error);
-  }
-},
+    
+    console.log('Quiz result created:', result);
+    
+    // Set result and clear questions to prevent re-generation
+    set({ 
+      result,
+      currentQuestionIndex: 0, // Reset question index
+      totalTimeRemaining: null // Reset timer
+    });
+    
+    // Save to database
+    const { user } = useAuthStore.getState();
+    if (user && preferences) {
+      saveQuizResultToDatabase(user.id, result, preferences).catch(console.error);
+    }
+  },
 
-
-  
   resetQuiz: () => {
     set({
       questions: [],
       currentQuestionIndex: 0,
       answers: {},
       result: null,
-      error: null
+      error: null,
+      quizStartTime: null,
+      totalTimeRemaining: null
     });
   },
   
