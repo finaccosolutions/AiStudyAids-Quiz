@@ -101,20 +101,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     return () => clearInterval(interval);
   }, [competition.id, loadParticipants, isQuizCompleted]);
 
-  // Total time elapsed timer for competition quiz
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (competition.start_time && questions.length > 0 && !isQuizCompleted) {
-      timer = setInterval(() => {
-        setTotalTimeElapsed(Math.floor((Date.now() - new Date(competition.start_time!).getTime()) / 1000));
-      }, 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [competition.start_time, questions.length, isQuizCompleted]);
-
-  
   useEffect(() => {
     setQuestionStartTime(Date.now());
     setTimeLeft(parseInt(competition.quiz_preferences?.timeLimit || '30'));
