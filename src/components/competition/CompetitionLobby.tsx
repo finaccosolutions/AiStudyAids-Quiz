@@ -41,8 +41,7 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   const [copied, setCopied] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [showChat, setShowChat] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [countdownInitiated, setCountdownInitiated] = useState(false);
+  const [timeToQuizStart, setTimeToQuizStart] = useState<number | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isComponentMounted, setIsComponentMounted] = useState(true);
@@ -181,56 +180,57 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
       return () => clearInterval(refreshInterval);
     }, [competition.id, isComponentMounted, loadParticipants]);
 
-  // Enhanced status monitoring with countdown flickering fix
-    useEffect(() => {
-      if (!isComponentMounted) return;
-    
-      let timer: NodeJS.Timeout | null = null;
-    
-      // Add this console.log to see the status and current countdown value
-      console.log('Countdown useEffect triggered. Status:', competition.status, 'Current countdown:', countdown);
-    
-      if (competition.status === 'active') {
-        // If countdown is not yet set, initialize it
-        if (countdown === null) {
-          setCountdown(5);
-          console.log('Countdown initialized to 5.');
-        }
-    
-        // Start the interval if countdown is active and not yet finished
-        if (countdown !== null && countdown > 0) {
-          console.log('Starting countdown interval for:', countdown);
-          timer = setInterval(() => {
-            setCountdown(prev => {
-              // Add this console.log to see the value inside the interval
-              console.log('Interval tick. Previous countdown:', prev);
-              if (prev === null || prev <= 1) {
-                clearInterval(timer!);
-                if (isComponentMounted) {
-                  console.log('Countdown finished, calling onStartQuiz');
-                  onStartQuiz(); // Call the function to start the quiz
-                }
-                return null;
-              }
-              return prev - 1;
-            });
-          }, 1000);
-        }
-      } else {
-        // Reset countdown if competition is not active
-        if (countdown !== null) {
-          console.log('Competition not active, resetting countdown state.');
-        }
-        setCountdown(null);
+// Countdown logic based on competition.start_time
+useEffect(() => {
+  if (!isComponentMounted) return;
+
+  let timer: NodeJS.Timeout | null = null;
+
+  if (competition.status === 'active' && competition.start_time) {
+    const quizStartTime = new Date(competition.start_time).getTime();
+    const now = Date.now();
+    let remainingTime = Math.ceil((quizStartTime - now) / 1000);
+
+    if (remainingTime <= 0) {
+      // If the start time has already passed, immediately start the quiz
+      if (isComponentMounted) {
+        console.log('Competition start time already passed, calling onStartQuiz');
+        onStartQuiz();
       }
-    
-      return () => {
-        if (timer) {
-          console.log('Clearing countdown interval.');
-          clearInterval(timer);
+      setTimeToQuizStart(null);
+      return;
+    }
+
+    // Initialize countdown
+    setTimeToQuizStart(remainingTime);
+
+    // Start interval to update countdown
+    timer = setInterval(() => {
+      remainingTime--;
+      if (remainingTime <= 0) {
+        clearInterval(timer!);
+        if (isComponentMounted) {
+          console.log('Countdown finished, calling onStartQuiz');
+          onStartQuiz();
         }
-      };
-    }, [competition.status, countdown, onStartQuiz, isComponentMounted]);
+        setTimeToQuizStart(null);
+      } else {
+        setTimeToQuizStart(remainingTime);
+      }
+    }, 1000);
+  } else {
+    // Reset countdown if competition is not active or start_time is not set
+    setTimeToQuizStart(null);
+  }
+
+  return () => {
+    if (timer) {
+      console.log('Clearing countdown interval.');
+      clearInterval(timer);
+    }
+  };
+}, [competition.status, competition.start_time, onStartQuiz, isComponentMounted]);
+
  
   // Periodic data refresh to ensure consistency - using centralized function
   useEffect(() => {
@@ -295,75 +295,75 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
     setShowCancelConfirm(false);
   };
 
-  // Show countdown screen
-  if (countdown !== null) {
-  if (countdown !== null && competition.status === 'active') { 
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative overflow-hidden px-4">
-        {/* Animated Background */}
-        <div className="absolute inset-0">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-2 h-2 bg-white rounded-full opacity-20"
-              initial={{
-                x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 800),
-                y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 600),
-              }}
-              animate={{
-                y: [null, -100],
-                opacity: [0.2, 0.8, 0.2],
-              }}
-              transition={{
-                duration: Math.random() * 3 + 2,
-                repeat: Infinity,
-                delay: Math.random() * 2,
-              }}
-            />
-          ))}
-        </div>
-
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="text-center text-white relative z-10 w-full max-w-md"
-        >
+// Show countdown screen
+if (timeToQuizStart !== null && competition.status === 'active') {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative overflow-hidden px-4">
+      {/* Animated Background */}
+      <div className="absolute inset-0">
+        {Array.from({ length: 20 }).map((_, i) => (
           <motion.div
-            animate={{ 
-              scale: [1, 1.2, 1],
-              rotate: [0, 10, -10, 0]
+            key={i}
+            className="absolute w-2 h-2 bg-white rounded-full opacity-20"
+            initial={{
+              x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 800),
+              y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 600),
             }}
-            transition={{ duration: 1, repeat: Infinity }}
-            className="text-6xl sm:text-9xl font-bold mb-6 bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent"
-          >
-            {countdown}
-          </motion.div>
-          <motion.h2 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-2xl sm:text-4xl font-bold mb-4"
-          >
-            Quiz Starting...
-          </motion.h2>
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-lg sm:text-2xl opacity-80"
-          >
-            Get ready to compete!
-          </motion.p>
-          <motion.div
-            animate={{ scale: [1, 1.1, 1] }}
-            transition={{ duration: 0.5, repeat: Infinity }}
-            className="mt-8"
-          >
-            <Rocket className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-yellow-400" />
-          </motion.div>
-        </motion.div>
+            animate={{
+              y: [null, -100],
+              opacity: [0.2, 0.8, 0.2],
+            }}
+            transition={{
+              duration: Math.random() * 3 + 2,
+              repeat: Infinity,
+              delay: Math.random() * 2,
+            }}
+          />
+        ))}
       </div>
-    );
-  }}
+
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        className="text-center text-white relative z-10 w-full max-w-md"
+      >
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 10, -10, 0]
+          }}
+          transition={{ duration: 1, repeat: Infinity }}
+          className="text-6xl sm:text-9xl font-bold mb-6 bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent"
+        >
+          {timeToQuizStart}
+        </motion.div>
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-2xl sm:text-4xl font-bold mb-4"
+        >
+          Quiz Starting...
+        </motion.h2>
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="text-lg sm:text-2xl opacity-80"
+        >
+          Get ready to compete!
+        </motion.p>
+        <motion.div
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 0.5, repeat: Infinity }}
+          className="mt-8"
+        >
+          <Rocket className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-yellow-400" />
+        </motion.div>
+      </motion.div>
+    </div>
+  );
+}
+
 
   // Show cancelled/completed message
   if (competition.status === 'cancelled' || competition.status === 'completed') {

@@ -1107,74 +1107,64 @@ updateParticipantProgress: async (competitionId, answers, score, correctAnswers,
   },
 
   startCompetition: async (competitionId, apiKey) => {
+    set({ isLoading: true, error: null });
     try {
-      console.log('Starting competition:', competitionId);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      // Get current competition data
-      const { data: competition, error: compError } = await supabase
-        .from('competitions')
-        .select('*')
-        .eq('id', competitionId)
-        .maybeSingle();
-
-      if (compError) throw compError;
-      if (!competition) throw new Error('Competition not found');
-
-      // Only the creator can start the competition
-      if (competition.creator_id !== user.id) {
-        throw new Error('Only the competition creator can start the competition');
+      const { currentCompetition, loadCompetition } = get();
+      if (!currentCompetition || currentCompetition.id !== competitionId) {
+        throw new Error('Competition not found or mismatched.');
       }
 
-      // Generate questions if not already generated and API key is provided
-      let questionsToStore = competition.questions;
-      
-      if (!questionsToStore && apiKey && competition.quiz_preferences) {
-        console.log('Generating questions for competition...');
-        try {
-          const generatedQuestions = await generateQuiz(apiKey, competition.quiz_preferences);
-          questionsToStore = generatedQuestions;
-          console.log('Questions generated successfully:', generatedQuestions.length);
-        } catch (error: any) {
-          console.error('Failed to generate questions:', error);
-          throw new Error('Failed to generate quiz questions. Please try again.');
-        }
+      // 1. Generate questions using the stored quiz preferences
+      if (!currentCompetition.quiz_preferences) {
+        throw new Error('Quiz preferences not found for this competition.');
       }
 
-      // Update competition with questions and active status
-      const { error } = await supabase
+      const questions = await generateQuiz(apiKey, currentCompetition.quiz_preferences);
+      if (!questions || questions.length === 0) {
+        throw new Error('Failed to generate questions for the competition.');
+      }
+
+      // Calculate quiz start time (e.g., 5 seconds from now for countdown)
+      const quizStartTime = new Date(Date.now() + 5 * 1000).toISOString();
+
+      // 2. Update competition status to 'active', store questions, and set start_time
+      const { data: updatedCompetition, error: updateError } = await supabase
         .from('competitions')
-        .update({ 
+        .update({
           status: 'active',
-          start_time: new Date().toISOString(),
-          questions: questionsToStore
+          questions: questions,
+          start_time: quizStartTime,
         })
-        .eq('id', competitionId);
+        .eq('id', competitionId)
+        .select()
+        .single();
 
-      if (error) {
-        console.error('Error starting competition:', error);
-        throw error;
+      if (updateError) {
+        throw updateError;
       }
 
-      console.log('Competition started successfully');
-      
-      // Update local state immediately
-      set(state => ({
-        currentCompetition: state.currentCompetition ? {
-          ...state.currentCompetition,
-          status: 'active',
-          start_time: new Date().toISOString(),
-          questions: questionsToStore
-        } : null
-      }));
+      // 3. Update all participants' quiz_start_time for synchronization
+      const { error: participantUpdateError } = await supabase
+        .from('competition_participants')
+        .update({ quiz_start_time: quizStartTime })
+        .eq('competition_id', competitionId);
+
+      if (participantUpdateError) {
+        console.error('Error updating participant quiz_start_time:', participantUpdateError);
+        // Do not throw, as competition status is already updated
+      }
+
+      // Reload the competition to get the latest state including questions and start_time
+      await loadCompetition(competitionId);
+
     } catch (error: any) {
-      console.error('Failed to start competition:', error);
-      set({ error: error.message });
+      set({ error: error.message || 'Failed to start competition' });
       throw error;
+    } finally {
+      set({ isLoading: false });
     }
   },
+
 
   loadChatMessages: async (competitionId) => {
     try {
