@@ -21,12 +21,19 @@ const HomePage: React.FC = () => {
   const location = useLocation();
 
   const handleGetStarted = () => {
-    if (isLoggedIn) {
-      navigate('/quiz');
-    } else {
-      navigate('/auth', { state: { from: location } });
-    }
-  };
+      if (isLoggedIn) {
+        // If logged in, scroll to the "Powerful Study Tools" section
+        const studyToolsSection = document.getElementById('study-tools');
+        if (studyToolsSection) {
+          studyToolsSection.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          // Fallback if section not found
+          navigate('/quiz');
+        }
+      } else {
+        navigate('/auth', { state: { from: location } });
+      }
+    };
 
   const studyAids = [
     {
@@ -283,7 +290,7 @@ const HomePage: React.FC = () => {
       </div>
 
       {/* Study Aids Section */}
-      <div className="w-full max-w-7xl mx-auto px-4 py-16 sm:py-24">
+      <div id="study-tools" className="w-full max-w-7xl mx-auto px-4 py-16 sm:py-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -550,28 +557,7 @@ const HomePage: React.FC = () => {
               Join thousands of students who are already experiencing the power of AI-assisted learning. 
               Start your journey today and unlock your full potential.
             </p>
-            
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-        <Button
-          onClick={handleGetStarted}
-          className="bg-purple-600 text-transparent group-hover:text-white px-8 py-4 text-lg font-semibold shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 group relative overflow-hidden"
-        >
-          {/* Animated Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-100/0 via-purple-100/50 to-purple-100/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-        
-          {/* Button Content */}
-          <div className="relative flex items-center text-transparent group-hover:text-white transition-colors duration-300">
-            <Zap className="w-6 h-6 mr-2 group-hover:animate-pulse" />
-            Start Learning Free
-            <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
-          </div>
-        </Button>
-
-              
-              <div className="flex items-center space-x-2 text-purple-100">
-                <CheckCircle className="w-5 h-5" />
-                <span>No credit card required</span>
-              </div>
             </div>
           </div>
         </motion.div>

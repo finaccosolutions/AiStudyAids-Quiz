@@ -226,7 +226,7 @@ useEffect(() => {
                   }`}
                 >
                   <div className="flex items-center space-x-4">
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center font-bold text-lg transition-all duration-300 flex-shrink-0 ${
+                    <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center font-bold text-base sm:text-lg transition-all duration-300 flex-shrink-0 ${
                       isSelected
                         ? 'border-purple-600 bg-purple-600 text-white shadow-lg'
                         : 'border-gray-300 text-gray-500 group-hover:border-purple-400 group-hover:text-purple-600'
@@ -240,7 +240,7 @@ useEffect(() => {
                           <CheckCircle className="w-6 h-6" />
                         </motion.div>
                       ) : (
-                        optionLetter
+                        optionLetter 
                       )}
                     </div>
                     <span className={`font-medium text-base sm:text-lg transition-colors duration-300 ${
@@ -249,16 +249,6 @@ useEffect(() => {
                       {option}
                     </span>
                   </div>
-                  
-                  {isSelected && (
-                    <motion.div
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="absolute top-2 right-2 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center"
-                    >
-                      <CheckCircle className="w-4 h-4 text-white" />
-                    </motion.div>
-                  )}
                 </motion.button>
               );
             })}
@@ -292,7 +282,7 @@ useEffect(() => {
                   }`}
                 >
                   <div className="flex flex-col items-center space-y-3">
-                    <IconComponent className={`w-8 h-8 sm:w-10 sm:h-10 ${
+                    <IconComponent className={`w-6 h-6 sm:w-10 sm:h-10 ${
                       isSelected ? 'text-white' : 'text-gray-400 group-hover:text-purple-500'
                     }`} />
                     <span>{option}</span>
@@ -577,28 +567,28 @@ useEffect(() => {
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
       {/* Header with live stats */}
       {displayHeader && (
-        <div className="bg-black bg-opacity-30 backdrop-blur-sm border-b border-white border-opacity-20">
-          <div className="max-w-full px-2 sm:px-4 py-4"> {/* Changed max-w-7xl mx-auto to max-w-full px-2 sm:px-4 */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-6">
-                <div className="flex items-center space-x-2">
-                  <Brain className="w-6 h-6 text-purple-400" />
-                  <span className="text-xl font-bold text-white">Solo Quiz</span>
+        <div className="bg-black bg-opacity-30 backdrop-blur-sm border-b border-white border-opacity-20 py-2 sm:py-4"> {/* Reduced vertical padding */}
+          <div className="max-w-full px-2 sm:px-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4"> {/* Added flex-wrap and adjusted gap */}
+              <div className="flex items-center space-x-1 sm:space-x-4"> {/* Adjusted space-x */}
+                <div className="flex items-center space-x-1 sm:space-x-2"> {/* Adjusted space-x */}
+                  <Brain className="w-5 h-5 sm:w-6 h-6 text-purple-400" /> {/* Reduced icon size */}
+                  <span className="text-base sm:text-xl font-bold text-white">Solo Quiz</span> {/* Adjusted font size */}
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Target className="w-5 h-5 text-blue-400" />
-                  <span className="text-white">Question {questionNumber}/{totalQuestions}</span>
+                <div className="flex items-center space-x-1 sm:space-x-2"> {/* Adjusted space-x */}
+                  <Target className="w-4 h-4 sm:w-5 h-5 text-blue-400" /> {/* Reduced icon size */}
+                  <span className="text-sm sm:text-base text-white">Question {questionNumber}/{totalQuestions}</span> {/* Adjusted font size */}
                 </div>
               </div>
 
-              <div className="flex items-center space-x-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4"> {/* Added flex-wrap and adjusted gap */}
                 {/* Question Timer */}
                 {timeLimitEnabled && timeLimit && (
-                  <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+                  <div className={`flex items-center space-x-1 px-2 py-1 rounded-lg ${ /* Adjusted padding and space-x */
                     questionTimeLeft !== null && questionTimeLeft <= 10 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
                   }`}>
-                    <Clock className={`w-5 h-5 ${questionTimeLeft !== null && questionTimeLeft <= 10 ? 'text-red-300' : 'text-white'}`} />
-                    <span className={`font-mono text-lg font-bold ${
+                    <Clock className={`w-4 h-4 ${questionTimeLeft !== null && questionTimeLeft <= 10 ? 'text-red-300' : 'text-white'}`} /> {/* Reduced icon size */}
+                    <span className={`font-mono text-sm font-bold ${ /* Adjusted font size */
                       questionTimeLeft !== null && questionTimeLeft <= 10 ? 'text-red-300' : 'text-white'
                     }`}>
                       {questionTimeLeft !== null ? formatTime(questionTimeLeft) : 'N/A'}
@@ -608,11 +598,11 @@ useEffect(() => {
 
                 {/* Total Timer */}
                 {timeLimitEnabled && totalTimeLimit && !timeLimit && (
-                  <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+                  <div className={`flex items-center space-x-1 px-2 py-1 rounded-lg ${ /* Adjusted padding and space-x */
                     totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
                   }`}>
-                    <Clock className={`w-5 h-5 ${totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'text-red-300' : 'text-white'}`} />
-                    <span className={`font-mono text-lg font-bold ${
+                    <Clock className={`w-4 h-4 ${totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'text-red-300' : 'text-white'}`} /> {/* Reduced icon size */}
+                    <span className={`font-mono text-sm font-bold ${ /* Adjusted font size */
                       totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'text-red-300' : 'text-white'
                     }`}>
                       {totalTimeRemaining !== null ? formatTime(totalTimeRemaining) : 'N/A'}
@@ -621,43 +611,43 @@ useEffect(() => {
                 )}
 
                 {/* Total Time Elapsed (always show if header is displayed) */}
-                <div className="flex items-center space-x-2 bg-white bg-opacity-20 px-3 py-2 rounded-lg">
-                  <Timer className="w-5 h-5 text-cyan-400" />
-                  <span className="font-mono text-lg font-bold text-white">{formatTime(totalTimeElapsed)}</span>
+                <div className="flex items-center space-x-1 bg-white bg-opacity-20 px-2 py-1 rounded-lg"> {/* Adjusted padding and space-x */}
+                  <Timer className="w-4 h-4 text-cyan-400" /> {/* Reduced icon size */}
+                  <span className="font-mono text-sm font-bold text-white">{formatTime(totalTimeElapsed)}</span> {/* Adjusted font size */}
                 </div>
 
                 {/* Speech Button */}
                 <button
                   onClick={handleSpeech}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white"
+                  className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white" /* Adjusted padding and space-x */
                 >
                   {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                  <span className="text-sm">Speech</span>
+                  <span className="text-xs">Speech</span> {/* Adjusted font size */}
                 </button>
 
                 {/* Quit Button */}
                 {showQuitButton && onQuitQuiz && (
                   <button
                     onClick={() => setShowLeaveConfirm(true)}
-                    className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-red-500 bg-opacity-30 hover:bg-opacity-50 transition-all text-red-200 hover:text-white"
+                    className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-red-500 bg-opacity-30 hover:bg-opacity-50 transition-all text-red-200 hover:text-white" /* Adjusted padding and space-x */
                   >
                     <LogOut className="w-4 h-4" />
-                    <span className="text-sm">Quit</span>
+                    <span className="text-xs">Quit</span> {/* Adjusted font size */}
                   </button>
                 )}
               </div>
             </div>
 
             {/* Progress Bar */}
-            <div className="mt-4">
-              <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="mt-2"> {/* Reduced margin-top */}
+              <div className="w-full bg-gray-200 rounded-full h-1.5"> {/* Reduced height */}
                 <motion.div
-                  className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-purple-500 to-indigo-500 h-1.5 rounded-full transition-all duration-500"
                   initial={{ width: 0 }}
                   animate={{ width: `${getProgressPercentage()}%` }}
                 />
               </div>
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <div className="flex justify-between text-xs text-gray-500 mt-0.5"> {/* Reduced margin-top */}
                 <span>{Math.round(getProgressPercentage())}% Complete</span>
                 <span>{totalQuestions - questionNumber} remaining</span>
               </div>
@@ -667,17 +657,17 @@ useEffect(() => {
       )}
 
       {/* Main Content */}
-      <div className="max-w-full px-2 sm:px-4 py-6 sm:py-8"> {/* Changed max-w-4xl mx-auto to max-w-full and px-4 to px-2 sm:px-4 */}
+       <div className="w-full max-w-7xl mx-auto px-0 sm:px-4 py-6 sm:py-8">
         <motion.div
           key={question.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Card className="w-full shadow-2xl border-0 bg-white/95 backdrop-blur-sm overflow-hidden">
-            <CardBody className="p-6 sm:p-8">
+          <Card className="w-full shadow-2xl border-0 bg-white/95 backdrop-blur-sm overflow-hidden px-0 sm:px-8">
+             <CardBody className="py-6 px-0 sm:p-8">
               {/* Question Text */}
-              <div className="mb-6 sm:mb-8">
+              <div className="mb-6 sm:mb-8 p-4">
                 <motion.h2 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -713,18 +703,18 @@ useEffect(() => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="mb-8"
+                className="mb-8 p-4"
               >
                 {renderQuestionContent()}
               </motion.div>
 
               {/* Navigation */}
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 pt-6 border-t border-gray-200"
-              >
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 pt-6 border-t border-gray-200 p-4"
+            >
                 <div className="flex items-center space-x-3">
                   <Button
                     onClick={onPrevious}

@@ -274,36 +274,92 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
-    if (competition.quiz_preferences?.timeLimitEnabled && competition.quiz_preferences?.timeLimit && timeLeft !== null && timeLeft > 0 && questions.length > 0 && !isQuizCompleted) {
-      timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-    } else if (timeLeft === 0 && questions.length > 0 && competition.quiz_preferences?.timeLimitEnabled && !isQuizCompleted) {
-      handleNextQuestion(); // This is the line that was causing the error
+    const quizPrefs = competition.quiz_preferences;
+
+    if (!quizPrefs || isQuizCompleted || questions.length === 0) {
+      setTimeLeft(null); // Clear timer if conditions not met
+      return;
     }
-  
+
+    // If per-question time limit is enabled
+    if (quizPrefs.timeLimitEnabled && quizPrefs.timeLimit && !quizPrefs.totalTimeLimit) {
+      const perQuestionLimit = parseInt(quizPrefs.timeLimit);
+      if (isNaN(perQuestionLimit) || perQuestionLimit <= 0) {
+        setTimeLeft(null);
+        return;
+      }
+
+      // Reset timer for new question
+      if (currentQuestion && currentQuestion.id !== (questions[currentQuestionIndex - 1]?.id || null)) {
+        setTimeLeft(perQuestionLimit);
+      }
+
+      if (timeLeft !== null && timeLeft > 0) {
+        timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000);
+      } else if (timeLeft === 0) {
+        handleNextQuestion();
+      }
+    } 
+    // If total time limit is enabled
+    else if (quizPrefs.timeLimitEnabled && quizPrefs.totalTimeLimit) {
+      const totalLimit = parseInt(quizPrefs.totalTimeLimit);
+      if (isNaN(totalLimit) || totalLimit <= 0) {
+        setTimeLeft(null);
+        return;
+      }
+      
+      // Calculate remaining time based on total elapsed time
+      const remaining = totalLimit - totalTimeElapsed;
+      setTimeLeft(remaining);
+
+      if (remaining <= 0) {
+        handleCompetitionCompletion(score, correctAnswers, totalTimeElapsed, answers);
+        onComplete();
+      } else {
+        timer = setTimeout(() => {}, 1000); // Keep this timer running to trigger re-render based on totalTimeElapsed
+      }
+    } else {
+      setTimeLeft(null); // No time limit enabled
+    }
+
     return () => {
       if (timer) {
         clearTimeout(timer);
       }
     };
-  }, [timeLeft, questions.length, isQuizCompleted, competition.quiz_preferences, handleNextQuestion]);
+  }, [
+    timeLeft, 
+    questions.length, 
+    isQuizCompleted, 
+    competition.quiz_preferences, 
+    handleNextQuestion, 
+    totalTimeElapsed, 
+    currentQuestion, 
+    currentQuestionIndex,
+    handleCompetitionCompletion,
+    onComplete,
+    score,
+    correctAnswers,
+    answers
+  ]);
 
 
   // Total time elapsed timer
    useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (competition.start_time && questions.length > 0 && !isQuizCompleted) { // Changed from quiz_start_time to start_time
-      const startTime = new Date(competition.start_time).getTime();
-      timer = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        setTotalTimeElapsed(elapsed);
-      }, 1000);
-    }
-    return () => {
-      if (timer) {
-        clearInterval(timer);
+      let timer: NodeJS.Timeout;
+      if (competition.start_time && questions.length > 0 && !isQuizCompleted) { // Changed from quiz_start_time to start_time
+        const startTime = new Date(competition.start_time).getTime();
+        timer = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - startTime) / 1000);
+          setTotalTimeElapsed(elapsed);
+        }, 1000);
       }
-    };
-  }, [competition.start_time, questions.length, isQuizCompleted]); // Dependency changed to competition.start_time
+      return () => {
+        if (timer) {
+          clearInterval(timer);
+        }
+      };
+    }, [competition.start_time, questions.length, isQuizCompleted]);
 
     const handleAnswerSelect = (answer: string) => {
       if (isQuizCompleted || isSubmitting) return;
@@ -414,79 +470,79 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
       {/* Header with live stats */}
-      <div className="bg-black bg-opacity-30 backdrop-blur-sm border-b border-white border-opacity-20">
-        <div className="w-full px-4 py-4"> {/* Removed max-w-7xl mx-auto */}
-          <div className="flex flex-wrap items-center justify-between"> {/* Added flex-wrap */}
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2">
-                <Trophy className="w-6 h-6 text-yellow-400" />
-                <span className="text-xl font-bold text-white">{competition.title}</span>
+      <div className="bg-black bg-opacity-30 backdrop-blur-sm border-b border-white border-opacity-20 py-2 sm:py-4"> {/* Reduced vertical padding */}
+        <div className="w-full px-2 sm:px-4"> {/* Changed max-w-7xl mx-auto to w-full px-2 sm:px-4 */}
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4"> {/* Added flex-wrap and adjusted gap */}
+            <div className="flex items-center space-x-1 sm:space-x-4"> {/* Adjusted space-x */}
+              <div className="flex items-center space-x-1 sm:space-x-2"> {/* Adjusted space-x */}
+                <Trophy className="w-5 h-5 text-yellow-400" /> {/* Reduced icon size */}
+                <span className="text-base sm:text-xl font-bold text-white">{competition.title}</span> {/* Adjusted font size */}
                 {isCreator && (
-                  <span className="px-2 py-1 bg-yellow-500 text-yellow-900 text-xs font-bold rounded-full">
+                  <span className="px-1.5 py-0.5 bg-yellow-500 text-yellow-900 text-xs font-bold rounded-full"> {/* Adjusted padding and font size */}
                     CREATOR
                   </span>
                 )}
               </div>
-              <div className="flex items-center space-x-2">
-                <Target className="w-5 h-5 text-blue-400" />
-                <span className="text-white">Question {currentQuestionIndex + 1}/{questions.length}</span>
+              <div className="flex items-center space-x-1 sm:space-x-2"> {/* Adjusted space-x */}
+                <Target className="w-4 h-4 sm:w-5 h-5 text-blue-400" /> {/* Reduced icon size */}
+                <span className="text-sm sm:text-base text-white">Question {currentQuestionIndex + 1}/{questions.length}</span> {/* Adjusted font size */}
               </div>
             </div>
             
-            <div className="flex flex-wrap items-center space-x-4 mt-2 sm:mt-0"> {/* Added flex-wrap and margin-top for mobile */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4"> {/* Added flex-wrap and adjusted gap */}
               {competition.quiz_preferences?.timeLimitEnabled && (
-                <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
-                  timeLeft <= 10 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
+                <div className={`flex items-center space-x-1 px-2 py-1 rounded-lg ${ /* Adjusted padding and space-x */
+                  timeLeft !== null && timeLeft <= 10 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
                 }`}>
-                  <Clock className={`w-5 h-5 ${timeLeft <= 10 ? 'text-red-300' : 'text-white'}`} />
-                  <span className={`font-mono text-lg font-bold ${
-                    timeLeft <= 10 ? 'text-red-300' : 'text-white'
+                  <Clock className={`w-4 h-4 ${timeLeft !== null && timeLeft <= 10 ? 'text-red-300' : 'text-white'}`} /> {/* Reduced icon size */}
+                  <span className={`font-mono text-sm font-bold ${ /* Adjusted font size */
+                    timeLeft !== null && timeLeft <= 10 ? 'text-red-300' : 'text-white'
                   }`}>
-                    {formatTime(timeLeft)}
+                    {timeLeft !== null ? formatTime(timeLeft) : 'N/A'}
                   </span>
                 </div>
               )}
-              <div className="flex items-center space-x-2 bg-white bg-opacity-20 px-3 py-2 rounded-lg">
-                <Timer className="w-5 h-5 text-cyan-400" />
-                <span className="font-mono text-lg font-bold text-white">{formatTime(totalTimeElapsed)}</span>
+              <div className="flex items-center space-x-1 bg-white bg-opacity-20 px-2 py-1 rounded-lg"> {/* Adjusted padding and space-x */}
+                <Timer className="w-4 h-4 text-cyan-400" /> {/* Reduced icon size */}
+                <span className="font-mono text-sm font-bold text-white">{formatTime(totalTimeElapsed)}</span> {/* Adjusted font size */}
               </div>
-              <div className="flex items-center space-x-2 bg-white bg-opacity-20 px-3 py-2 rounded-lg">
-                <Zap className="w-5 h-5 text-green-400" />
-                <span className="font-bold text-white">{score.toFixed(1)} pts</span>
+              <div className="flex items-center space-x-1 bg-white bg-opacity-20 px-2 py-1 rounded-lg"> {/* Adjusted padding and space-x */}
+                <Zap className="w-4 h-4 text-green-400" /> {/* Reduced icon size */}
+                <span className="font-bold text-sm text-white">{score.toFixed(1)} pts</span> {/* Adjusted font size */}
               </div>
               <button
                 onClick={() => setShowLeaderboard(!showLeaderboard)}
-                className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white"
+                className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white" /* Adjusted padding and space-x */
               >
                 {showLeaderboard ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                <span className="text-sm">Leaderboard</span>
+                <span className="text-xs">Leaderboard</span> {/* Adjusted font size */}
               </button>
               <button
                 onClick={() => setShowChat(!showChat)}
-                className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white"
+                className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white" /* Adjusted padding and space-x */
               >
                 <MessageCircle className="w-4 h-4" />
-                <span className="text-sm">Chat</span>
+                <span className="text-xs">Chat</span> {/* Adjusted font size */}
               </button>
               <button
                 onClick={() => setShowLeaveConfirm(true)}
                 disabled={isSubmitting}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg bg-red-500 bg-opacity-30 hover:bg-opacity-50 transition-all text-red-200 hover:text-white ${
+                className={`flex items-center space-x-1 px-2 py-1 rounded-lg bg-red-500 bg-opacity-30 hover:bg-opacity-50 transition-all text-red-200 hover:text-white ${
                   isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                }`} /* Adjusted padding and space-x */
               >
                 <LogOut className="w-4 h-4" />
-                <span className="text-sm">Leave</span>
+                <span className="text-xs">Leave</span> {/* Adjusted font size */}
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-full px-4 py-8"> {/* Changed max-w-7xl to max-w-full */}
-        <div className={showLeaderboard ? 'lg:col-span-4' : 'max-w-full mx-auto w-full'}> {/* Changed max-w-4xl to max-w-6xl */}
+      <div className="w-full max-w-7xl mx-auto px-0 sm:px-4 py-8"> {/* Changed max-w-full to max-w-7xl and px-4 to px-0 */}
+        <div className={showLeaderboard ? 'lg:col-span-4' : 'max-w-full mx-auto w-full'}> {/* Changed max-w-4xl to max-w-full */}
           {/* Main Quiz Area */}
-<div className={showLeaderboard ? 'lg:col-span-3' : 'max-w-6xl mx-auto w-full'}> {/* Changed max-w-4xl to max-w-6xl */}
+<div className={showLeaderboard ? 'lg:col-span-3' : 'w-full max-w-full mx-auto'}>
 <QuizQuestion
   question={currentQuestion}
   questionNumber={currentQuestionIndex + 1}
@@ -501,7 +557,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   timeLimitEnabled={competition.quiz_preferences?.timeLimitEnabled || false}
   timeLimit={competition.quiz_preferences?.timeLimit} // Per-question limit
   totalTimeLimit={competition.quiz_preferences?.totalTimeLimit} // Total quiz limit
-  totalTimeRemaining={totalTimeElapsed} // Use totalTimeElapsed for overall timer
+  totalTimeRemaining={timeLeft} // Use timeLeft for overall timer
   mode="exam" // Competition is always exam mode
   answerMode="immediate" // Answers are recorded immediately
   showQuitButton={true} // Show quit button

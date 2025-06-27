@@ -250,7 +250,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
 
     // Refresh participants data periodically if not completed
     let refreshInterval: NodeJS.Timeout;
-    if (!isCompetitionFullyComplete) {
+    if (!isCompetitionFullyComplete) { // This condition is already here
       refreshInterval = setInterval(() => {
         if (isComponentMountedRef.current) {
           loadParticipants(competition.id);
@@ -272,6 +272,10 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     };
   }, [competition.id, subscribeToCompetition, loadParticipants, competitionStatus, isCompetitionFullyComplete]);
 
+  useEffect(() => {
+    setShowLiveUpdates(!isCompetitionFullyComplete);
+  }, [isCompetitionFullyComplete]);
+  
   const handleLeaveCompetition = async () => {
     try {
       // Cleanup first

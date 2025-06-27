@@ -201,7 +201,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="space-y-4 sm:space-y-8 w-full max-w-6xl mx-auto px-2 sm:px-4"
+      className="space-y-4 sm:space-y-8 w-full max-w-7xl mx-auto px-0 sm:px-4"
     >
       {/* Main Results Card */}
       <Card className="w-full overflow-hidden bg-gradient-to-br from-white to-purple-50 border-2 border-purple-100 shadow-2xl">

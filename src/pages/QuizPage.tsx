@@ -357,17 +357,30 @@ useEffect(() => {
 }, [step, questions.length, handleFinishQuiz, preferences, totalTimeRemaining]);
 
     // Total time elapsed timer for solo quiz
-    useEffect(() => {
-    let timer: NodeJS.Timeout;
+      const quizStartTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
     if (step === 'quiz' && questions.length > 0 && isComponentMountedRef.current) {
+      // Initialize quizStartTimeRef if it's null or if a new quiz has started
+      if (quizStartTimeRef.current === null || totalTimeElapsed === 0) {
+        quizStartTimeRef.current = Date.now();
+      }
+
       timer = setInterval(() => {
-          }, 1000);
+        if (quizStartTimeRef.current !== null) {
+          setTotalTimeElapsed(Math.floor((Date.now() - quizStartTimeRef.current) / 1000));
+        }
+      }, 1000);
+    } else {
+      // Clear the ref when not in quiz step or questions are gone
+      quizStartTimeRef.current = null;
     }
+
     return () => {
       if (timer) {
         clearInterval(timer);
       }
-      // No need to reset totalTimeElapsed here, useQuizStore handles it on resetQuiz
     };
   }, [step, questions.length]);
 
@@ -822,8 +835,8 @@ const handleCreateCompetitionSuccess = useCallback(() => {
         }
         
         return (
-          <div className="max-w-7xl mx-auto px-4 py-8"> {/* Changed max-w-6xl to max-w-7xl and px-2 sm:px-4 to px-4 */}
-            <div className="flex justify-between items-center mb-4">
+           <div className="w-full max-w-7xl mx-auto px-0 sm:px-4 py-8"> {/* Changed px-4 to px-0 for full width on mobile */}
+            <div className="flex justify-between items-center mb-4 px-4 sm:px-0"> {/* Added px-4 for internal padding */}
               <Button
                 variant="ghost"
                 onClick={handleBackToModeSelector}
@@ -853,7 +866,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
                 onQuitQuiz={handleBackToModeSelector}
                 totalTimeElapsed={totalTimeElapsed}
                 showQuitButton={true}
-                showHeader={true}
+                displayHeader={true} // Changed from showHeader to displayHeader
               />
 
           </div>
