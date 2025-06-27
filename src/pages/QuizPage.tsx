@@ -1,3 +1,5 @@
+// src/pages/QuizPage.tsx
+
 import { supabase } from '../services/supabase';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
@@ -68,7 +70,7 @@ const [step, setStep] = useState<
   const [totalTimeRemaining, setTotalTimeRemaining] = useState<number | null>(null);
   const [competitionQuestions, setCompetitionQuestions] = useState<Question[]>([]);
   const [totalTimeElapsed, setTotalTimeElapsed] = useState(0);
-  const [showCompetitionQuiz, setShowCompetitionQuiz] = useState(false); // Add this
+  // REMOVE: const [showCompetitionQuiz, setShowCompetitionQuiz] = useState(false); // Add this
 
 
   // Component lifecycle management
@@ -403,7 +405,7 @@ useEffect(() => {
     setSelectedMode(null);
     setTotalTimeRemaining(null);
     setCompetitionQuestions([]);
-    setShowCompetitionQuiz(false); // Add this
+    // REMOVE: setShowCompetitionQuiz(false); // Add this
     setStep('mode-selector');
     currentStepRef.current = 'mode-selector';
   }, [resetQuiz, clearCurrentCompetition, setCleanupFlag]);
@@ -486,7 +488,7 @@ const handleStartCompetitionQuiz = useCallback(async () => {
   if (!currentCompetition || !user || !apiKey || !isComponentMountedRef.current) return;
 
   try {
-    setShowCompetitionQuiz(true); // Set this to true
+    // REMOVE: setShowCompetitionQuiz(true); // Set this to true
     setStep('competition-quiz');
     currentStepRef.current = 'competition-quiz';
   } catch (error) {
@@ -564,7 +566,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
     clearCurrentCompetition();
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
-    setShowCompetitionQuiz(false); // Add this
+    // REMOVE: setShowCompetitionQuiz(false); // Add this
     setStep('mode-selector');
     currentStepRef.current = 'mode-selector';
   }, [clearCurrentCompetition, setCleanupFlag, cleanupSubscriptions]);
@@ -778,23 +780,25 @@ const handleCreateCompetitionSuccess = useCallback(() => {
           if (!currentCompetition) {
             return <div>Loading competition...</div>;
           }
-          // Render CompetitionQuiz only if the countdown has finished
-          if (!showCompetitionQuiz) {
+          // Render CompetitionQuiz only if questions are available
+          if (currentCompetition.questions && currentCompetition.questions.length > 0) {
+            return (
+              <CompetitionQuiz
+                competition={currentCompetition}
+                onComplete={handleCompetitionComplete}
+                onLeave={handleLeaveCompetition}
+              />
+            );
+          } else {
+            // If questions are not yet available, stay in lobby
             return (
               <CompetitionLobby
                 competition={currentCompetition}
-                onStartQuiz={handleStartCompetitionQuiz} // Pass the start quiz handler
+                onStartQuiz={handleStartCompetitionQuiz}
                 onLeave={handleLeaveCompetition}
               />
             );
           }
-          return (
-            <CompetitionQuiz
-              competition={currentCompetition}
-              onComplete={handleCompetitionComplete}
-              onLeave={handleLeaveCompetition}
-            />
-          );
 
       case 'competition-results':
         if (!currentCompetition) {

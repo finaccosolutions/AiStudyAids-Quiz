@@ -1,3 +1,5 @@
+// src/components/competition/CompetitionQuiz.tsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -68,9 +70,139 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const questions: Question[] = competition.questions || [];
   const currentQuestion = questions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
-  const joinedParticipants = participants.filter(p => p.status === 'joined' || p.status === 'completed');
+  const joinedParticipants = participants.filter(p => p.status === 'completed' || p.status === 'joined');
   const leaderboard = getLiveLeaderboard(competition.id);
   const isCreator = user?.id === competition.creator_id;
+
+  // New function to handle competition completion with proper database updates
+  const handleCompetitionCompletion = async (finalScore: number, correctAnswers: number, timeTaken: number, answers: Record<number, string>) => {
+    try {
+      console.log('Attempting to complete competition with:', {
+        competitionId: competition.id,
+        userId: user?.id,
+        finalScore,
+        correctAnswers,
+        timeTaken,
+        answers
+      });
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/competition-completion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          competitionId: competition.id,
+          userId: user?.id,
+          finalScore,
+          correctAnswers,
+          timeTaken,
+          answers
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
+        throw new Error(errorData.error || 'Failed to complete competition');
+      }
+
+      const result = await response.json();
+      console.log('Competition completion result:', result);
+      
+      return result;
+    } catch (error) {
+      console.error('Detailed competition completion error:', error);
+      // Fallback to original method
+      try {
+        await completeCompetition(competition.id);
+      } catch (fallbackError) {
+        console.error('Fallback method also failed:', fallbackError);
+        throw fallbackError;
+      }
+    }
+  };
+
+  // Enhanced completion logic with proper database updates
+  const handleNextQuestion = useCallback(async () => {
+    if (!currentQuestion || isQuizCompleted || isSubmitting) return;
+
+    setIsSubmitting(true);
+    
+    try {
+      // Use the selectedAnswer from state, which is updated by QuizQuestion's onAnswer
+      const userAnswer = selectedAnswer; 
+      const isCorrect = calculateScore(currentQuestion.id, userAnswer);
+      
+      let newScore = score;
+      let newCorrectAnswers = correctAnswers;
+      
+      if (isCorrect) {
+        newScore += 1;
+        newCorrectAnswers += 1;
+      } else if (userAnswer && competition.quiz_preferences?.negativeMarking) {
+        newScore += competition.quiz_preferences.negativeMarks || 0;
+      }
+      
+      setScore(Math.max(0, newScore));
+      setCorrectAnswers(newCorrectAnswers);
+
+      // Update progress in real-time
+      const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000); // Use questionStartTime
+      const updatedAnswers = { ...answers, [currentQuestion.id]: userAnswer };
+      
+      await updateParticipantProgress(
+        competition.id,
+        updatedAnswers,
+        Math.max(0, newScore),
+        newCorrectAnswers,
+        totalTimeElapsed, // Use totalTimeElapsed
+        currentQuestionIndex + 1
+      );
+      
+      if (isLastQuestion) {
+        console.log('Quiz completed, finishing...');
+        setIsQuizCompleted(true);
+        
+        await handleCompetitionCompletion(Math.max(0, newScore), newCorrectAnswers, timeTaken, updatedAnswers);
+        
+        setTimeout(() => {
+          onComplete();
+        }, 1000);
+      } else {
+        setCurrentQuestionIndex(prev => prev + 1);
+        setSelectedAnswer(''); // Clear selected answer for next question
+        setQuestionStartTime(Date.now()); // Reset question start time for the next question
+      }
+    } catch (error) {
+      console.error('Error handling next question:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [
+    currentQuestion, 
+    selectedAnswer, 
+    score, 
+    correctAnswers, 
+    isLastQuestion, 
+    calculateScore,
+    competition.id,
+    questionStartTime, // Corrected from startTime
+    updateParticipantProgress,
+    onComplete,
+    isQuizCompleted,
+    isSubmitting,
+    answers,
+    totalTimeElapsed,
+    competition.quiz_preferences?.negativeMarking,
+    competition.quiz_preferences?.negativeMarks,
+    handleCompetitionCompletion
+  ]);
 
   // Load participants and set up subscriptions
   useEffect(() => {
@@ -123,7 +255,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     } else if (timeLeft === 0 && questions.length > 0 && competition.quiz_preferences?.timeLimitEnabled && !isQuizCompleted) {
       handleNextQuestion();
     }
-  }, [timeLeft, questions.length, isQuizCompleted]);
+  }, [timeLeft, questions.length, isQuizCompleted, handleNextQuestion, competition.quiz_preferences]); // Added competition.quiz_preferences to dependencies
 
   // Total time elapsed timer
     useEffect(() => {
@@ -173,133 +305,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       if (isQuizCompleted || isSubmitting) return;
       setSelectedAnswer(answer);
     };
-
-  // Enhanced completion logic with proper database updates
-const handleNextQuestion = useCallback(async () => {
-  if (!currentQuestion || isQuizCompleted || isSubmitting) return;
-
-  setIsSubmitting(true);
-  
-  try {
-    // Use the selectedAnswer from state, which is updated by QuizQuestion's onAnswer
-    const userAnswer = selectedAnswer; 
-    const isCorrect = calculateScore(currentQuestion.id, userAnswer);
-    
-    let newScore = score;
-    let newCorrectAnswers = correctAnswers;
-    
-    if (isCorrect) {
-      newScore += 1;
-      newCorrectAnswers += 1;
-    } else if (userAnswer && competition.quiz_preferences?.negativeMarking) {
-      newScore += competition.quiz_preferences.negativeMarks || 0;
-    }
-    
-    setScore(Math.max(0, newScore));
-    setCorrectAnswers(newCorrectAnswers);
-
-    // Update progress in real-time
-    const timeTaken = Math.floor((Date.now() - startTime) / 1000);
-    const updatedAnswers = { ...answers, [currentQuestion.id]: userAnswer };
-    
-    await updateParticipantProgress(
-      competition.id,
-      updatedAnswers,
-      Math.max(0, newScore),
-      newCorrectAnswers,
-      totalTimeElapsed, // Use totalTimeElapsed
-      currentQuestionIndex + 1
-    );
-    // ...
-    await handleCompetitionCompletion(Math.max(0, newScore), newCorrectAnswers, totalTimeElapsed, updatedAnswers);
-
-    if (isLastQuestion) {
-      console.log('Quiz completed, finishing...');
-      setIsQuizCompleted(true);
-      
-      await handleCompetitionCompletion(Math.max(0, newScore), newCorrectAnswers, timeTaken, updatedAnswers);
-      
-      setTimeout(() => {
-        onComplete();
-      }, 1000);
-    } else {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setSelectedAnswer(''); // Clear selected answer for next question
-    }
-  } catch (error) {
-    console.error('Error handling next question:', error);
-  } finally {
-    setIsSubmitting(false);
-  }
-}, [
-  currentQuestion, 
-  selectedAnswer, // Now depends on selectedAnswer
-  score, 
-  correctAnswers, 
-  isLastQuestion, 
-  calculateScore,
-  competition.id,
-  startTime,
-  updateParticipantProgress,
-  onComplete,
-  isQuizCompleted,
-  isSubmitting,
-  answers // Include answers in dependency array
-]);
-
-  // New function to handle competition completion with proper database updates
-const handleCompetitionCompletion = async (finalScore: number, correctAnswers: number, timeTaken: number, answers: Record<number, string>) => {
-  try {
-    console.log('Attempting to complete competition with:', {
-      competitionId: competition.id,
-      userId: user?.id,
-      finalScore,
-      correctAnswers,
-      timeTaken,
-      answers
-    });
-
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/competition-completion`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        competitionId: competition.id,
-        userId: user?.id,
-        finalScore,
-        correctAnswers,
-        timeTaken,
-        answers
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('API Error Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorData
-      });
-      throw new Error(errorData.error || 'Failed to complete competition');
-    }
-
-    const result = await response.json();
-    console.log('Competition completion result:', result);
-    
-    return result;
-  } catch (error) {
-    console.error('Detailed competition completion error:', error);
-    // Fallback to original method
-    try {
-      await completeCompetition(competition.id);
-    } catch (fallbackError) {
-      console.error('Fallback method also failed:', fallbackError);
-      throw fallbackError;
-    }
-  }
-};
 
   const handleLeaveQuiz = async () => {
     if (isSubmitting) return;
