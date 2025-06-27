@@ -482,7 +482,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       </div>
 
       <div className="max-w-full px-4 py-8"> {/* Changed max-w-7xl to max-w-full */}
-        <div className={showLeaderboard ? 'lg:col-span-4' : 'max-w-6xl mx-auto w-full'}> {/* Changed max-w-4xl to max-w-6xl */}
+        <div className={showLeaderboard ? 'lg:col-span-4' : 'max-w-full mx-auto w-full'}> {/* Changed max-w-4xl to max-w-6xl */}
           {/* Main Quiz Area */}
 <div className={showLeaderboard ? 'lg:col-span-3' : 'max-w-6xl mx-auto w-full'}> {/* Changed max-w-4xl to max-w-6xl */}
 <QuizQuestion
@@ -504,7 +504,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   answerMode="immediate" // Answers are recorded immediately
   showQuitButton={true} // Show quit button
   onQuitQuiz={() => setShowLeaveConfirm(true)} // Show leave confirmation
-  showHeader={false} // Add this prop to hide the header
+  displayHeader={false} // Add this prop to hide the header
 />
 </div>
 

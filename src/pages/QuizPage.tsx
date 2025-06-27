@@ -53,7 +53,8 @@ const QuizPage: React.FC = () => {
   const isInitializedRef = useRef(false);
   const currentStepRef = useRef<string>('api-key');
   const competitionCompletedRef = useRef(false);
-  const isOnResultsPageRef = useRef(false);
+  const isOnResultsPageRef = useRef(false); // Flag to prevent auto-redirect from results page
+  const isComponentMountedRef = useRef(true);
   const isComponentMountedRef = useRef(true);
   
 const [step, setStep] = useState<
@@ -580,7 +581,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
       case 'active-competitions-selector':
         return (
           <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-8">
-            <div className="max-w-6xl mx-auto px-2 sm:px-4">
+            <div className="max-w-full px-2 sm:px-4 py-8">
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}

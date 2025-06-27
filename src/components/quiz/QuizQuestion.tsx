@@ -31,6 +31,7 @@ interface QuizQuestionProps {
   onQuitQuiz?: () => void;
   totalTimeElapsed?: number;
   showQuitButton?: boolean;
+  displayHeader?: boolean; // Add this line
 }
 
 const QuizQuestion: React.FC<QuizQuestionProps> = ({
@@ -52,7 +53,8 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   answerMode = 'immediate',
   onQuitQuiz,
   totalTimeElapsed = 0,
-  showQuitButton = true
+  showQuitButton = true,
+  displayHeader = true, // Add this with a default value
 }) => {
   const [questionTimeLeft, setQuestionTimeLeft] = useState<number | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -573,99 +575,98 @@ useEffect(() => {
 
   return (
 <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
-  {/* Header with live stats */}
-  <div className="bg-black bg-opacity-30 backdrop-blur-sm border-b border-white border-opacity-20">
-    <div className="max-w-7xl mx-auto px-4 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2">
-            <Brain className="w-6 h-6 text-purple-400" />
-            <span className="text-xl font-bold text-white">Solo Quiz</span>
+      {/* Header with live stats */}
+      {displayHeader && (
+        <div className="bg-black bg-opacity-30 backdrop-blur-sm border-b border-white border-opacity-20">
+          <div className="max-w-full px-2 sm:px-4 py-4"> {/* Changed max-w-7xl mx-auto to max-w-full px-2 sm:px-4 */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-2">
+                  <Brain className="w-6 h-6 text-purple-400" />
+                  <span className="text-xl font-bold text-white">Solo Quiz</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Target className="w-5 h-5 text-blue-400" />
+                  <span className="text-white">Question {questionNumber}/{totalQuestions}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-4">
+                {/* Question Timer */}
+                {timeLimitEnabled && timeLimit && (
+                  <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+                    questionTimeLeft !== null && questionTimeLeft <= 10 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
+                  }`}>
+                    <Clock className={`w-5 h-5 ${questionTimeLeft !== null && questionTimeLeft <= 10 ? 'text-red-300' : 'text-white'}`} />
+                    <span className={`font-mono text-lg font-bold ${
+                      questionTimeLeft !== null && questionTimeLeft <= 10 ? 'text-red-300' : 'text-white'
+                    }`}>
+                      {questionTimeLeft !== null ? formatTime(questionTimeLeft) : 'N/A'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Total Timer */}
+                {timeLimitEnabled && totalTimeLimit && !timeLimit && (
+                  <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+                    totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
+                  }`}>
+                    <Clock className={`w-5 h-5 ${totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'text-red-300' : 'text-white'}`} />
+                    <span className={`font-mono text-lg font-bold ${
+                      totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'text-red-300' : 'text-white'
+                    }`}>
+                      {totalTimeRemaining !== null ? formatTime(totalTimeRemaining) : 'N/A'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Total Time Elapsed (always show if header is displayed) */}
+                <div className="flex items-center space-x-2 bg-white bg-opacity-20 px-3 py-2 rounded-lg">
+                  <Timer className="w-5 h-5 text-cyan-400" />
+                  <span className="font-mono text-lg font-bold text-white">{formatTime(totalTimeElapsed)}</span>
+                </div>
+
+                {/* Speech Button */}
+                <button
+                  onClick={handleSpeech}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white"
+                >
+                  {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                  <span className="text-sm">Speech</span>
+                </button>
+
+                {/* Quit Button */}
+                {showQuitButton && onQuitQuiz && (
+                  <button
+                    onClick={() => setShowLeaveConfirm(true)}
+                    className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-red-500 bg-opacity-30 hover:bg-opacity-50 transition-all text-red-200 hover:text-white"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="text-sm">Quit</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mt-4">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <motion.div
+                  className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-500"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${getProgressPercentage()}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>{Math.round(getProgressPercentage())}% Complete</span>
+                <span>{totalQuestions - questionNumber} remaining</span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <Target className="w-5 h-5 text-blue-400" />
-            <span className="text-white">Question {questionNumber}/{totalQuestions}</span>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-4">
-          {/* Question Timer */}
-          {timeLimitEnabled && timeLimit && (
-            <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
-              questionTimeLeft !== null && questionTimeLeft <= 10 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
-            }`}>
-              <Clock className={`w-5 h-5 ${questionTimeLeft !== null && questionTimeLeft <= 10 ? 'text-red-300' : 'text-white'}`} />
-              <span className={`font-mono text-lg font-bold ${
-                questionTimeLeft !== null && questionTimeLeft <= 10 ? 'text-red-300' : 'text-white'
-              }`}>
-                {questionTimeLeft !== null ? formatTime(questionTimeLeft) : 'N/A'}
-              </span>
-            </div>
-          )}
-
-          {/* Total Timer */}
-          {timeLimitEnabled && totalTimeLimit && !timeLimit && (
-            <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
-              totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
-            }`}>
-              <Clock className={`w-5 h-5 ${totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'text-red-300' : 'text-white'}`} />
-              <span className={`font-mono text-lg font-bold ${
-                totalTimeRemaining !== null && totalTimeRemaining <= 60 ? 'text-red-300' : 'text-white'
-              }`}>
-                {totalTimeRemaining !== null ? formatTime(totalTimeRemaining) : 'N/A'}
-              </span>
-            </div>
-          )}
-
-          {/* Total Time Elapsed (if no specific time limits are enabled) */}
-          {!timeLimitEnabled && (
-            <div className="flex items-center space-x-2 bg-white bg-opacity-20 px-3 py-2 rounded-lg">
-              <Timer className="w-5 h-5 text-cyan-400" />
-              <span className="font-mono text-lg font-bold text-white">{formatTime(totalTimeElapsed)}</span>
-            </div>
-          )}
-
-          {/* Speech Button */}
-          <button
-            onClick={handleSpeech}
-            className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white"
-          >
-            {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            <span className="text-sm">Speech</span>
-          </button>
-
-          {/* Quit Button */}
-          {showQuitButton && onQuitQuiz && (
-            <button
-              onClick={() => setShowLeaveConfirm(true)}
-              className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-red-500 bg-opacity-30 hover:bg-opacity-50 transition-all text-red-200 hover:text-white"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="text-sm">Quit</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-          {/* Progress Bar */}
-          <div className="mt-4">
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <motion.div
-                className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-500"
-                initial={{ width: 0 }}
-                animate={{ width: `${getProgressPercentage()}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>{Math.round(getProgressPercentage())}% Complete</span>
-              <span>{totalQuestions - questionNumber} remaining</span>
-            </div>
-          </div>
-        </div>
-      </div>
+        )}
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
+      <div className="max-w-full px-2 sm:px-4 py-6 sm:py-8"> {/* Changed max-w-4xl mx-auto to max-w-full and px-4 to px-2 sm:px-4 */}
         <motion.div
           key={question.id}
           initial={{ opacity: 0, y: 20 }}
@@ -699,7 +700,7 @@ useEffect(() => {
                       animate={{ scale: 1 }}
                       className="px-3 py-1 bg-green-100 text-green-700 text-xs sm:text-sm font-medium rounded-full flex items-center"
                     >
-                      <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                      <CheckCircle className="w-3 h-3 sm:w-4 h-4 mr-1" />
                       Answered
                     </motion.span>
                   )}
@@ -730,7 +731,7 @@ useEffect(() => {
                     variant="outline"
                     className="flex items-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <ChevronLeft className="w-4 h-4 sm:w-5 h-5" />
                     <span className="hidden sm:inline">Previous</span>
                   </Button>
                   
@@ -765,9 +766,9 @@ useEffect(() => {
                       <div className="flex items-center space-x-2">
                         <span>{isLastQuestion ? 'Finish Quiz' : 'Next Question'}</span>
                         {isLastQuestion ? (
-                          <Flag className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <Flag className="w-4 h-4 sm:w-5 h-5" />
                         ) : (
-                          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <ChevronRight className="w-4 h-4 sm:w-5 h-5" />
                         )}
                       </div>
                     </Button>
@@ -795,7 +796,7 @@ useEffect(() => {
               className="bg-white rounded-2xl p-6 sm:p-8 max-w-md mx-4 shadow-2xl w-full"
             >
               <div className="text-center">
-                <AlertTriangle className="w-12 h-12 sm:w-16 sm:h-16 text-orange-500 mx-auto mb-4" />
+                <AlertTriangle className="w-12 h-12 sm:w-16 h-16 text-orange-500 mx-auto mb-4" />
                 <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Leave Quiz?</h3>
                 <p className="text-gray-600 mb-6 text-sm sm:text-base">
                   Are you sure you want to leave this quiz? Your progress will be lost.
@@ -824,7 +825,7 @@ useEffect(() => {
         )}
       </AnimatePresence>
     </div>
-  );
-};
+  )
+}
 
 export default QuizQuestion;

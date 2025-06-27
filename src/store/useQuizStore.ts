@@ -318,7 +318,7 @@ finishQuiz: () => {
             console.error("Failed to parse sequence answer in finishQuiz:", e);
             isCorrect = false;
           }
-        }
+         }
         break;
         
       case 'short-answer':
