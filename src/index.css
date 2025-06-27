@@ -163,7 +163,7 @@ input:focus, select:focus, textarea:focus {
   }
 
   /* Improved spacing for mobile */
-  .space-y-2 > * + * {
+ .space-y-2 > * + * {
     margin-top: 0.5rem;
   }
 
@@ -194,7 +194,7 @@ input:focus, select:focus, textarea:focus {
   }
 
   /* Responsive text sizes */
-  .text-xs { font-size: 0.75rem; }
+  ..text-xs { font-size: 0.75rem; }
   .text-sm { font-size: 0.875rem; }
   .text-base { font-size: 1rem; }
   .text-lg { font-size: 1.125rem; }

@@ -14,6 +14,7 @@ const saveQuizStateToLocal = (state: any) => {
       questions: state.questions,
       currentQuestionIndex: state.currentQuestionIndex,
       answers: state.answers,
+      totalTimeElapsed: state.totalTimeElapsed, // Save totalTimeElapsed
     });
     localStorage.setItem(LOCAL_STORAGE_KEY, serializedState);
   } catch (e) {
@@ -139,6 +140,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
           currentQuestionIndex: savedState.currentQuestionIndex,
           answers: savedState.answers,
           result: null, // Ensure result is null if loading an ongoing quiz
+          totalTimeElapsed: savedState.totalTimeElapsed || 0, // Load totalTimeElapsed
         });
       }
     } catch (error: any) {
@@ -255,8 +257,8 @@ const validatedPreferences = {
     });
   },
   
-finishQuiz: () => {
-  const { questions, answers, preferences } = get();
+  finishQuiz: () => {
+    const { questions, answers, preferences } = get();
   
   console.log('Starting finishQuiz with:', { questionsCount: questions.length, answersCount: Object.keys(answers).length });
   
@@ -376,7 +378,8 @@ finishQuiz: () => {
   // Set result and clear questions to prevent re-generation
     set({ 
       result,
-      currentQuestionIndex: 0 // Reset question index
+      currentQuestionIndex: 0, // Reset question index
+      totalTimeElapsed: 0, // Reset total time elapsed
     });
     clearQuizStateFromLocal();
   
@@ -395,10 +398,10 @@ finishQuiz: () => {
       currentQuestionIndex: 0,
       answers: {},
       result: null,
-      error: null
+      error: null,
+      totalTimeElapsed: 0, // Reset total time elapsed
     });
-    clearQuizStateFromLocal(); // Clear state on reset
-
+    clearQuizStateFromLocal(); // Clear local storage state
   },
   
   getExplanation: async (questionId) => {

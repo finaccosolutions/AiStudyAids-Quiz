@@ -358,19 +358,18 @@ useEffect(() => {
 
     // Total time elapsed timer for solo quiz
     useEffect(() => {
-      let timer: NodeJS.Timeout;
-      if (step === 'quiz' && questions.length > 0 && isComponentMountedRef.current) {
-        timer = setInterval(() => {
-          setTotalTimeElapsed(prev => prev + 1);
-        }, 1000);
+    let timer: NodeJS.Timeout;
+    if (step === 'quiz' && questions.length > 0 && isComponentMountedRef.current) {
+      timer = setInterval(() => {
+          }, 1000);
+    }
+    return () => {
+      if (timer) {
+        clearInterval(timer);
       }
-      return () => {
-        if (timer) {
-          clearInterval(timer);
-        }
-        setTotalTimeElapsed(0); // Reset when quiz ends or component unmounts
-      };
-    }, [step, questions.length]);
+      // No need to reset totalTimeElapsed here, useQuizStore handles it on resetQuiz
+    };
+  }, [step, questions.length]);
 
   
   if (!isLoggedIn) {

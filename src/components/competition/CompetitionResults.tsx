@@ -283,7 +283,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
       if (onLeave) {
         onLeave();
       } else {
-        onBackToHome();
+        navigate('/quiz'); // Changed from onBackToHome() to navigate('/quiz')
       }
     } catch (error) {
       console.error('Error leaving competition:', error);

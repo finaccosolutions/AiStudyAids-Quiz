@@ -376,7 +376,7 @@ useEffect(() => {
         );
 
       case 'sequence':
-        const sequenceOrder = selectedAnswer ? selectedAnswer.split(',') : [];
+        const sequenceOrder = selectedAnswer ? JSON.parse(selectedAnswer) : []; // Parse selectedAnswer
         const availableSteps = question.sequence?.filter(step => !sequenceOrder.includes(step)) || [];
         
         return (
@@ -410,7 +410,7 @@ useEffect(() => {
                         <button
                           onClick={() => {
                             const newOrder = sequenceOrder.filter(s => s !== step);
-                            handleAnswerSelect(newOrder.join(','));
+                            handleAnswerSelect(JSON.stringify(newOrder)); // Stringify the array
                           }}
                           className="text-red-500 hover:text-red-700 p-1"
                         >
@@ -438,7 +438,7 @@ useEffect(() => {
                     whileTap="tap"
                     onClick={() => {
                       const newOrder = [...sequenceOrder, step];
-                      handleAnswerSelect(newOrder.join(','));
+                      handleAnswerSelect(JSON.stringify(newOrder)); // Stringify the array
                     }}
                     className="p-3 sm:p-4 text-left rounded-xl border-2 border-gray-200 bg-white text-gray-800 hover:border-purple-300 hover:bg-purple-50 transition-all duration-300 text-sm sm:text-base"
                   >

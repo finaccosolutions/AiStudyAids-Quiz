@@ -289,19 +289,21 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
 
   // Total time elapsed timer
-    useEffect(() => {
-      let timer: NodeJS.Timeout;
-      if (competition.quiz_start_time && questions.length > 0 && !isQuizCompleted) {
-        timer = setInterval(() => {
-          setTotalTimeElapsed(prev => prev + 1);
-        }, 1000);
+   useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (competition.start_time && questions.length > 0 && !isQuizCompleted) { // Changed from quiz_start_time to start_time
+      const startTime = new Date(competition.start_time).getTime();
+      timer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        setTotalTimeElapsed(elapsed);
+      }, 1000);
+    }
+    return () => {
+      if (timer) {
+        clearInterval(timer);
       }
-      return () => {
-        if (timer) {
-          clearInterval(timer);
-        }
-      };
-    }, [competition.quiz_start_time, questions.length, isQuizCompleted]);
+    };
+  }, [competition.start_time, questions.length, isQuizCompleted]); // Dependency changed to competition.start_time
 
     const handleAnswerSelect = (answer: string) => {
       if (isQuizCompleted || isSubmitting) return;
