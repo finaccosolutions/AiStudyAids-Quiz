@@ -55,7 +55,6 @@ const QuizPage: React.FC = () => {
   const competitionCompletedRef = useRef(false);
   const isOnResultsPageRef = useRef(false); // Flag to prevent auto-redirect from results page
   const isComponentMountedRef = useRef(true);
-  const isComponentMountedRef = useRef(true);
   
 const [step, setStep] = useState<
   'api-key' | 'mode-selector' | 'solo-preferences' | 'create-competition' | 

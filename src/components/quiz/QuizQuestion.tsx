@@ -574,7 +574,7 @@ useEffect(() => {
   };
 
   return (
-<div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
       {/* Header with live stats */}
       {displayHeader && (
         <div className="bg-black bg-opacity-30 backdrop-blur-sm border-b border-white border-opacity-20">
@@ -663,7 +663,8 @@ useEffect(() => {
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-full px-2 sm:px-4 py-6 sm:py-8"> {/* Changed max-w-4xl mx-auto to max-w-full and px-4 to px-2 sm:px-4 */}
@@ -825,7 +826,7 @@ useEffect(() => {
         )}
       </AnimatePresence>
     </div>
-  )
-}
+  );
+};
 
 export default QuizQuestion;
