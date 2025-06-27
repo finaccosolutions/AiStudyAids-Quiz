@@ -854,7 +854,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
                 onQuitQuiz={handleBackToModeSelector}
                 totalTimeElapsed={totalTimeElapsed}
                 showQuitButton={true}
-                showHeader={true} {/* Add this prop to show the header */}
+                showHeader={true}
               />
 
           </div>
