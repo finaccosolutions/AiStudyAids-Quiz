@@ -1,3 +1,5 @@
+// src/components/competition/CompetitionQuiz.tsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -30,6 +32,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   onComplete,
   onLeave
 }) => {
+  const questions = competition.questions || [];
 
   const { user } = useAuthStore();
   const { 
@@ -71,6 +74,176 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const leaderboard = getLiveLeaderboard(competition.id);
   const isCreator = user?.id === competition.creator_id;
 
+  const currentQuestion = questions[currentQuestionIndex]; // Define currentQuestion here
+
+  const calculateScore = useCallback((questionId: number, userAnswer: string) => {
+    const question = questions.find(q => q.id === questionId);
+    if (!question) return false;
+
+    let isCorrect = false;
+    
+    switch (question.type) {
+      case 'multiple-choice':
+      case 'true-false':
+        isCorrect = userAnswer && question.correctAnswer && 
+                   userAnswer.toLowerCase() === question.correctAnswer.toLowerCase();
+        break;
+      case 'multi-select':
+        if (userAnswer && question.correctOptions) {
+          const userOptions = userAnswer.split(',').sort();
+          const correctOptions = question.correctOptions.sort();
+          isCorrect = userOptions.length === correctOptions.length &&
+                     userOptions.every((opt, index) => opt === correctOptions[index]);
+        }
+        break;
+      case 'sequence': // Add this case for sequence questions
+        if (userAnswer && question.correctSequence) {
+          try {
+            const userSequence = JSON.parse(userAnswer); // Parse the JSON string
+            isCorrect = userSequence.length === question.correctSequence.length &&
+                        userSequence.every((step: string, index: number) => step === question.correctSequence![index]);
+          } catch (e) {
+            console.error("Failed to parse sequence answer:", e);
+            isCorrect = false;
+          }
+        }
+        break;
+      default:
+        isCorrect = userAnswer && question.correctAnswer && 
+                   userAnswer.toLowerCase().trim() === question.correctAnswer.toLowerCase().trim();
+    }
+
+    return isCorrect;
+  }, [questions]);
+
+  // New function to handle competition completion with proper database updates
+  const handleCompetitionCompletion = async (finalScore: number, correctAnswers: number, timeTaken: number, answers: Record<number, string>) => {
+    try {
+      console.log('Attempting to complete competition with:', {
+        competitionId: competition.id,
+        userId: user?.id,
+        finalScore,
+        correctAnswers,
+        timeTaken,
+        answers
+      });
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/competition-completion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          competitionId: competition.id,
+          userId: user?.id,
+          finalScore,
+          correctAnswers,
+          timeTaken,
+          answers
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
+        throw new Error(errorData.error || 'Failed to complete competition');
+      }
+
+      const result = await response.json();
+      console.log('Competition completion result:', result);
+      
+      return result;
+    } catch (error) {
+      console.error('Detailed competition completion error:', error);
+      // Fallback to original method
+      try {
+        await completeCompetition(competition.id);
+      } catch (fallbackError) {
+        console.error('Fallback method also failed:', fallbackError);
+        throw fallbackError;
+      }
+    }
+  };
+
+  // Enhanced completion logic with proper database updates
+  const handleNextQuestion = useCallback(async () => {
+    if (!currentQuestion || isQuizCompleted || isSubmitting) return;
+
+    setIsSubmitting(true);
+    
+    try {
+      // Use the selectedAnswer from state, which is updated by QuizQuestion's onAnswer
+      const userAnswer = selectedAnswer; 
+      const isCorrect = calculateScore(currentQuestion.id, userAnswer);
+      
+      let newScore = score;
+      let newCorrectAnswers = correctAnswers;
+      
+      if (isCorrect) {
+        newScore += 1;
+        newCorrectAnswers += 1;
+      } else if (userAnswer && competition.quiz_preferences?.negativeMarking) {
+        newScore += competition.quiz_preferences.negativeMarks || 0;
+      }
+      
+      setScore(Math.max(0, newScore));
+      setCorrectAnswers(newCorrectAnswers);
+
+      // Update progress in real-time
+      const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000); // Use questionStartTime
+      const updatedAnswers = { ...answers, [currentQuestion.id]: userAnswer };
+      
+      await updateParticipantProgress(
+        competition.id,
+        updatedAnswers,
+        Math.max(0, newScore),
+        newCorrectAnswers,
+        totalTimeElapsed, // Use totalTimeElapsed
+        currentQuestionIndex + 1
+      );
+      
+      if (isLastQuestion) {
+        console.log('Quiz completed, finishing...');
+        setIsQuizCompleted(true);
+        
+        await handleCompetitionCompletion(Math.max(0, newScore), newCorrectAnswers, totalTimeElapsed, updatedAnswers); // Use totalTimeElapsed
+        
+        setTimeout(() => {
+          onComplete();
+        }, 1000);
+      } else {
+        setCurrentQuestionIndex(prev => prev + 1);
+        setSelectedAnswer(''); // Clear selected answer for next question
+        setQuestionStartTime(Date.now()); // Reset question start time for next question
+      }
+    } catch (error) {
+      console.error('Error handling next question:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [
+    currentQuestion, 
+    selectedAnswer, // Now depends on selectedAnswer
+    score, 
+    correctAnswers, 
+    isLastQuestion, 
+    calculateScore,
+    competition.id,
+    questionStartTime, // Include questionStartTime in dependency array
+    updateParticipantProgress,
+    onComplete,
+    isQuizCompleted,
+    isSubmitting,
+    answers, // Include answers in dependency array
+    totalTimeElapsed,
+    handleCompetitionCompletion
+  ]);
+
   // Load participants and set up subscriptions
   useEffect(() => {
     if (competition.id) {
@@ -104,7 +277,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     if (competition.quiz_preferences?.timeLimitEnabled && competition.quiz_preferences?.timeLimit && timeLeft !== null && timeLeft > 0 && questions.length > 0 && !isQuizCompleted) {
       timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
     } else if (timeLeft === 0 && questions.length > 0 && competition.quiz_preferences?.timeLimitEnabled && !isQuizCompleted) {
-      handleNextQuestion();
+      handleNextQuestion(); // This is the line that was causing the error
     }
   
     return () => {
@@ -120,8 +293,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       let timer: NodeJS.Timeout;
       if (competition.quiz_start_time && questions.length > 0 && !isQuizCompleted) {
         timer = setInterval(() => {
-          const elapsed = Math.floor((Date.now() - new Date(competition.quiz_start_time!).getTime()) / 1000);
-          setTotalTimeElapsed(elapsed);
+          setTotalTimeElapsed(prev => prev + 1);
         }, 1000);
       }
       return () => {
@@ -131,165 +303,10 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       };
     }, [competition.quiz_start_time, questions.length, isQuizCompleted]);
 
-  const calculateScore = useCallback((questionId: number, userAnswer: string) => {
-    const question = questions.find(q => q.id === questionId);
-    if (!question) return false;
-
-    let isCorrect = false;
-    
-    switch (question.type) {
-      case 'multiple-choice':
-      case 'true-false':
-        isCorrect = userAnswer && question.correctAnswer && 
-                   userAnswer.toLowerCase() === question.correctAnswer.toLowerCase();
-        break;
-      case 'multi-select':
-        if (userAnswer && question.correctOptions) {
-          const userOptions = userAnswer.split(',').sort();
-          const correctOptions = question.correctOptions.sort();
-          isCorrect = userOptions.length === correctOptions.length &&
-                     userOptions.every((opt, index) => opt === correctOptions[index]);
-        }
-        break;
-      default:
-        isCorrect = userAnswer && question.correctAnswer && 
-                   userAnswer.toLowerCase().trim() === question.correctAnswer.toLowerCase().trim();
-    }
-
-    return isCorrect;
-  }, [questions]);
-
     const handleAnswerSelect = (answer: string) => {
       if (isQuizCompleted || isSubmitting) return;
       setSelectedAnswer(answer);
     };
-
-  // Enhanced completion logic with proper database updates
-const handleNextQuestion = useCallback(async () => {
-  if (!currentQuestion || isQuizCompleted || isSubmitting) return;
-
-  setIsSubmitting(true);
-  
-  try {
-    // Use the selectedAnswer from state, which is updated by QuizQuestion's onAnswer
-    const userAnswer = selectedAnswer; 
-    const isCorrect = calculateScore(currentQuestion.id, userAnswer);
-    
-    let newScore = score;
-    let newCorrectAnswers = correctAnswers;
-    
-    if (isCorrect) {
-      newScore += 1;
-      newCorrectAnswers += 1;
-    } else if (userAnswer && competition.quiz_preferences?.negativeMarking) {
-      newScore += competition.quiz_preferences.negativeMarks || 0;
-    }
-    
-    setScore(Math.max(0, newScore));
-    setCorrectAnswers(newCorrectAnswers);
-
-    // Update progress in real-time
-    const timeTaken = Math.floor((Date.now() - startTime) / 1000);
-    const updatedAnswers = { ...answers, [currentQuestion.id]: userAnswer };
-    
-    await updateParticipantProgress(
-      competition.id,
-      updatedAnswers,
-      Math.max(0, newScore),
-      newCorrectAnswers,
-      totalTimeElapsed, // Use totalTimeElapsed
-      currentQuestionIndex + 1
-    );
-    // ...
-    await handleCompetitionCompletion(Math.max(0, newScore), newCorrectAnswers, totalTimeElapsed, updatedAnswers);
-
-    if (isLastQuestion) {
-      console.log('Quiz completed, finishing...');
-      setIsQuizCompleted(true);
-      
-      await handleCompetitionCompletion(Math.max(0, newScore), newCorrectAnswers, timeTaken, updatedAnswers);
-      
-      setTimeout(() => {
-        onComplete();
-      }, 1000);
-    } else {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setSelectedAnswer(''); // Clear selected answer for next question
-    }
-  } catch (error) {
-    console.error('Error handling next question:', error);
-  } finally {
-    setIsSubmitting(false);
-  }
-}, [
-  currentQuestion, 
-  selectedAnswer, // Now depends on selectedAnswer
-  score, 
-  correctAnswers, 
-  isLastQuestion, 
-  calculateScore,
-  competition.id,
-  startTime,
-  updateParticipantProgress,
-  onComplete,
-  isQuizCompleted,
-  isSubmitting,
-  answers // Include answers in dependency array
-]);
-
-  // New function to handle competition completion with proper database updates
-const handleCompetitionCompletion = async (finalScore: number, correctAnswers: number, timeTaken: number, answers: Record<number, string>) => {
-  try {
-    console.log('Attempting to complete competition with:', {
-      competitionId: competition.id,
-      userId: user?.id,
-      finalScore,
-      correctAnswers,
-      timeTaken,
-      answers
-    });
-
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/competition-completion`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        competitionId: competition.id,
-        userId: user?.id,
-        finalScore,
-        correctAnswers,
-        timeTaken,
-        answers
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('API Error Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorData
-      });
-      throw new Error(errorData.error || 'Failed to complete competition');
-    }
-
-    const result = await response.json();
-    console.log('Competition completion result:', result);
-    
-    return result;
-  } catch (error) {
-    console.error('Detailed competition completion error:', error);
-    // Fallback to original method
-    try {
-      await completeCompetition(competition.id);
-    } catch (fallbackError) {
-      console.error('Fallback method also failed:', fallbackError);
-      throw fallbackError;
-    }
-  }
-};
 
   const handleLeaveQuiz = async () => {
     if (isSubmitting) return;
@@ -396,8 +413,8 @@ const handleCompetitionCompletion = async (finalScore: number, correctAnswers: n
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
       {/* Header with live stats */}
       <div className="bg-black bg-opacity-30 backdrop-blur-sm border-b border-white border-opacity-20">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+        <div className="w-full px-4 py-4"> {/* Removed max-w-7xl mx-auto */}
+          <div className="flex flex-wrap items-center justify-between"> {/* Added flex-wrap */}
             <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-2">
                 <Trophy className="w-6 h-6 text-yellow-400" />
@@ -414,7 +431,7 @@ const handleCompetitionCompletion = async (finalScore: number, correctAnswers: n
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center space-x-4 mt-2 sm:mt-0"> {/* Added flex-wrap and margin-top for mobile */}
               {competition.quiz_preferences?.timeLimitEnabled && (
                 <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
                   timeLeft <= 10 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
@@ -464,30 +481,31 @@ const handleCompetitionCompletion = async (finalScore: number, correctAnswers: n
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className={showLeaderboard ? 'lg:col-span-4' : 'max-w-6xl mx-auto w-full'}>
+      <div className="max-w-full px-4 py-8"> {/* Changed max-w-7xl to max-w-full */}
+        <div className={showLeaderboard ? 'lg:col-span-4' : 'max-w-6xl mx-auto w-full'}> {/* Changed max-w-4xl to max-w-6xl */}
           {/* Main Quiz Area */}
-<div className={showLeaderboard ? 'lg:col-span-3' : 'max-w-4xl mx-auto w-full'}>
-  <QuizQuestion
-    question={currentQuestion}
-    questionNumber={currentQuestionIndex + 1}
-    totalQuestions={questions.length}
-    userAnswer={answers[currentQuestion?.id]}
-    onAnswer={handleAnswerSelect}
-    onPrevious={() => { /* Competition quiz does not allow previous question */ }}
-    onNext={handleNextQuestion}
-    isLastQuestion={isLastQuestion}
-    onFinish={handleNextQuestion} // handleNextQuestion will check if it's last question
-    language={competition.quiz_preferences?.language || 'English'}
-    timeLimitEnabled={competition.quiz_preferences?.timeLimitEnabled || false}
-    timeLimit={competition.quiz_preferences?.timeLimit} // Per-question limit
-    totalTimeLimit={competition.quiz_preferences?.totalTimeLimit} // Total quiz limit
-    totalTimeRemaining={totalTimeElapsed} // Use totalTimeElapsed for overall timer
-    mode="exam" // Competition is always exam mode
-    answerMode="immediate" // Answers are recorded immediately
-    showQuitButton={true} // Show quit button
-    onQuitQuiz={() => setShowLeaveConfirm(true)} // Show leave confirmation
-  />
+<div className={showLeaderboard ? 'lg:col-span-3' : 'max-w-6xl mx-auto w-full'}> {/* Changed max-w-4xl to max-w-6xl */}
+<QuizQuestion
+  question={currentQuestion}
+  questionNumber={currentQuestionIndex + 1}
+  totalQuestions={questions.length}
+  userAnswer={answers[currentQuestion?.id]}
+  onAnswer={handleAnswerSelect}
+  onPrevious={() => { /* Competition quiz does not allow previous question */ }}
+  onNext={handleNextQuestion}
+  isLastQuestion={isLastQuestion}
+  onFinish={handleNextQuestion} // handleNextQuestion will check if it's last question
+  language={competition.quiz_preferences?.language || 'English'}
+  timeLimitEnabled={competition.quiz_preferences?.timeLimitEnabled || false}
+  timeLimit={competition.quiz_preferences?.timeLimit} // Per-question limit
+  totalTimeLimit={competition.quiz_preferences?.totalTimeLimit} // Total quiz limit
+  totalTimeRemaining={totalTimeElapsed} // Use totalTimeElapsed for overall timer
+  mode="exam" // Competition is always exam mode
+  answerMode="immediate" // Answers are recorded immediately
+  showQuitButton={true} // Show quit button
+  onQuitQuiz={() => setShowLeaveConfirm(true)} // Show leave confirmation
+  showHeader={false} // Add this prop to hide the header
+/>
 </div>
 
           {/* Live Leaderboard */}
@@ -671,66 +689,66 @@ const handleCompetitionCompletion = async (finalScore: number, correctAnswers: n
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
 
-      {/* Leave Confirmation Modal */}
-      <AnimatePresence>
-        {showLeaveConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          >
+        {/* Leave Confirmation Modal */}
+        <AnimatePresence>
+          {showLeaveConfirm && (
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
             >
-              <div className="flex items-center mb-4">
-                <AlertTriangle className="w-6 h-6 text-red-500 mr-3" />
-                <h3 className="text-lg font-bold text-gray-800">Leave Competition?</h3>
-              </div>
-              <p className="text-gray-600 mb-6">
-                Are you sure you want to leave this competition? Your progress will be lost and you won't be able to rejoin.
-                {isCreator && (
-                  <span className="block mt-2 text-orange-600 font-medium">
-                    As the creator, leaving will end the competition for all participants.
-                  </span>
-                )}
-              </p>
-              <div className="flex space-x-3">
-                <Button
-                  onClick={() => setShowLeaveConfirm(false)}
-                  variant="outline"
-                  className="flex-1"
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleLeaveQuiz}
-                  disabled={isSubmitting}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                      Leaving...
-                    </>
-                  ) : (
-                    <>
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Leave
-                    </>
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl"
+              >
+                <div className="flex items-center mb-4">
+                  <AlertTriangle className="w-6 h-6 text-red-500 mr-3" />
+                  <h3 className="text-lg font-bold text-gray-800">Leave Competition?</h3>
+                </div>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to leave this competition? Your progress will be lost and you won't be able to rejoin.
+                  {isCreator && (
+                    <span className="block mt-2 text-orange-600 font-medium">
+                      As the creator, leaving will end the competition for all participants.
+                    </span>
                   )}
-                </Button>
-              </div>
+                </p>
+                <div className="flex space-x-3">
+                  <Button
+                    onClick={() => setShowLeaveConfirm(false)}
+                    variant="outline"
+                    className="flex-1"
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleLeaveQuiz}
+                    disabled={isSubmitting}
+                    className="flex-1 bg-red-500 hover:bg-red-600"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                        Leaving...
+                      </>
+                    ) : (
+                      <>
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Leave
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };

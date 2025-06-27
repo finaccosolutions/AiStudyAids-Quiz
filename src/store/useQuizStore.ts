@@ -1,3 +1,4 @@
+// src/store/useQuizStore.ts
 import { create } from 'zustand';
 import { ApiKeyData, Question, QuizPreferences, QuizResult } from '../types';
 import { getApiKey, getQuizPreferences, saveApiKey, saveQuizPreferences, saveQuizResultToDatabase } from '../services/supabase';
@@ -309,9 +310,14 @@ finishQuiz: () => {
         
       case 'sequence':
         if (userAnswer && question.correctSequence) {
-          const userSequence = userAnswer.split(',');
-          isCorrect = userSequence.length === question.correctSequence.length &&
-                     userSequence.every((step, index) => step === question.correctSequence![index]);
+          try {
+            const userSequence = JSON.parse(userAnswer); // Parse the JSON string
+            isCorrect = userSequence.length === question.correctSequence.length &&
+                        userSequence.every((step: string, index: number) => step === question.correctSequence![index]);
+          } catch (e) {
+            console.error("Failed to parse sequence answer in finishQuiz:", e);
+            isCorrect = false;
+          }
         }
         break;
         

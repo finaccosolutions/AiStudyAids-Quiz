@@ -1,3 +1,4 @@
+// src/pages/QuizPage.tsx
 import { supabase } from '../services/supabase';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
@@ -695,7 +696,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
                   disabled={isGeneratingQuiz}
                 >
                   <ArrowLeft className="w-5 h-5 mr-2" />
-                  Back to Quiz Modes
+                    Back to Quiz Modes
                 </Button>
               </div>
               {isGeneratingQuiz ? (
@@ -822,7 +823,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
         }
         
         return (
-          <div className="max-w-6xl mx-auto px-2 sm:px-4">
+          <div className="max-w-7xl mx-auto px-4 py-8"> {/* Changed max-w-6xl to max-w-7xl and px-2 sm:px-4 to px-4 */}
             <div className="flex justify-between items-center mb-4">
               <Button
                 variant="ghost"
@@ -853,6 +854,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
                 onQuitQuiz={handleBackToModeSelector}
                 totalTimeElapsed={totalTimeElapsed}
                 showQuitButton={true}
+                showHeader={true} {/* Add this prop to show the header */}
               />
 
           </div>
