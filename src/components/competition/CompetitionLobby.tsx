@@ -181,53 +181,56 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
       return () => clearInterval(refreshInterval);
     }, [competition.id, isComponentMounted, loadParticipants]);
 
-  // Enhanced status monitoring with countdown
+  // Enhanced status monitoring with countdown flickering fix
     useEffect(() => {
       if (!isComponentMounted) return;
     
       let timer: NodeJS.Timeout | null = null;
     
-      // Only start countdown if competition is active and we haven't started it yet
-      if (competition.status === 'active' && countdown === null) {
-        // Initialize countdown to 5 for everyone
-        setCountdown(5);
-        
-        // Start the countdown interval
-        timer = setInterval(() => {
-          setCountdown(prev => {
-            if (prev === null) return null;
-            if (prev <= 1) {
-              clearInterval(timer!);
-              return null;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      }
+      // Add this console.log to see the status and current countdown value
+      console.log('Countdown useEffect triggered. Status:', competition.status, 'Current countdown:', countdown);
     
-      // If competition status changes from active, reset countdown
-      if (competition.status !== 'active' && countdown !== null) {
+      if (competition.status === 'active') {
+        // If countdown is not yet set, initialize it
+        if (countdown === null) {
+          setCountdown(5);
+          console.log('Countdown initialized to 5.');
+        }
+    
+        // Start the interval if countdown is active and not yet finished
+        if (countdown !== null && countdown > 0) {
+          console.log('Starting countdown interval for:', countdown);
+          timer = setInterval(() => {
+            setCountdown(prev => {
+              // Add this console.log to see the value inside the interval
+              console.log('Interval tick. Previous countdown:', prev);
+              if (prev === null || prev <= 1) {
+                clearInterval(timer!);
+                if (isComponentMounted) {
+                  console.log('Countdown finished, calling onStartQuiz');
+                  onStartQuiz(); // Call the function to start the quiz
+                }
+                return null;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        }
+      } else {
+        // Reset countdown if competition is not active
+        if (countdown !== null) {
+          console.log('Competition not active, resetting countdown state.');
+        }
         setCountdown(null);
       }
     
       return () => {
         if (timer) {
+          console.log('Clearing countdown interval.');
           clearInterval(timer);
         }
       };
-    }, [competition.status, isComponentMounted]);
-    
-    // Separate effect to handle the quiz start when countdown reaches 0
-    useEffect(() => {
-      if (countdown === 0 && competition.status === 'active' && isComponentMounted) {
-        // Small delay to ensure all participants see the "0" before starting
-        const startTimer = setTimeout(() => {
-          onStartQuiz();
-        }, 500);
-    
-        return () => clearTimeout(startTimer);
-      }
-    }, [countdown, competition.status, onStartQuiz, isComponentMounted]);
+    }, [competition.status, countdown, onStartQuiz, isComponentMounted]);
  
   // Periodic data refresh to ensure consistency - using centralized function
   useEffect(() => {
@@ -293,9 +296,10 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
   };
 
   // Show countdown screen
-if (countdown !== null && competition.status === 'active') {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative overflow-hidden px-4">
+  if (countdown !== null) {
+  if (countdown !== null && competition.status === 'active') { 
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative overflow-hidden px-4">
         {/* Animated Background */}
         <div className="absolute inset-0">
           {Array.from({ length: 20 }).map((_, i) => (
@@ -359,7 +363,7 @@ if (countdown !== null && competition.status === 'active') {
         </motion.div>
       </div>
     );
-  }
+  }}
 
   // Show cancelled/completed message
   if (competition.status === 'cancelled' || competition.status === 'completed') {
