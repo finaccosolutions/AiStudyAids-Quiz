@@ -5,8 +5,8 @@ import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Trophy, Target, Clock, TrendingUp, Star, BookOpen, ChevronDown, ChevronUp, BarChart3, PieChart, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart as RechartsPieChart, Pie, Cell
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar,
+  PieChart as RechartsPieChart, Pie, Cell, Legend
 } from 'recharts';
 import { Button } from '../ui/Button'; // Import the Button component
 
@@ -26,6 +26,8 @@ const SoloQuizStats: React.FC<SoloQuizStatsProps> = ({ userId }) => {
   });
   const [performanceData, setPerformanceData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [questionTypePerformanceData, setQuestionTypePerformanceData] = useState<any[]>([]);
+  const [answerDistributionData, setAnswerDistributionData] = useState<any[]>([]); // New state for answer distribution
   const [showDetailedStats, setShowDetailedStats] = useState(false);
 
   useEffect(() => {
@@ -64,14 +66,16 @@ const SoloQuizStats: React.FC<SoloQuizStatsProps> = ({ userId }) => {
       });
       setPerformanceData([]);
       setCategoryData([]);
+      setQuestionTypePerformanceData([]);
+      setAnswerDistributionData([]); // Reset new data
     }
   }, [soloQuizHistory]);
 
   const generateChartData = (history: any[]) => {
     // Performance Trends (Score over time)
-    const sortedHistory = [...history].sort((a, b) => (a.quizDate ? a.quizDate.getTime() : 0) - (b.quizDate ? b.quizDate.getTime() : 0));
+   const sortedHistory = [...history].sort((a, b) => (a.quizDate?.getTime() || 0) - (b.quizDate?.getTime() || 0));
     const perfData = sortedHistory.map(quiz => ({
-      date: quiz.quizDate.toLocaleDateString(),
+      date: quiz.quizDate ? quiz.quizDate.toLocaleDateString() : 'N/A',
       score: quiz.percentage || 0,
     }));
     setPerformanceData(perfData);
@@ -88,6 +92,37 @@ const SoloQuizStats: React.FC<SoloQuizStatsProps> = ({ userId }) => {
       color: ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899'][index % 7],
     }));
     setCategoryData(catData);
+
+    // Question Type Performance
+    const qtpMap = new Map<string, { correct: number; total: number }>();
+    history.forEach(quiz => {
+      for (const type in quiz.questionTypePerformance) {
+        if (quiz.questionTypePerformance.hasOwnProperty(type)) {
+          const current = qtpMap.get(type) || { correct: 0, total: 0 };
+          qtpMap.set(type, {
+            correct: current.correct + quiz.questionTypePerformance[type].correct,
+            total: current.total + quiz.questionTypePerformance[type].total,
+          });
+        }
+      }
+    });
+    const qtpData = Array.from(qtpMap.entries()).map(([name, data]) => ({ name: name.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()), correct: data.correct, total: data.total, percentage: data.total > 0 ? (data.correct / data.total) * 100 : 0 }));
+    setQuestionTypePerformanceData(qtpData);
+
+    // Answer Distribution (Correct, Incorrect, Skipped)
+    let totalCorrect = 0;
+    let totalIncorrect = 0;
+    let totalSkipped = 0;
+    history.forEach(quiz => {
+      totalCorrect += quiz.correctAnswers || 0;
+      totalIncorrect += (quiz.questionsAttempted || 0) - (quiz.correctAnswers || 0);
+      totalSkipped += quiz.questionsSkipped || 0;
+    });
+    setAnswerDistributionData([
+      { name: 'Correct', value: totalCorrect, color: '#10B981' },
+      { name: 'Incorrect', value: totalIncorrect, color: '#EF4444' },
+      { name: 'Skipped', value: totalSkipped, color: '#6B7280' },
+    ]);
   };
 
   const formatTime = (seconds: number) => {
@@ -262,6 +297,45 @@ const SoloQuizStats: React.FC<SoloQuizStatsProps> = ({ userId }) => {
                             </RechartsPieChart>
                           </ResponsiveContainer>
                         </div>
+
+                        {/* Question Type Performance Bar Chart */}
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
+                            Performance by Question Type
+                          </h4>
+                          <ResponsiveContainer width="100%" height={250}>
+                            <BarChart data={questionTypePerformanceData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="name" />
+                              <YAxis />
+                              <Tooltip formatter={(value: number, name: string) => [`${value.toFixed(1)}%`, name === 'percentage' ? 'Accuracy' : name]} />
+                              <Legend />
+                              <Bar dataKey="percentage" fill="#8884d8" name="Accuracy (%)" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        {/* New: Answer Distribution Bar Chart */}
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <BarChart3 className="w-5 h-5 mr-2 text-orange-600" />
+                            Answer Distribution
+                          </h4>
+                          <ResponsiveContainer width="100%" height={250}>
+                            <BarChart data={answerDistributionData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="name" />
+                              <YAxis />
+                              <Tooltip />
+                              <Bar dataKey="value" fill="#82ca9d">
+                                {answerDistributionData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
                       </div>
                     </CardBody>
                   </motion.div>
@@ -275,4 +349,4 @@ const SoloQuizStats: React.FC<SoloQuizStatsProps> = ({ userId }) => {
   );
 };
 
-export default SoloQuizStats; 
+export default SoloQuizStats;

@@ -544,7 +544,10 @@ export const getQuizResultsWithAnalytics = async (userId: string, limit = 50) =>
       console.error('Error fetching quiz results with analytics:', error);
       throw error;
     }
-    return data;
+    return data.map(item => ({
+      ...item,
+      questions: item.question_details || [] // Map question_details to questions
+    }));
   } catch (error) {
     console.error('getQuizResultsWithAnalytics error:', error);
     throw error;

@@ -45,7 +45,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
     const totalQuestions = result.totalQuestions;
     const correctAnswers = result.correctAnswers;
     const incorrectAnswers = totalQuestions - correctAnswers;
-    const skippedAnswers = result.questions.filter(q => !q.userAnswer || q.userAnswer.trim() === '').length;
+    const skippedAnswers = (result.questions || []).filter(q => !q.userAnswer || q.userAnswer.trim() === '').length;
     const answeredQuestions = totalQuestions - skippedAnswers;
     
     // Calculate final score considering negative marking
@@ -54,7 +54,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       finalScore = correctAnswers + (incorrectAnswers * preferences.negativeMarks);
     }
     
-    const finalPercentage = Math.max(0, (finalScore / totalQuestions) * 100);
+    const finalPercentage = totalQuestions > 0 ? Math.max(0, (finalScore / totalQuestions) * 100) : 0;
     
     return {
       totalQuestions,
@@ -64,9 +64,9 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       answeredQuestions,
       finalScore,
       finalPercentage,
-      correctPercentage: (correctAnswers / totalQuestions) * 100,
-      incorrectPercentage: (incorrectAnswers / totalQuestions) * 100,
-      skippedPercentage: (skippedAnswers / totalQuestions) * 100,
+      correctPercentage: totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0,
+      incorrectPercentage: totalQuestions > 0 ? (incorrectAnswers / totalQuestions) * 100 : 0,
+      skippedPercentage: totalQuestions > 0 ? (skippedAnswers / totalQuestions) * 100 : 0,
       accuracy: answeredQuestions > 0 ? (correctAnswers / answeredQuestions) * 100 : 0
     };
   };

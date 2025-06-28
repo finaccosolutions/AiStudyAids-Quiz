@@ -6,7 +6,7 @@ import {
   ChevronDown, LogOut, User, BookOpen,
   Home, Settings, GraduationCap, FileQuestion,
   PenTool, NotebookText, Calendar, LineChart,
-  Brain, Menu, Key, Trophy, Rocket // Added Rocket icon
+  Brain, Menu, Key, Trophy, Rocket, Lightbulb // Added Lightbulb icon
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -54,11 +54,12 @@ const Header: React.FC = () => {
 
   const studyAids = [
     { path: '/quiz', icon: Brain, label: 'AI Quiz' },
+    { path: '/ai-tutorial', icon: Lightbulb, label: 'AI Tutorial' }, // New entry
     { path: '/question-bank', icon: FileQuestion, label: 'Question Bank' },
     { path: '/answer-evaluation', icon: PenTool, label: 'Answer Evaluation' },
     { path: '/notes', icon: NotebookText, label: 'Smart Notes' },
     { path: '/study-plan', icon: Calendar, label: 'Study Planner' },
-    { path: '/progress', icon: LineChart, label: 'Progress' },
+    // Removed Progress Tracker: { path: '/progress', icon: LineChart, label: 'Progress' },
   ];
 
     const profileMenuItems = [

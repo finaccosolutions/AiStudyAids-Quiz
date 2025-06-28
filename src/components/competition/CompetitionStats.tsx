@@ -3,16 +3,16 @@ import React, { useState, useEffect } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../ui/Button';
-import { Card, CardBody, CardHeader } from '../ui/Card';
-import {
+import { 
   Trophy, TrendingUp, Target, Clock, Users, Award,
   BarChart3, PieChart, Activity, Star, Zap, Calendar,
   ChevronDown, ChevronUp, Filter, Download, Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart as RechartsPieChart, Cell, Area, AreaChart, Pie // Add Pie here
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart, Line, PieChart as RechartsPieChart, Cell, Area, AreaChart, Pie,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts';
 
 interface CompetitionStatsProps {
@@ -26,6 +26,8 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
   const [showDetailedStats, setShowDetailedStats] = useState(false);
   const [performanceData, setPerformanceData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [competitionStatusData, setCompetitionStatusData] = useState<any[]>([]);
+  const [userPerformanceRadarData, setUserPerformanceRadarData] = useState<any[]>([]);
   const [progressData, setProgressData] = useState<any[]>([]);
 
   useEffect(() => {
@@ -43,7 +45,7 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
     } catch (error) {
       console.error('Failed to load stats:', error);
     } finally {
-      setIsLoading(false);
+      set({ isLoading: false });
     }
   };
 
@@ -76,6 +78,34 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
       rank: Math.floor(Math.random() * 50) + 1
     }));
     setProgressData(progress);
+
+    // Competition Status Distribution
+    const statusCounts = {
+      waiting: competitions.filter(c => c.status === 'waiting').length,
+      active: competitions.filter(c => c.status === 'active').length,
+      completed: competitions.filter(c => c.status === 'completed').length,
+      cancelled: competitions.filter(c => c.status === 'cancelled').length,
+    };
+    setCompetitionStatusData([
+      { name: 'Waiting', count: statusCounts.waiting, color: '#F59E0B' },
+      { name: 'Active', count: statusCounts.active, color: '#10B981' },
+      { name: 'Completed', count: statusCounts.completed, color: '#6366F1' },
+      { name: 'Cancelled', count: statusCounts.cancelled, color: '#EF4444' },
+    ]);
+
+    // User Performance Radar Chart Data (mock or derived from userStats)
+    const avgScore = userStats?.average_score || 0;
+    const winRate = userStats?.total_competitions ? (userStats.wins / userStats.total_competitions) * 100 : 0;
+    const totalTime = userStats?.total_time_played || 0;
+    const bestRank = userStats?.best_rank ? (100 - (userStats.best_rank / 100) * 100) : 0; // Invert rank for positive scale
+
+    setUserPerformanceRadarData([
+      { subject: 'Avg. Score', A: avgScore, fullMark: 100 },
+      { subject: 'Win Rate', A: winRate, fullMark: 100 },
+      { subject: 'Time Efficiency', A: totalTime > 0 ? (10000 / totalTime) : 0, fullMark: 100 }, // Example: higher is better
+      { subject: 'Best Rank', A: bestRank, fullMark: 100 },
+      { subject: 'Engagement', A: competitions.length * 5, fullMark: 100 }, // Example: more competitions = more engagement
+    ]);
   };
 
   const periodOptions = [
@@ -364,6 +394,42 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
                       </ResponsiveContainer>
                     </div>
 
+                    {/* Competition Status Bar Chart */}
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                        <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
+                        Competition Status Distribution
+                      </h4>
+                      <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={competitionStatusData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="count" fill="#8884d8" name="Number of Competitions" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* User Performance Radar Chart */}
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                        <Activity className="w-5 h-5 mr-2 text-purple-600" />
+                        Your Performance Radar
+                      </h4>
+                      <ResponsiveContainer width="100%" height={250}>
+                        <RadarChart outerRadius={90} width={500} height={250} data={userPerformanceRadarData}>
+                          <PolarGrid />
+                          <PolarAngleAxis dataKey="subject" />
+                          <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                          <Radar name="Your Performance" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+                          <Tooltip />
+                          <Legend />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                    </div>
+
                     {/* Achievements */}
                     <div>
                       <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
@@ -446,4 +512,4 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
   );
 };
 
-export default CompetitionStats; 
+export default CompetitionStats;

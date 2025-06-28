@@ -17,6 +17,7 @@ import ProgressTrackerPage from './pages/ProgressTrackerPage';
 import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 import CompetitionPage from './pages/CompetitionPage';
+import AiTutorialPage from './pages/AiTutorialPage'; // Import the new page
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isLoggedIn, isLoading } = useAuthStore();
@@ -77,6 +78,7 @@ const App: React.FC = () => {
         <Route path="chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
         <Route path="profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="competitions" element={<ProtectedRoute><CompetitionPage /></ProtectedRoute>} />
+        <Route path="ai-tutorial" element={<ProtectedRoute><AiTutorialPage /></ProtectedRoute>} /> {/* New route */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

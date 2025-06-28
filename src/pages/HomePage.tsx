@@ -52,6 +52,21 @@ const HomePage: React.FC = () => {
       iconBg: 'bg-gradient-to-br from-violet-400 to-purple-500'
     },
     {
+      title: 'AI Tutorial',
+      description: 'Learn complex topics with interactive AI-guided tutorials and explanations.',
+      icon: Lightbulb,
+      path: '/ai-tutorial',
+      gradient: 'from-yellow-500 via-amber-500 to-orange-600',
+      hoverGradient: 'hover:from-yellow-600 hover:via-amber-600 hover:to-orange-700',
+      shadowColor: 'shadow-yellow-500/25',
+      hoverShadow: 'hover:shadow-yellow-500/40',
+      stats: 'Interactive',
+      badge: 'New!',
+      badgeColor: 'bg-yellow-500',
+      pattern: 'bg-gradient-to-br from-yellow-100/50 to-amber-100/30',
+      iconBg: 'bg-gradient-to-br from-yellow-400 to-orange-500'
+    },
+    {
       title: 'Question Bank',
       description: 'Generate comprehensive question banks from text or PDFs with intelligent analysis.',
       icon: FileQuestion,
@@ -110,21 +125,6 @@ const HomePage: React.FC = () => {
       badgeColor: 'bg-orange-500',
       pattern: 'bg-gradient-to-br from-orange-100/50 to-amber-100/30',
       iconBg: 'bg-gradient-to-br from-orange-400 to-amber-500'
-    },
-    {
-      title: 'Progress Tracker',
-      description: 'Monitor your learning journey with detailed analytics and insights.',
-      icon: LineChart,
-      path: '/progress',
-      gradient: 'from-rose-500 via-pink-500 to-purple-600',
-      hoverGradient: 'hover:from-rose-600 hover:via-pink-600 hover:to-purple-700',
-      shadowColor: 'shadow-rose-500/25',
-      hoverShadow: 'hover:shadow-rose-500/40',
-      stats: 'Real-time',
-      badge: 'Analytics',
-      badgeColor: 'bg-rose-500',
-      pattern: 'bg-gradient-to-br from-rose-100/50 to-pink-100/30',
-      iconBg: 'bg-gradient-to-br from-rose-400 to-pink-500'
     }
   ];
 
@@ -532,4 +532,4 @@ const HomePage: React.FC = () => {
   );
 };
 
-export default HomePage;  
+export default HomePage;

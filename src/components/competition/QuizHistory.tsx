@@ -51,9 +51,9 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId, filter = 'all' }) => 
   }, [filter]);
 
   const allHistory = [
-    ...soloQuizHistory.map(item => ({ ...item, type: 'solo', date: new Date(item.quiz_date) })),
-    ...competitionResultsHistory.map(item => ({ ...item, type: item.competition_type === 'random' ? 'random' : 'competition', date: new Date(item.competition_date) }))
-  ].sort((a, b) => b.date.getTime() - a.date.getTime()); // Sort by most recent
+    ...soloQuizHistory.map(item => ({ ...item, type: 'solo', date: item.quizDate })), // Changed this line
+    ...competitionResultsHistory.map(item => ({ ...item, type: item.competition_type === 'random' ? 'random' : 'competition', date: item.competition_date ? new Date(item.competition_date) : null }))
+  ].sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)); // Sort by most recent
 
   const filteredHistory = allHistory.filter(item => {
     const matchesFilter = currentFilter === 'all' || item.type === currentFilter;
@@ -204,12 +204,16 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId, filter = 'all' }) => 
                         <div className="flex items-center space-x-2">
                           <Calendar className="w-4 h-4 text-gray-600" />
                           <span className="text-gray-600">Date:</span>
-                          <span className="font-semibold">{item.date.toLocaleDateString()}</span>
+                          <span className="font-semibold">
+                            {item.date && !isNaN(item.date.getTime()) ? item.date.toLocaleDateString() : 'N/A'}
+                          </span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Clock className="w-4 h-4 text-gray-600" />
                           <span className="text-gray-600">Time:</span>
-                          <span className="font-semibold">{item.date.toLocaleTimeString()}</span>
+                          <span className="font-semibold">
+                            {item.date && !isNaN(item.date.getTime()) ? item.date.toLocaleTimeString() : 'N/A'}
+                          </span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Target className="w-4 h-4 text-gray-600" />

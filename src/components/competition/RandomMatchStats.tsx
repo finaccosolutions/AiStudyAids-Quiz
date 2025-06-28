@@ -5,8 +5,8 @@ import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Trophy, Target, Clock, TrendingUp, Star, Zap, ChevronDown, ChevronUp, BarChart3, PieChart, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart as RechartsPieChart, Pie, Cell
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar,
+  PieChart as RechartsPieChart, Pie, Cell, Legend
 } from 'recharts';
 import { Button } from '../ui/Button'; // Import the Button component
 
@@ -27,6 +27,8 @@ const RandomMatchStats: React.FC<RandomMatchStatsProps> = ({ userId }) => {
   });
   const [performanceData, setPerformanceData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [questionTypePerformanceData, setQuestionTypePerformanceData] = useState<any[]>([]); // Added for consistency
+  const [winLossData, setWinLossData] = useState<any[]>([]); // New state for win/loss distribution
   const [showDetailedStats, setShowDetailedStats] = useState(false);
 
   useEffect(() => {
@@ -78,14 +80,16 @@ const RandomMatchStats: React.FC<RandomMatchStatsProps> = ({ userId }) => {
       });
       setPerformanceData([]);
       setCategoryData([]);
+      setQuestionTypePerformanceData([]); // Reset new data
+      setWinLossData([]); // Reset new data
     }
   }, [competitionResultsHistory]);
 
   const generateChartData = (history: any[]) => {
     // Performance Trends (Score over time)
-    const sortedHistory = [...history].sort((a, b) => (new Date(a.competition_date || 0).getTime()) - (new Date(b.competition_date || 0).getTime()));
+    const sortedHistory = [...history].sort((a, b) => (new Date(a.competition_date || '').getTime() || 0) - (new Date(b.competition_date || '').getTime() || 0));
     const perfData = sortedHistory.map(comp => ({
-      date: new Date(comp.competition_date).toLocaleDateString(),
+      date: comp.competition_date ? new Date(comp.competition_date).toLocaleDateString() : 'N/A',
       score: comp.score || 0,
       rank: comp.final_rank || 0,
     }));
@@ -103,6 +107,37 @@ const RandomMatchStats: React.FC<RandomMatchStatsProps> = ({ userId }) => {
       color: ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899'][index % 7],
     }));
     setCategoryData(catData);
+
+    // Question Type Performance (Added for consistency with SoloQuizStats)
+    const qtpMap = new Map<string, { correct: number; total: number }>();
+    history.forEach(comp => {
+      for (const type in comp.question_type_performance) {
+        if (comp.question_type_performance.hasOwnProperty(type)) {
+          const current = qtpMap.get(type) || { correct: 0, total: 0 };
+          qtpMap.set(type, {
+            correct: current.correct + comp.question_type_performance[type].correct,
+            total: current.total + comp.question_type_performance[type].total,
+          });
+        }
+      }
+    });
+    const qtpData = Array.from(qtpMap.entries()).map(([name, data]) => ({ name: name.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()), correct: data.correct, total: data.total, percentage: data.total > 0 ? (data.correct / data.total) * 100 : 0 }));
+    setQuestionTypePerformanceData(qtpData);
+
+    // Win/Loss Distribution
+    let totalWins = 0;
+    let totalLosses = 0;
+    history.forEach(comp => {
+      if (comp.final_rank === 1) {
+        totalWins++;
+      } else {
+        totalLosses++;
+      }
+    });
+    setWinLossData([
+      { name: 'Wins', value: totalWins, color: '#10B981' },
+      { name: 'Losses', value: totalLosses, color: '#EF4444' },
+    ]);
   };
 
   const formatTime = (seconds: number) => {
@@ -283,6 +318,45 @@ const RandomMatchStats: React.FC<RandomMatchStatsProps> = ({ userId }) => {
                             </RechartsPieChart>
                           </ResponsiveContainer>
                         </div>
+
+                        {/* Question Type Performance Bar Chart (Added for consistency) */}
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
+                            Performance by Question Type
+                          </h4>
+                          <ResponsiveContainer width="100%" height={250}>
+                            <BarChart data={questionTypePerformanceData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="name" />
+                              <YAxis />
+                              <Tooltip formatter={(value: number, name: string) => [`${value.toFixed(1)}%`, name === 'percentage' ? 'Accuracy' : name]} />
+                              <Legend />
+                              <Bar dataKey="percentage" fill="#8884d8" name="Accuracy (%)" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        {/* New: Win/Loss Distribution Bar Chart */}
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <BarChart3 className="w-5 h-5 mr-2 text-red-600" />
+                            Win/Loss Distribution
+                          </h4>
+                          <ResponsiveContainer width="100%" height={250}>
+                            <BarChart data={winLossData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="name" />
+                              <YAxis />
+                              <Tooltip />
+                              <Bar dataKey="value" fill="#82ca9d">
+                                {winLossData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
                       </div>
                     </CardBody>
                   </motion.div>
@@ -296,4 +370,4 @@ const RandomMatchStats: React.FC<RandomMatchStatsProps> = ({ userId }) => {
   );
 };
 
-export default RandomMatchStats; 
+export default RandomMatchStats;

@@ -24,8 +24,8 @@ const CompetitionPanel: React.FC<CompetitionPanelProps> = ({ userId }) => {
     competitions, 
     loadUserCompetitions, 
     deleteCompetition, 
-    loadCompetition,
-    isLoading, 
+    loadCompetition, // Keep this for other uses
+    isCompetitionsLoading, // Use the specific loading state
     error 
   } = useCompetitionStore();
   
@@ -88,7 +88,7 @@ const filteredCompetitions = (competitions ?? []).filter(competition => {
     return Math.floor(Math.random() * 10) + 1;
   };
 
-  if (isLoading) {
+   if (isCompetitionsLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>

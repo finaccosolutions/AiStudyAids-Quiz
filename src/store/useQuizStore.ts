@@ -454,9 +454,23 @@ const validatedPreferences = {
     set({ isLoading: true, error: null });
     try {
       const history = await getQuizResultsWithAnalytics(userId);
-      set({ soloQuizHistory: history.map(item => ({
+      set({ soloQuizHistory: history.map((item: any) => ({
         ...item,
-        quizDate: new Date(item.quiz_date) // Convert quiz_date string to Date object
+       totalQuestions: Number(item.total_questions || 0),
+        correctAnswers: Number(item.questions_correct || 0),
+        questionsAttempted: Number(item.questions_attempted || 0),
+        questionsSkipped: Number(item.questions_skipped || 0),
+        percentage: parseFloat(item.percentage_score || 0),
+        finalScore: parseFloat(item.final_score || 0),
+        rawScore: parseFloat(item.raw_score || 0),
+        negativeMarksDeducted: parseFloat(item.negative_marks_deducted || 0),
+        totalTimeTaken: Number(item.total_time_taken || 0),
+        questionTypePerformance: item.question_type_performance || {},
+        questions: item.question_details || [], // Already mapped in supabase.ts, but ensure default
+        quizDate: item.quiz_date ? new Date(item.quiz_date) : null,
+        // Ensure other fields from QuizResult type are mapped if needed
+        // For example, if you use 'topic' directly from the result object:
+        topic: item.topic,
       })) });
     } catch (error: any) {
       set({ error: error.message || 'Failed to load solo quiz history' });

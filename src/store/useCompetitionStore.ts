@@ -8,11 +8,11 @@ interface CompetitionStoreState {
   currentCompetition: Competition | null;
   participants: CompetitionParticipant[];
   userActiveCompetitions: Competition[];
-  competitions: Competition[];
   userStats: UserStats | null;
   competitionResultsHistory: any[];
   chatMessages: CompetitionChat[];
   queueEntry: RandomQueueEntry | null;
+  isCompetitionsLoading: boolean;
   isLoading: boolean;
   error: string | null;
   cleanupFlag: boolean; // Flag to indicate if subscriptions need cleanup
@@ -64,11 +64,11 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
   currentCompetition: null,
   participants: [],
   userActiveCompetitions: [],
-  competitions: [],
   userStats: null,
   competitionResultsHistory: [],
   chatMessages: [],
   queueEntry: null,
+  isCompetitionsLoading: false,
   isLoading: false,
   error: null,
   cleanupFlag: false,
@@ -403,7 +403,8 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
   },
 
   loadUserCompetitions: async (userId) => {
-    set({ isLoading: true, error: null });
+    set({ isCompetitionsLoading: true, error: null }); // Set specific loading state
+    console.log(`[CompetitionStore] Loading user competitions for user: ${userId}`);
     try {
       const { data, error } = await supabase
         .from('competitions')
@@ -412,11 +413,11 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      set({ competitions: data || [] });
+      set({ userActiveCompetitions: data || [] });
     } catch (error: any) {
       set({ error: error.message || 'Failed to load user competitions' });
-    } finally {
-      set({ isLoading: false });
+    } finally { // Ensure loading state is reset
+      set({ isCompetitionsLoading: false });
     }
   },
 
@@ -729,7 +730,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
     totalQuizzesPlayed += competitionHistory.length;
     competitionHistory.forEach(compResult => {
       overallPoints += compResult.points_earned || 0;
-      if (compResult.final_rank === 1) { 
+      if (compResult.final_rank === 1) {
         totalWins++;
       }
       totalCompetitionsParticipated++;
