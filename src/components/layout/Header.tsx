@@ -131,18 +131,6 @@ const Header: React.FC = () => {
                     )}
                   </AnimatePresence>
                 </div>
-
-                <Link 
-                  to="/competitions"
-                  className={`nav-link px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-1 text-gray-700 hover:text-purple-700 hover:bg-purple-50 ${
-                    isActive('/competitions') 
-                      ? 'text-purple-700 bg-purple-50 font-semibold' 
-                      : ''
-                  }`}
-                >
-                  <Trophy className="w-4 h-4" />
-                  <span>Competitions</span>
-                </Link>
               </>
             )}
           </nav>
@@ -222,5 +210,5 @@ const Header: React.FC = () => {
     </header>
   );
 };
-
+ 
 export default Header;

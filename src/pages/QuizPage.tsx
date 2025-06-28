@@ -592,7 +592,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
       case 'active-competitions-selector':
         return (
           <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-8">
-            <div className="max-w-full px-2 sm:px-4 py-8">
+            <div className="w-full px-4 py-8">
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -711,8 +711,8 @@ const handleCreateCompetitionSuccess = useCallback(() => {
                     Back to Quiz Modes
                 </Button>
               </div>
-              {isGeneratingQuiz ? (
-                <div className="flex items-center justify-center py-12">
+               {isGeneratingQuiz ? (
+                <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
                     <p className="text-lg text-gray-600">Generating your quiz...</p>
@@ -743,7 +743,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
                   </Button>
                 </div>
                 {isGeneratingQuiz ? (
-                  <div className="flex items-center justify-center py-12">
+                  <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
                       <p className="text-lg text-gray-600">Creating your competition...</p>
@@ -835,17 +835,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
         }
         
         return (
-           <div className="w-full max-w-7xl mx-auto px-0 sm:px-4 py-8"> {/* Changed px-4 to px-0 for full width on mobile */}
-            <div className="flex justify-between items-center mb-4 px-4 sm:px-0"> {/* Added px-4 for internal padding */}
-              <Button
-                variant="ghost"
-                onClick={handleBackToModeSelector}
-                className="text-gray-600 hover:text-gray-800"
-              >
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Back to Quiz Modes
-              </Button>
-            </div>
+           <div className="w-full px-0 py-8">
               <QuizQuestion
                 question={currentQuestion}
                 questionNumber={currentQuestionIndex + 1}
@@ -876,7 +866,7 @@ const handleCreateCompetitionSuccess = useCallback(() => {
         if (!result) return null;
         
         return (
-          <div className="max-w-6xl mx-auto px-2 sm:px-4">
+          <div className="w-full px-4">
             <QuizResults
               result={result}
               onNewQuiz={handleNewQuiz}
@@ -895,3 +885,4 @@ const handleCreateCompetitionSuccess = useCallback(() => {
 };
 
 export default QuizPage;
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react'; 
 import { Question } from '../../types';
 import { Button } from '../ui/Button';
 import { Card, CardBody } from '../ui/Card';
@@ -219,7 +219,7 @@ useEffect(() => {
                   whileHover="hover"
                   whileTap="tap"
                   onClick={() => handleAnswerSelect(option)}
-                  className={`w-full p-4 sm:p-6 text-left rounded-2xl border-2 transition-all duration-300 group relative overflow-hidden ${
+                  className={`w-full p-3 sm:p-6 text-left rounded-2xl border-2 transition-all duration-300 group relative overflow-hidden ${
                     isSelected
                       ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-xl ring-4 ring-purple-200'
                       : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg'
@@ -331,7 +331,7 @@ useEffect(() => {
                       : [...selectedOptions, option];
                     handleAnswerSelect(newSelected.join(','));
                   }}
-                  className={`w-full p-4 sm:p-6 text-left rounded-2xl border-2 transition-all duration-300 group ${
+                  className={`w-full p-3 sm:p-6 text-left rounded-2xl border-2 transition-all duration-300 group ${
                     isSelected
                       ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-xl'
                       : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg'
@@ -444,7 +444,7 @@ useEffect(() => {
       case 'situation':
         return (
           <div className="space-y-6">
-            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 sm:p-6 rounded-2xl border border-blue-200">
+            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-3 sm:p-6 rounded-2xl border border-blue-200">
               <h4 className="font-bold text-blue-800 mb-3 text-base sm:text-lg">
                 {question.type === 'case-study' ? 'Case Study:' : 'Situation:'}
               </h4>
@@ -529,7 +529,7 @@ useEffect(() => {
                 }
                 value={selectedAnswer}
                 onChange={(e) => handleAnswerSelect(e.target.value)}
-                className="w-full p-4 sm:p-6 text-base sm:text-xl border-2 border-gray-300 rounded-2xl focus:border-purple-500 focus:ring-4 focus:ring-purple-200 focus:outline-none transition-all duration-300 bg-white shadow-sm hover:shadow-md"
+                className="w-full p-3 sm:p-6 text-base sm:text-xl border-2 border-gray-300 rounded-2xl focus:border-purple-500 focus:ring-4 focus:ring-purple-200 focus:outline-none transition-all duration-300 bg-white shadow-sm hover:shadow-md"
                 autoComplete="off"
               />
               {selectedAnswer && (
@@ -622,7 +622,7 @@ useEffect(() => {
                   className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white" /* Adjusted padding and space-x */
                 >
                   {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                  <span className="text-xs">Speech</span> {/* Adjusted font size */}
+                  <span className="text-sm">Speech</span>
                 </button>
 
                 {/* Quit Button */}
@@ -632,7 +632,7 @@ useEffect(() => {
                     className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-red-500 bg-opacity-30 hover:bg-opacity-50 transition-all text-red-200 hover:text-white" /* Adjusted padding and space-x */
                   >
                     <LogOut className="w-4 h-4" />
-                    <span className="text-xs">Quit</span> {/* Adjusted font size */}
+                     <span className="text-sm">Quit</span>
                   </button>
                 )}
               </div>
@@ -657,22 +657,22 @@ useEffect(() => {
       )}
 
       {/* Main Content */}
-       <div className="w-full max-w-7xl mx-auto px-0 sm:px-4 py-6 sm:py-8">
+       <div className="w-full px-0 sm:px-4 py-6 sm:py-8">
         <motion.div
           key={question.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Card className="w-full shadow-2xl border-0 bg-white/95 backdrop-blur-sm overflow-hidden px-0 sm:px-8">
-             <CardBody className="py-6 px-0 sm:p-8">
+          <Card className="w-full shadow-2xl border-0 bg-white/95 backdrop-blur-sm overflow-hidden px-0">
+             <CardBody className="py-6 pl-2 pr-3 sm:px-6">
               {/* Question Text */}
-              <div className="mb-6 sm:mb-8 p-4">
+              <div className="mb-6 sm:mb-8 pl-2 sm:px-6">
                 <motion.h2 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 leading-relaxed mb-4"
+                  className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-800 leading-relaxed mb-4 pl-2 sm:pl-0"
                 >
                   {question.text}
                 </motion.h2>
@@ -697,13 +697,13 @@ useEffect(() => {
                   )}
                 </div>
               </div>
-
+ 
               {/* Question Content */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="mb-8 p-4"
+                className="mb-8 px-4"
               >
                 {renderQuestionContent()}
               </motion.div>
@@ -713,9 +713,9 @@ useEffect(() => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 pt-6 border-t border-gray-200 p-4"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 pt-6 border-t border-gray-200 px-4 sm:px-6 py-3 sm:py-4"
             >
-                <div className="flex items-center space-x-3">
+                <div className="flex items-left space-x-3">
                   <Button
                     onClick={onPrevious}
                     disabled={questionNumber === 1 || (timeLimitEnabled && timeLimit !== null)} 

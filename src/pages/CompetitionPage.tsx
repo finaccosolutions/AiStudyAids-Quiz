@@ -14,7 +14,8 @@ import {
   Rocket, Shield, Award, Medal, Timer, Brain,
   Sparkles, ArrowRight, Play, Plus, BookOpen,
   FileQuestion, PenTool, NotebookText, Calendar,
-  LineChart, CheckCircle, Clock, Flame
+  LineChart, CheckCircle, Clock, Flame, Layers,
+  Cpu, Database, Code, Palette, Briefcase, Heart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -29,7 +30,7 @@ const CompetitionPage: React.FC = () => {
     if (user) {
       loadUserStats(user.id);
     }
-  }, [user]);
+  }, [user, loadUserStats]);
 
   if (!isLoggedIn) {
     return <Navigate to="/auth" />;
@@ -102,63 +103,20 @@ const CompetitionPage: React.FC = () => {
     }
   ];
 
-  const soloQuizActions = [
+  const quizLearningActions = [
     {
-      title: 'AI Quiz',
+      title: 'Solo Quiz',
       description: 'Generate personalized quizzes with intelligent questions',
       icon: Brain,
-      path: '/quiz',
+      action: () => navigate('/quiz'),
       color: 'from-violet-500 to-purple-500',
       stats: preferences ? `${preferences.questionCount} questions` : 'Not configured'
     },
     {
-      title: 'Question Bank',
-      description: 'Generate comprehensive question banks from text or PDFs',
-      icon: FileQuestion,
-      path: '/question-bank',
-      color: 'from-blue-500 to-cyan-500',
-      stats: 'Coming soon'
-    },
-    {
-      title: 'Answer Evaluation',
-      description: 'Get detailed feedback on your written answers',
-      icon: PenTool,
-      path: '/answer-evaluation',
-      color: 'from-green-500 to-emerald-500',
-      stats: 'AI-powered'
-    },
-    {
-      title: 'Smart Notes',
-      description: 'Generate summaries and interactive study materials',
-      icon: NotebookText,
-      path: '/notes',
-      color: 'from-purple-500 to-indigo-500',
-      stats: 'Multiple formats'
-    },
-    {
-      title: 'Study Planner',
-      description: 'Create personalized study schedules',
-      icon: Calendar,
-      path: '/study-plan',
-      color: 'from-orange-500 to-amber-500',
-      stats: 'Optimized'
-    },
-    {
-      title: 'Progress Tracker',
-      description: 'Monitor your learning journey with analytics',
-      icon: LineChart,
-      path: '/progress',
-      color: 'from-rose-500 to-pink-500',
-      stats: 'Detailed insights'
-    }
-  ];
-
-  const competitionActions = [
-    {
       title: 'Create Competition',
       description: 'Challenge friends and colleagues',
       icon: Plus,
-      action: () => navigate('/quiz'),
+      action: () => navigate('/quiz', { state: { mode: 'create-competition' } }),
       color: 'from-purple-500 to-pink-500',
       stats: 'Invite friends'
     },
@@ -166,7 +124,7 @@ const CompetitionPage: React.FC = () => {
       title: 'Join Competition',
       description: 'Enter with a 6-digit code',
       icon: Users,
-      action: () => navigate('/quiz'),
+      action: () => navigate('/quiz', { state: { mode: 'join-competition' } }),
       color: 'from-green-500 to-emerald-500',
       stats: 'Quick join'
     },
@@ -174,7 +132,7 @@ const CompetitionPage: React.FC = () => {
       title: 'Random Match',
       description: 'Find opponents globally',
       icon: Zap,
-      action: () => navigate('/quiz'),
+      action: () => navigate('/quiz', { state: { mode: 'random-match' } }),
       color: 'from-orange-500 to-red-500',
       stats: 'Global players'
     }
@@ -182,7 +140,7 @@ const CompetitionPage: React.FC = () => {
 
   const renderOverview = () => (
     <div className="space-y-8">
-      {/* Solo Quiz Section */}
+      {/* Quiz Learnings Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -195,75 +153,19 @@ const CompetitionPage: React.FC = () => {
                 <Brain className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-2xl font-bold text-slate-800">Solo Learning</h3>
-                <p className="text-slate-600">AI-powered study tools for individual learning</p>
+                <h3 className="text-2xl font-bold text-slate-800">Quiz Learnings</h3>
+                <p className="text-slate-600">Explore solo study tools and competitive quiz modes</p>
               </div>
             </div>
           </CardHeader>
           <CardBody className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {soloQuizActions.map((action, index) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {quizLearningActions.map((action, index) => (
                 <motion.div
                   key={index}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + index * 0.1 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Card className="h-full overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group"
-                        onClick={() => navigate(action.path)}>
-                    <CardBody className="p-6 relative">
-                      <div className={`absolute inset-0 bg-gradient-to-br ${action.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
-                      <div className="relative z-10">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className={`w-12 h-12 bg-gradient-to-r ${action.color} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                            <action.icon className="w-6 h-6 text-white" />
-                          </div>
-                          <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
-                            {action.stats}
-                          </span>
-                        </div>
-                        <h4 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-purple-600 transition-colors duration-300">
-                          {action.title}
-                        </h4>
-                        <p className="text-slate-600 text-sm leading-relaxed">{action.description}</p>
-                      </div>
-                    </CardBody>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-      </motion.div>
-
-      {/* Competition Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-      >
-        <Card className="shadow-xl border-2 border-purple-100 overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center">
-                <Trophy className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-800">Competitive Learning</h3>
-                <p className="text-slate-600">Challenge others and climb the leaderboards</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardBody className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {competitionActions.map((action, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 + index * 0.1 }}
+                  transition={{ delay: 0.3 + index * 0.05 }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -361,7 +263,7 @@ const CompetitionPage: React.FC = () => {
             </motion.div>
             <div>
               <h1 className="text-5xl font-bold bg-gradient-to-r from-slate-800 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-                Quiz Hub
+                Quiz Dashboard
               </h1>
               <p className="text-xl text-slate-600">Your complete learning and competition center</p>
             </div>
@@ -478,3 +380,4 @@ const CompetitionPage: React.FC = () => {
 };
 
 export default CompetitionPage;
+

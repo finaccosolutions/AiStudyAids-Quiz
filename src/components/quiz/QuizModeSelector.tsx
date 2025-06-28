@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button } from '../ui/Button';
+import { Button } from '../ui/Button'; 
 import { Card, CardBody } from '../ui/Card';
 import { BookOpen, Crown, Hash, Users, Zap, Target, Brain, Trophy, Sparkles, ArrowRight, Star, Clock, Award, TrendingUp, Play, Gamepad2, Rocket, Shield, Globe, Bolt, Settings } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -113,38 +113,43 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ onSelectMode, onSho
           </div>
 
           {/* Competition Management & Competitions Buttons */}
-        {(onShowCompetitionManagement) && (
+         {onShowCompetitionManagement && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="mb-6 sm:mb-8 flex flex-col sm:flex-row justify-center gap-4 w-full" // Added flex-col, sm:flex-row, justify-center, gap-4, w-full
+            className="mb-6 sm:mb-8 flex justify-center w-full"
           >
-            {/* Competitions Button */}
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1"> {/* Added flex-1 */}
-              <Button
-                onClick={() => navigate('/competitions')} // Navigate to the competitions page
-                variant="outline"
-                className="w-full border-2 border-blue-200 text-blue-600 hover:bg-blue-50 px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-semibold shadow-lg"
-              >
-                <Trophy className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                Competitions
-              </Button>
-            </motion.div>
-
-            {/* Manage My Competitions Button */}
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1"> {/* Added flex-1 */}
-              <Button
-                onClick={onShowCompetitionManagement}
-                variant="outline"
-                className="w-full border-2 border-purple-200 text-purple-600 hover:bg-purple-50 px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-semibold shadow-lg"
-              >
-                <Settings className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                Manage My Competitions
-              </Button>
-            </motion.div>
+            <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+              {/* Competitions Button */}
+              <motion.div className="w-full" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button
+                  onClick={() => navigate('/competitions')}
+                  variant="outline"
+                  className="w-full h-12 border-2 border-purple-200 text-purple-600 hover:bg-purple-50 text-sm font-semibold shadow-lg px-4 py-2 flex items-center justify-center gap-2"
+                >
+                  <Trophy className="w-4 h-4" />
+                  <span>Quiz Dashboard</span>
+                </Button>
+              </motion.div>
+        
+              {/* Manage My Competitions Button */}
+              <motion.div className="w-full" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button
+                  onClick={onShowCompetitionManagement}
+                  variant="outline"
+                  className="w-full h-12 border-2 border-purple-200 text-purple-600 hover:bg-purple-50 text-sm font-semibold shadow-lg px-4 py-2 flex items-center justify-center gap-2"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Manage Quiz</span>
+                </Button>
+              </motion.div>
+            </div>
           </motion.div>
         )}
+
+
+
         </motion.div> 
 
         {/* Mode Cards */}

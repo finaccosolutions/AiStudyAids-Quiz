@@ -797,14 +797,6 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
             <Home className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
             Back to Home
           </Button>
-          <Button
-            onClick={handleLeaveCompetition}
-            variant="outline"
-            className="border-2 border-red-200 text-red-600 hover:bg-red-50 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold w-full sm:w-auto"
-          >
-            <LogOut className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
-            Leave Competition
-          </Button>
         </motion.div>
       </div>
     </div>

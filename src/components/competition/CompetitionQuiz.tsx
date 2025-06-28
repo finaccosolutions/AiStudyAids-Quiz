@@ -1,5 +1,5 @@
 // src/components/competition/CompetitionQuiz.tsx
-
+ 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -515,14 +515,14 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                 className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white" /* Adjusted padding and space-x */
               >
                 {showLeaderboard ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                <span className="text-xs">Leaderboard</span> {/* Adjusted font size */}
+                <span className="text-xs">Leaderboard</span>
               </button>
               <button
                 onClick={() => setShowChat(!showChat)}
                 className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white" /* Adjusted padding and space-x */
               >
                 <MessageCircle className="w-4 h-4" />
-                <span className="text-xs">Chat</span> {/* Adjusted font size */}
+                <span className="text-sm">Chat</span>
               </button>
               <button
                 onClick={() => setShowLeaveConfirm(true)}
@@ -532,15 +532,15 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                 }`} /* Adjusted padding and space-x */
               >
                 <LogOut className="w-4 h-4" />
-                <span className="text-xs">Leave</span> {/* Adjusted font size */}
+                <span className="text-sm">Leave</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="w-full max-w-7xl mx-auto px-0 sm:px-4 py-8"> {/* Changed max-w-full to max-w-7xl and px-4 to px-0 */}
-        <div className={showLeaderboard ? 'lg:col-span-4' : 'max-w-full mx-auto w-full'}> {/* Changed max-w-4xl to max-w-full */}
+      <div className="w-full px-0 sm:px-4 py-8">
+        <div className={showLeaderboard ? 'lg:col-span-3' : 'w-full'}>
           {/* Main Quiz Area */}
 <div className={showLeaderboard ? 'lg:col-span-3' : 'w-full max-w-full mx-auto'}>
 <QuizQuestion
@@ -811,4 +811,4 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   );
 };
 
-export default CompetitionQuiz;
+export default CompetitionQuiz; 

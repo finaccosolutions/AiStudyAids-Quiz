@@ -311,7 +311,7 @@ const HomePage: React.FC = () => {
               key={aid.path}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ delay: index * 0.1 }} 
               whileHover={{ 
                 scale: 1.05, 
                 y: -10,
@@ -336,28 +336,28 @@ const HomePage: React.FC = () => {
               {/* Gradient Overlay */}
               <div className={`absolute inset-0 bg-gradient-to-br ${aid.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
               
-              {/* Floating Particles */}
-              <div className="absolute inset-0 overflow-hidden">
-                {[...Array(6)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-1 h-1 bg-white/30 rounded-full"
-                    initial={{
-                      x: Math.random() * 100 + '%',
-                      y: Math.random() * 100 + '%',
-                    }}
-                    animate={{
-                      y: [null, '-20px', null],
-                      opacity: [0.3, 0.8, 0.3],
-                    }}
-                    transition={{
-                      duration: 3 + Math.random() * 2,
-                      repeat: Infinity,
-                      delay: Math.random() * 2,
-                    }}
-                  />
-                ))}
-              </div>
+               {/* Floating Particles */}
+            <div className="absolute inset-0 overflow-hidden">
+              {[...Array(6)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute w-1 h-1 bg-white/30 rounded-full"
+                  initial={{
+                    x: Math.random() * 100 + '%',
+                    y: Math.random() * 100 + '%',
+                  }}
+                  animate={{
+                    y: [null, '-20px', null],
+                    opacity: [0.3, 0.8, 0.3],
+                  }}
+                  transition={{
+                    duration: 3 + Math.random() * 2,
+                    repeat: Infinity,
+                    delay: Math.random() * 2,
+                  }}
+                />
+              ))}
+            </div>
               
               <div className="relative z-10">
                 <div className={`${aid.iconBg} p-4 rounded-2xl w-fit mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-lg relative overflow-hidden`}>
@@ -424,7 +424,7 @@ const HomePage: React.FC = () => {
         </motion.div>
       </div>
 
-      {/* Features Section */}
+       {/* Features Section */}
       <div className="w-full bg-gradient-to-br from-gray-50 to-purple-50 py-16 sm:py-24">
         <div className="max-w-7xl mx-auto px-4">
           <motion.div
@@ -450,8 +450,8 @@ const HomePage: React.FC = () => {
                 className="relative overflow-hidden rounded-2xl p-8 bg-white shadow-lg border border-gray-100 transform transition-all duration-300 hover:shadow-2xl group"
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
-                <div className={`bg-gradient-to-br ${feature.gradient} p-4 rounded-2xl w-fit mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                  <feature.icon className="h-8 w-8 text-white" />
+                <div className={`bg-gray-100 p-4 rounded-2xl w-fit mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                  <feature.icon className="h-8 w-8 text-gray-600" />
                 </div>
                 <h3 className="text-xl font-bold mb-3 text-gray-900">{feature.title}</h3>
                 <p className="text-gray-600 mb-4 leading-relaxed">{feature.description}</p>
@@ -515,43 +515,9 @@ const HomePage: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-3xl shadow-2xl p-8 sm:p-16 text-white relative overflow-hidden"
+          className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-3xl shadow-2xl p-8 sm:p-16 text-white relative overflow-hidden text-center"
         >
-          {/* Background Elements */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-indigo-600/20 backdrop-blur-3xl" />
-          <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute -left-10 -top-10 w-40 h-40 bg-purple-400/20 rounded-full blur-2xl" />
-          
-          {/* Floating Elements */}
-          {[...Array(8)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-2 h-2 bg-white/20 rounded-full"
-              initial={{
-                x: Math.random() * 100 + '%',
-                y: Math.random() * 100 + '%',
-              }}
-              animate={{
-                y: [null, '-20px', null],
-                opacity: [0.2, 0.8, 0.2],
-              }}
-              transition={{
-                duration: 4 + Math.random() * 2,
-                repeat: Infinity,
-                delay: Math.random() * 2,
-              }}
-            />
-          ))}
-          
           <div className="relative z-10 text-center">
-            <motion.div
-              animate={{ rotate: [0, 5, -5, 0] }}
-              transition={{ duration: 3, repeat: Infinity }}
-              className="w-20 h-20 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-8"
-            >
-              <Sparkles className="w-10 h-10 text-white" />
-            </motion.div>
-            
             <h2 className="text-3xl sm:text-5xl font-bold mb-6">Ready to Transform Your Learning?</h2>
             <p className="text-purple-100 mb-8 max-w-2xl mx-auto text-lg sm:text-xl leading-relaxed">
               Join thousands of students who are already experiencing the power of AI-assisted learning. 
@@ -566,4 +532,4 @@ const HomePage: React.FC = () => {
   );
 };
 
-export default HomePage;
+export default HomePage;  
