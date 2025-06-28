@@ -1,4 +1,3 @@
-// src/services/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 import { ApiKeyData, QuizPreferences, UserProfile, QuizResultData, FavoriteQuestion } from '../types';
 
@@ -534,18 +533,12 @@ export const saveQuizResultToDatabase = async (
 
 export const getQuizResultsWithAnalytics = async (userId: string, limit = 50) => {
   try {
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out')), 10000) // 10 seconds timeout
-    );
-
-    const fetchPromise = supabase
+    const { data, error } = await supabase
       .from('quiz_results')
       .select('*')
       .eq('user_id', userId)
       .order('quiz_date', { ascending: false })
       .limit(limit);
-
-    const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
     if (error) {
       console.error('Error fetching quiz results with analytics:', error);

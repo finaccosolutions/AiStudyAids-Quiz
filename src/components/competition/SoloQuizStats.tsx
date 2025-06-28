@@ -69,7 +69,7 @@ const SoloQuizStats: React.FC<SoloQuizStatsProps> = ({ userId }) => {
 
   const generateChartData = (history: any[]) => {
     // Performance Trends (Score over time)
-    const sortedHistory = [...history].sort((a, b) => a.quizDate.getTime() - b.quizDate.getTime());
+    const sortedHistory = [...history].sort((a, b) => (a.quizDate ? a.quizDate.getTime() : 0) - (b.quizDate ? b.quizDate.getTime() : 0));
     const perfData = sortedHistory.map(quiz => ({
       date: quiz.quizDate.toLocaleDateString(),
       score: quiz.percentage || 0,

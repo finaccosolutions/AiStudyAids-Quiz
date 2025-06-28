@@ -83,7 +83,7 @@ const RandomMatchStats: React.FC<RandomMatchStatsProps> = ({ userId }) => {
 
   const generateChartData = (history: any[]) => {
     // Performance Trends (Score over time)
-    const sortedHistory = [...history].sort((a, b) => new Date(a.competition_date).getTime() - new Date(b.competition_date).getTime());
+    const sortedHistory = [...history].sort((a, b) => (new Date(a.competition_date || 0).getTime()) - (new Date(b.competition_date || 0).getTime()));
     const perfData = sortedHistory.map(comp => ({
       date: new Date(comp.competition_date).toLocaleDateString(),
       score: comp.score || 0,

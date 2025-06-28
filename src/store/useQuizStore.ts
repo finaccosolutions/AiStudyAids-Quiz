@@ -390,7 +390,7 @@ const validatedPreferences = {
     clearQuizStateFromLocal();
   
   // Save to database
-  const { user } => useAuthStore.getState();
+  const { user } = useAuthStore.getState();
   if (user && preferences) {
     saveQuizResultToDatabase(user.id, result, preferences).catch(console.error);
   }
@@ -452,49 +452,13 @@ const validatedPreferences = {
   // Solo Quiz History actions
   loadSoloQuizHistory: async (userId) => {
     set({ isLoading: true, error: null });
-    console.log('useQuizStore: loadSoloQuizHistory: Starting...');
     try {
-      const history = await getQuizResultsWithAnalytics(userId); // This returns raw data from DB
-      const mappedHistory = history.map((item: any) => ({
-        id: item.id,
-        quizDate: new Date(item.quiz_date), // Convert to Date object
-        topic: item.topic,
-        subtopic: item.subtopic,
-        difficulty: item.difficulty,
-        questionTypes: item.question_types,
-        language: item.language,
-        mode: item.mode,
-        totalQuestions: item.total_questions,
-        questionsAttempted: item.questions_attempted,
-        questionsSkipped: item.questions_skipped,
-        correctAnswers: item.questions_correct, // Mapping
-        questionsIncorrect: item.questions_incorrect, // Assuming this exists in DB
-        rawScore: item.raw_score,
-        percentage: item.percentage_score, // Mapping
-        finalScore: item.final_score,
-        negativeMarkingApplied: item.negative_marking_applied, // Assuming this exists in DB
-        negativeMarksDeducted: item.negative_marks_deducted,
-        totalTimeTaken: item.total_time_taken,
-        averageTimePerQuestion: item.average_time_per_question,
-        timeLimitEnabled: item.time_limit_enabled,
-        timeLimitPerQuestion: item.time_limit_per_question,
-        totalTimeLimit: item.total_time_limit,
-        questionTypePerformance: item.question_type_performance,
-        questions: item.question_details || [], // Mapping and ensuring array
-        strengths: item.strengths,
-        weaknesses: item.weaknesses,
-        recommendations: item.recommendations,
-        sessionId: item.session_id,
-        deviceInfo: item.device_info,
-        startedAt: item.started_at ? new Date(item.started_at) : null,
-        completedAt: item.completed_at ? new Date(item.completed_at) : null,
-        accuracyRate: item.accuracy_rate,
-        completionRate: item.completion_rate,
-      }));
-      set({ soloQuizHistory: mappedHistory });
-      console.log('useQuizStore: loadSoloQuizHistory: Finished.');
+      const history = await getQuizResultsWithAnalytics(userId);
+      set({ soloQuizHistory: history.map(item => ({
+        ...item,
+        quizDate: new Date(item.quiz_date) // Convert quiz_date string to Date object
+      })) });
     } catch (error: any) {
-      console.error('useQuizStore: loadSoloQuizHistory: Error:', error);
       set({ error: error.message || 'Failed to load solo quiz history' });
     } finally {
       set({ isLoading: false });
@@ -515,3 +479,4 @@ const validatedPreferences = {
     }
   },
 }));
+

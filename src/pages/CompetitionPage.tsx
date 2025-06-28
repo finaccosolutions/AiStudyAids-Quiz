@@ -81,6 +81,7 @@ const CompetitionPage: React.FC = () => {
     return <Navigate to="/auth" />;
   }
 
+
   const tabs = [
     {
       id: 'dashboard',
