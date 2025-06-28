@@ -1,1287 +1,574 @@
 // src/store/useCompetitionStore.ts
 import { create } from 'zustand';
 import { supabase } from '../services/supabase';
-import { generateQuiz } from '../services/gemini';
-import { 
-  Competition, 
-  CompetitionParticipant, 
-  UserStats, 
-  RandomQueueEntry, 
-  CompetitionChat,
-  CompetitionInvite,
-  LiveCompetitionData
-} from '../types/competition';
-import { QuizResultData } from '../types'; // Assuming QuizResultData is defined in types/index.ts
+import { Competition, CompetitionParticipant, UserStats, RandomQueueEntry, CompetitionChat } from '../types/competition';
+import { QuizResult } from '../types'; // Import QuizResult type
 
-export interface OverallStats {
-  totalQuizzesPlayed: number;
-  totalCompetitionsParticipated: number;
-  totalSoloQuizzes: number;
-  totalRandomMatches: number;
-  totalWins: number;
-  overallWinRate: number;
-  overallPoints: number;
-  overallAverageScore: number;
-  bestOverallRank?: number;
-  totalTimeSpent: number; // in seconds
-}
-
-interface CompetitionState {
-  // State
-  competitions: Competition[];
+interface CompetitionStoreState {
   currentCompetition: Competition | null;
   participants: CompetitionParticipant[];
+  userActiveCompetitions: Competition[];
   userStats: UserStats | null;
-  queueEntry: RandomQueueEntry | null;
-  chatMessages: CompetitionChat[];
-  pendingInvites: CompetitionInvite[];
-  liveData: LiveCompetitionData | null;
   competitionResultsHistory: any[];
+  chatMessages: CompetitionChat[];
+  queueEntry: RandomQueueEntry | null;
   isLoading: boolean;
   error: string | null;
-  // Add subscription tracking
-  activeSubscriptions: Map<string, any>;
-  // Add user's active competitions
-  userActiveCompetitions: Competition[];
-  // Add cleanup flag
-  cleanupFlag: boolean;
-  overallStats: OverallStats | null; // Add this line
+  cleanupFlag: boolean; // Flag to indicate if subscriptions need cleanup
+  overallStats: { // New: Overall statistics
+    bestOverallRank: number | null;
+    overallPoints: number;
+    overallWinRate: number;
+    totalQuizzesPlayed: number;
+  } | null;
 
   // Actions
-  createCompetition: (data: any) => Promise<Competition>;
-  joinCompetition: (code: string) => Promise<void>;
+  loadCompetition: (competitionId: string) => Promise<void>;
+  createCompetition: (preferences: any, userId: string, title: string, description: string, type: 'private' | 'random') => Promise<string>;
+  joinCompetition: (competitionCode: string) => Promise<void>;
   leaveCompetition: (competitionId: string) => Promise<void>;
   cancelCompetition: (competitionId: string) => Promise<void>;
-  deleteCompetition: (competitionId: string) => Promise<void>;
+  startCompetition: (competitionId: string, apiKey: string) => Promise<void>;
+  loadParticipants: (competitionId: string) => Promise<void>;
+  updateParticipantProgress: (competitionId: string, answers: Record<number, string>, score: number, correctAnswers: number, timeTaken: number, currentQuestionIndex: number) => Promise<void>;
+  completeCompetition: (competitionId: string) => Promise<void>;
+  subscribeToCompetition: (competitionId: string) => () => void;
+  getLiveLeaderboard: (competitionId: string) => CompetitionParticipant[];
   loadUserCompetitions: (userId: string) => Promise<void>;
   loadUserActiveCompetitions: (userId: string) => Promise<Competition[]>;
-  inviteParticipants: (competitionId: string, emails: string[]) => Promise<void>;
-  loadCompetition: (id: string) => Promise<void>;
-  loadParticipants: (competitionId: string) => Promise<void>;
-  updateParticipantProgress: (competitionId: string, answers: any, score: number, correctAnswers: number, timeTaken: number, currentQuestion?: number) => Promise<void>;
-  markParticipantReady: (competitionId: string) => Promise<void>;
-  completeCompetition: (competitionId: string) => Promise<void>;
+  deleteCompetition: (competitionId: string) => Promise<void>;
+  clearCurrentCompetition: () => void;
   loadUserStats: (userId: string) => Promise<void>;
-  joinRandomQueue: (data: { topic: string; difficulty: string; language: string }) => Promise<void>;
-  leaveRandomQueue: () => Promise<void>;
+  loadCompetitionResultsHistory: (userId: string) => Promise<void>;
+  
+  // Chat actions
   loadChatMessages: (competitionId: string) => Promise<void>;
   sendChatMessage: (competitionId: string, message: string) => Promise<void>;
-  loadPendingInvites: (userId: string) => Promise<void>;
-  respondToInvite: (competitionId: string, accept: boolean) => Promise<void>;
-  startCompetition: (competitionId: string, apiKey?: string) => Promise<void>;
-  
-  // Real-time subscriptions
-  subscribeToCompetition: (competitionId: string) => () => void;
   subscribeToChat: (competitionId: string) => () => void;
-  subscribeToInvites: (userId: string) => () => void;
-  
-  // Helper methods
-  finalizeCompetition: (competitionId: string) => Promise<void>;
-  updateUserStats: (userId: string, rank: number, points: number, timeTaken: number) => Promise<void>;
-  checkForMatches: (topic: string, difficulty: string, language: string) => Promise<void>;
-  getLiveLeaderboard: (competitionId: string) => CompetitionParticipant[];
-  clearCurrentCompetition: () => void;
+
+  // Random Matchmaking
+  joinRandomQueue: (preferences: { topic: string; difficulty: 'easy' | 'medium' | 'hard'; language: string }) => Promise<void>;
+  leaveRandomQueue: () => Promise<void>;
+  subscribeToRandomQueue: (userId: string) => () => void;
+
+  // Cleanup
   cleanupSubscriptions: () => void;
   setCleanupFlag: (flag: boolean) => void;
+
+  // New: Calculate overall stats
+  calculateOverallStats: (soloHistory: QuizResult[], competitionHistory: any[], userStats: UserStats | null) => void;
 }
 
-export const useCompetitionStore = create<CompetitionState>((set, get) => ({
-  // Initial state
-  competitions: [],
+export const useCompetitionStore = create<CompetitionStoreState>((set, get) => ({
   currentCompetition: null,
   participants: [],
+  userActiveCompetitions: [],
   userStats: null,
-  queueEntry: null,
+  competitionResultsHistory: [],
   chatMessages: [],
-  pendingInvites: [],
-  liveData: null,
+  queueEntry: null,
   isLoading: false,
   error: null,
-  activeSubscriptions: new Map(),
-  userActiveCompetitions: [],
   cleanupFlag: false,
+  overallStats: null, // Initialize overallStats
 
-  setCleanupFlag: (flag: boolean) => {
-    set({ cleanupFlag: flag });
+  loadCompetition: async (competitionId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await supabase
+        .from('competitions')
+        .select('*')
+        .eq('id', competitionId)
+        .single();
+
+      if (error) throw error;
+      set({ currentCompetition: data });
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to load competition' });
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
-  loadUserActiveCompetitions: async (userId) => {
+  createCompetition: async (preferences, userId, title, description, type) => {
+    set({ isLoading: true, error: null });
     try {
-      // Load competitions where user is participant and status is waiting or active
-      const { data: participantData, error: participantError } = await supabase
+      // Generate a unique 6-character alphanumeric code
+      let competitionCode = '';
+      let isUnique = false;
+      while (!isUnique) {
+        competitionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const { data, error } = await supabase
+          .from('competitions')
+          .select('id')
+          .eq('competition_code', competitionCode)
+          .maybeSingle();
+        if (!error && !data) {
+          isUnique = true;
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('competitions')
+        .insert({
+          creator_id: userId,
+          title,
+          description,
+          competition_code: competitionCode,
+          type,
+          quiz_preferences: preferences,
+          status: 'waiting',
+          max_participants: 10, // Default max participants
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      set({ currentCompetition: data });
+
+      // Add creator as a participant
+      await supabase.from('competition_participants').insert({
+        competition_id: data.id,
+        user_id: userId,
+        status: 'joined',
+      });
+
+      return data.id;
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to create competition' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  joinCompetition: async (competitionCode) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { user } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data: competition, error: competitionError } = await supabase
+        .from('competitions')
+        .select('*')
+        .eq('competition_code', competitionCode)
+        .single();
+
+      if (competitionError || !competition) {
+        throw new Error('Competition not found or invalid code.');
+      }
+
+      if (competition.status !== 'waiting') {
+        throw new Error('This competition has already started or ended.');
+      }
+
+      // Check if user is already a participant
+      const { data: existingParticipant, error: participantError } = await supabase
         .from('competition_participants')
-        .select(`
-          competition_id,
-          status,
-          competitions!inner(*)
-        `)
-        .eq('user_id', userId)
-        .in('status', ['joined'])
-        .in('competitions.status', ['waiting', 'active']);
+        .select('*')
+        .eq('competition_id', competition.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       if (participantError) throw participantError;
 
-      // Load competitions where user is creator and status is waiting or active
-      const { data: createdCompetitions, error: createdError } = await supabase
-        .from('competitions')
-        .select('*')
-        .eq('creator_id', userId)
-        .in('status', ['waiting', 'active']);
+      if (existingParticipant) {
+        set({ currentCompetition: competition });
+        return; // Already joined
+      }
 
-      if (createdError) throw createdError;
-
-      // Extract competitions from participant data
-      const participantCompetitions = (participantData || []).map(p => p.competitions);
-
-      // Combine and deduplicate competitions
-      const allActiveCompetitions = [...(createdCompetitions || []), ...participantCompetitions];
-      const uniqueActiveCompetitions = allActiveCompetitions.filter((comp, index, self) => 
-        index === self.findIndex(c => c.id === comp.id)
-      );
-
-      // Sort by created_at descending
-      uniqueActiveCompetitions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-      set({ userActiveCompetitions: uniqueActiveCompetitions });
-      return uniqueActiveCompetitions;
-    } catch (error: any) {
-      console.error('Error loading user active competitions:', error);
-      set({ error: error.message });
-      return [];
-    }
-  },
-
-  createCompetition: async (data) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-  
-      // Generate competition code
-      const competitionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-  
-      const competitionData = {
-        creator_id: user.id,
-        title: data.title,
-        description: data.description,
-        competition_code: competitionCode,
-        type: data.type || 'private',
-        max_participants: 999,
-        quiz_preferences: data.quizPreferences,
-        status: 'waiting',
-        participant_count: 1 // Creator is automatically a participant
-      };
-  
-      const { data: competition, error } = await supabase
-        .from('competitions')
-        .insert(competitionData)
-        .select()
-        .single();
-  
-      if (error) throw error;
-  
-      // Add creator as participant
-      const participantData: any = {
+      // Add participant
+      const { error: insertError } = await supabase.from('competition_participants').insert({
         competition_id: competition.id,
         user_id: user.id,
         status: 'joined',
-        joined_at: new Date().toISOString(),
-        is_online: true,
-        last_activity: new Date().toISOString(),
-        current_question: 0,
-        questions_answered: 0,
-        is_ready: false
-      };
+      });
 
-      await supabase
-        .from('competition_participants')
-        .insert(participantData);
-  
-      // Send invitations if emails provided
-      if (data.emails && data.emails.length > 0) {
-        const invites = data.emails.map((email: string) => ({
-          competition_id: competition.id,
-          email,
-          status: 'invited'
-        }));
-  
-        await supabase
-          .from('competition_participants')
-          .insert(invites);
-  
-        // Send email invitations via edge function
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-competition-invites`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session?.access_token}`,
-            },
-            body: JSON.stringify({
-              competitionId: competition.id,
-              competitionCode: competition.competition_code,
-              title: competition.title,
-              creatorName: user.user_metadata?.full_name || user.email,
-              emails: data.emails
-            }),
-          });
-        } catch (emailError) {
-          console.warn('Failed to send email invitations:', emailError);
-        }
-      }
-  
-      // Set current competition in state
-      set(state => ({
-        competitions: [competition, ...state.competitions],
-        currentCompetition: competition,
-        isLoading: false
-      }));
-  
-      return competition;
+      if (insertError) throw insertError;
+
+      set({ currentCompetition: competition });
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({ error: error.message || 'Failed to join competition' });
       throw error;
-    }
-  },
-
-joinCompetition: async (code) => {
-  set({ isLoading: true, error: null });
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    // Find competition by code
-    const { data: competitions, error: compError } = await supabase
-      .from('competitions')
-      .select('*')
-      .eq('competition_code', code.toUpperCase());
-
-    if (compError) {
-      console.error('Database error:', compError);
-      throw new Error('Failed to search for competition. Please try again.');
-    }
-
-    if (!competitions || competitions.length === 0) {
-      throw new Error('Competition not found. Please check the code and try again.');
-    }
-
-    const competition = competitions[0];
-
-    // Check competition status
-    if (competition.status !== 'waiting') {
-      throw new Error(`This competition is not currently accepting participants (Status: ${competition.status}).`);
-    }
-
-    // Check if user is already a participant
-    const { data: existingParticipant, error: participantError } = await supabase
-      .from('competition_participants')
-      .select('*')
-      .eq('competition_id', competition.id)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (participantError) {
-      console.error('Error checking existing participant:', participantError);
-      throw new Error('Failed to check participation status. Please try again.');
-    }
-
-    const updateData: any = { 
-      status: 'joined', 
-      joined_at: new Date().toISOString(),
-      is_online: true,
-      last_activity: new Date().toISOString(),
-      current_question: 0,
-      questions_answered: 0,
-      is_ready: false
-    };
-
-    if (existingParticipant) {
-      if (existingParticipant.status === 'joined') {
-        throw new Error('You are already participating in this competition');
-      }
-      // Update status if previously declined or invited
-      const { error: updateError } = await supabase
-        .from('competition_participants')
-        .update(updateData)
-        .eq('id', existingParticipant.id);
-
-      if (updateError) {
-        console.error('Error updating participant status:', updateError);
-        throw new Error('Failed to join competition. Please try again.');
-      }
-    } else {
-      // Add as new participant
-      const insertData = {
-        competition_id: competition.id,
-        user_id: user.id,
-        ...updateData
-      };
-
-      const { error: insertError } = await supabase
-        .from('competition_participants')
-        .insert(insertData);
-
-      if (insertError) {
-        console.error('Error inserting new participant:', insertError);
-        throw new Error('Failed to join competition. Please try again.');
-      }
-    }
-
-    // Set current competition and force load participants
-    set({ currentCompetition: competition, isLoading: false });
-    
-    // Force load participants after joining
-    setTimeout(() => {
-      get().loadParticipants(competition.id);
-    }, 500);
-    
-  } catch (error: any) {
-    console.error('Join competition error:', error);
-    set({ error: error.message, isLoading: false });
-    throw error;
-  }
-},
-
-
-  markParticipantReady: async (competitionId) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { error } = await supabase
-        .from('competition_participants')
-        .update({ 
-          is_ready: true,
-          quiz_start_time: new Date().toISOString(),
-          last_activity: new Date().toISOString()
-        })
-        .eq('competition_id', competitionId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      // Update local state
-      set(state => ({
-        participants: state.participants.map(p => 
-          p.user_id === user.id 
-            ? { ...p, is_ready: true, quiz_start_time: new Date().toISOString() }
-            : p
-        )
-      }));
-    } catch (error: any) {
-      console.error('Error marking participant ready:', error);
-      set({ error: error.message });
+    } finally {
+      set({ isLoading: false });
     }
   },
 
   leaveCompetition: async (competitionId) => {
     set({ isLoading: true, error: null });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Clear current competition and cleanup subscriptions FIRST
-      const currentComp = get().currentCompetition;
-      if (currentComp?.id === competitionId) {
-        get().cleanupSubscriptions();
-        set({ currentCompetition: null, participants: [], chatMessages: [] });
-      }
-
-      // Then remove participant from competition
       const { error } = await supabase
         .from('competition_participants')
-        .delete()
+        .update({ status: 'declined' }) // Or delete the row
         .eq('competition_id', competitionId)
         .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error removing participant:', error);
-        throw error; // Throw the error to propagate it to the calling component
-      }
+      if (error) throw error;
 
-      set({ isLoading: false });
+      set({ currentCompetition: null, participants: [] });
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({ error: error.message || 'Failed to leave competition' });
       throw error;
+    } finally {
+      set({ isLoading: false });
     }
   },
 
   cancelCompetition: async (competitionId) => {
     set({ isLoading: true, error: null });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      // Clear current competition and cleanup subscriptions FIRST
-      const currentComp = get().currentCompetition;
-      if (currentComp?.id === competitionId) {
-        get().cleanupSubscriptions();
-        set({ currentCompetition: null, participants: [], chatMessages: [] });
-      }
-
-      // Update competition status to cancelled
       const { error } = await supabase
         .from('competitions')
         .update({ status: 'cancelled' })
-        .eq('id', competitionId)
-        .eq('creator_id', user.id); // Only creator can cancel
+        .eq('id', competitionId);
 
-      if (error) {
-        console.error('Error cancelling competition:', error);
+      if (error) throw error;
+
+      set({ currentCompetition: null, participants: [] });
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to cancel competition' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  startCompetition: async (competitionId, apiKey) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data: competition, error: fetchError } = await supabase
+        .from('competitions')
+        .select('*')
+        .eq('id', competitionId)
+        .single();
+
+      if (fetchError || !competition) {
+        throw new Error('Competition not found.');
       }
 
-      set({ isLoading: false });
+      if (competition.status !== 'waiting') {
+        throw new Error('Competition is not in waiting status.');
+      }
+
+      // Call the Supabase Edge Function to generate questions and start the competition
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/start-competition`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          competitionId,
+          apiKey,
+          preferences: competition.quiz_preferences,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start competition via Edge Function');
+      }
+
+      const result = await response.json();
+      set({ currentCompetition: { ...competition, status: 'active', questions: result.questions, start_time: result.startTime } });
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({ error: error.message || 'Failed to start competition' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  loadParticipants: async (competitionId) => {
+    try {
+      const { data, error } = await supabase
+        .from('competition_participants')
+        .select(`
+          *,
+          profile:profiles(full_name, avatar_url)
+        `)
+        .eq('competition_id', competitionId)
+        .in('status', ['joined', 'completed']); // Only show joined or completed participants
+
+      if (error) throw error;
+      set({ participants: data || [] });
+    } catch (error: any) {
+      console.error('Error loading participants:', error.message);
+      set({ error: error.message || 'Failed to load participants' });
+    }
+  },
+
+  updateParticipantProgress: async (competitionId, answers, score, correctAnswers, timeTaken, currentQuestionIndex) => {
+    try {
+      const { user } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('competition_participants')
+        .update({
+          answers,
+          score,
+          correct_answers: correctAnswers,
+          time_taken: timeTaken,
+          current_question: currentQuestionIndex,
+          last_activity: new Date().toISOString(),
+        })
+        .eq('competition_id', competitionId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error('Error updating participant progress:', error.message);
+      set({ error: error.message || 'Failed to update progress' });
+    }
+  },
+
+  completeCompetition: async (competitionId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { user } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('competition_participants')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('competition_id', competitionId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to complete competition' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  subscribeToCompetition: (competitionId) => {
+    const subscription = supabase
+      .channel(`competition_${competitionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'competition_participants',
+          filter: `competition_id=eq.${competitionId}`,
+        },
+        (payload) => {
+          console.log('Participant change received!', payload);
+          get().loadParticipants(competitionId); // Reload participants on any change
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'competitions',
+          filter: `id=eq.${competitionId}`,
+        },
+        (payload) => {
+          console.log('Competition change received!', payload);
+          get().loadCompetition(competitionId); // Reload competition on any change
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log(`Unsubscribing from competition_${competitionId}`);
+      supabase.removeChannel(subscription);
+    };
+  },
+
+  getLiveLeaderboard: (competitionId) => {
+    const { participants } = get();
+    // Sort participants by score (descending), then time_taken (ascending)
+    return [...participants].sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      return a.time_taken - b.time_taken;
+    });
+  },
+
+  loadUserCompetitions: async (userId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await supabase
+        .from('competitions')
+        .select('*')
+        .eq('creator_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      set({ userActiveCompetitions: data || [] });
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to load user competitions' });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  loadUserActiveCompetitions: async (userId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await supabase
+        .from('competition_participants')
+        .select(`
+          competition_id,
+          competitions(*)
+        `)
+        .eq('user_id', userId)
+        .in('status', ['joined'])
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const activeComps = data
+        .map((p: any) => p.competitions)
+        .filter((comp: any) => comp && (comp.status === 'waiting' || comp.status === 'active'));
+
+      set({ userActiveCompetitions: activeComps || [] });
+      return activeComps || [];
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to load user active competitions' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
     }
   },
 
   deleteCompetition: async (competitionId) => {
     set({ isLoading: true, error: null });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      // Delete competition (cascade will handle participants and chat)
       const { error } = await supabase
         .from('competitions')
         .delete()
-        .eq('id', competitionId)
-        .eq('creator_id', user.id); // Only creator can delete
+        .eq('id', competitionId);
 
       if (error) throw error;
-
-      // Remove from local state
-      set(state => ({
-        competitions: state.competitions.filter(c => c.id !== competitionId),
-        currentCompetition: state.currentCompetition?.id === competitionId ? null : state.currentCompetition,
-        isLoading: false
+      set((state) => ({
+        userActiveCompetitions: state.userActiveCompetitions.filter((comp) => comp.id !== competitionId),
       }));
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({ error: error.message || 'Failed to delete competition' });
       throw error;
-    }
-  },
-
-  loadUserCompetitions: async (userId) => {
-    set({ isLoading: true, error: null });
-    try {
-      // Load competitions where user is creator
-      const { data: createdCompetitions, error: createdError } = await supabase
-        .from('competitions')
-        .select('*')
-        .eq('creator_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (createdError) throw createdError;
-
-      // Load competitions where user is participant
-      const { data: participantData, error: participantError } = await supabase
-        .from('competition_participants')
-        .select(`
-          competition_id,
-          competitions!inner(*)
-        `)
-        .eq('user_id', userId)
-        .neq('status', 'declined');
-
-      if (participantError) throw participantError;
-
-      // Extract competitions from participant data
-      const participantCompetitions = (participantData || []).map(p => p.competitions);
-
-      // Combine and deduplicate competitions
-      const allCompetitions = [...(createdCompetitions || []), ...participantCompetitions];
-      const uniqueCompetitions = allCompetitions.filter((comp, index, self) => 
-        index === self.findIndex(c => c.id === comp.id)
-      );
-
-      // Sort by created_at descending
-      uniqueCompetitions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-      set({ competitions: uniqueCompetitions, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
-    }
-  },
-
-  inviteParticipants: async (competitionId, emails) => {
-    set({ isLoading: true, error: null });
-    try {
-      const invites = emails.map(email => ({
-        competition_id: competitionId,
-        email,
-        status: 'invited'
-      }));
-
-      const { error } = await supabase
-        .from('competition_participants')
-        .insert(invites);
-
-      if (error) throw error;
-
-      set({ isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  loadCompetition: async (id) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data: competition, error } = await supabase
-        .from('competitions')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      // If competition doesn't exist, clear current competition
-      if (!competition) {
-        console.log('Competition not found, clearing current competition');
-        set({ currentCompetition: null, isLoading: false });
-        return;
-      }
-
-      set({ currentCompetition: competition, isLoading: false });
-      
-      // Also load participants
-      get().loadParticipants(id);
-    } catch (error: any) {
-      console.error('Error loading competition:', error);
-      set({ error: error.message, isLoading: false, currentCompetition: null });
-    }
-  },
-
-loadParticipants: async (competitionId: string) => {
-  // Check if we have a current competition and if it matches the requested one
-  const { currentCompetition } = get();
-  if (!currentCompetition || currentCompetition.id !== competitionId) {
-    console.log('No current competition or competition ID mismatch, skipping loadParticipants');
-    return;
-  }
-
-  set({ isLoading: true, error: null });
-  
-  try {
-    console.log('Loading participants for competition:', competitionId);
-
-    // 1. Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      throw new Error(authError?.message || 'User not authenticated');
-    }
-
-    // 2. Check competition access (parallel requests)
-    const [accessCheck, competitionCheck] = await Promise.all([
-      supabase
-        .from('competition_participants')
-        .select('status')
-        .eq('competition_id', competitionId)
-        .eq('user_id', user.id)
-        .maybeSingle(),
-      supabase
-        .from('competitions')
-        .select('creator_id, status')
-        .eq('id', competitionId)
-        .maybeSingle()
-    ]);
-
-    // Handle potential errors
-    if (accessCheck.error && accessCheck.error.code !== 'PGRST116') {
-      throw accessCheck.error;
-    }
-    if (competitionCheck.error && competitionCheck.error.code !== 'PGRST116') {
-      throw competitionCheck.error;
-    }
-
-    // If competition doesn't exist, clear it
-    if (!competitionCheck.data) {
-      console.log('Competition no longer exists, clearing current competition');
-      set({ currentCompetition: null, participants: [], isLoading: false });
-      return;
-    }
-
-    // 3. Verify access rights
-    const isCreator = competitionCheck.data?.creator_id === user.id;
-    const isParticipant = accessCheck.data?.status && 
-                         ['joined', 'completed'].includes(accessCheck.data.status);
-
-    if (!isCreator && !isParticipant) {
-      console.log('Access denied - user is not creator or participant');
-      set({ participants: [], isLoading: false });
-      return;
-    }
-
-    // 4. Main query with profile join - Store answers as JSONB properly
-    const { data: participantsWithProfiles, error: joinError } = await supabase
-      .from('competition_participants')
-      .select(`
-        id,
-        competition_id,
-        user_id,
-        email,
-        status,
-        score,
-        correct_answers,
-        time_taken,
-        answers,
-        rank,
-        points_earned,
-        joined_at,
-        completed_at,
-        created_at,
-        is_online,
-        last_activity,
-        current_question,
-        questions_answered,
-        is_ready,
-        quiz_start_time,
-        quiz_end_time,
-        profiles:user_id (
-          full_name,
-          avatar_url
-        )
-      `)
-      .eq('competition_id', competitionId)
-      .in('status', ['joined', 'completed'])
-      .order('score', { ascending: false })
-      .order('time_taken', { ascending: true });
-
-    // 5. Handle successful join query
-    if (!joinError && participantsWithProfiles) {
-      const formattedParticipants = participantsWithProfiles.map(p => ({
-        ...p,
-        // Ensure answers is properly handled as JSONB object
-        answers: p.answers || {},
-        profile: {
-          full_name: p.profiles?.full_name || p.email?.split('@')[0] || 'Anonymous',
-          avatar_url: p.profiles?.avatar_url || null
-        },
-        is_online: p.is_online ?? true,
-        last_activity: p.last_activity ?? new Date().toISOString(),
-        current_question: p.current_question ?? 0,
-        questions_answered: p.questions_answered ?? 0,
-        is_ready: p.is_ready ?? false,
-        score: p.score ?? 0,
-        correct_answers: p.correct_answers ?? 0,
-        time_taken: p.time_taken ?? 0
-      }));
-
-      set({ 
-        participants: formattedParticipants,
-        isLoading: false 
-      });
-      return;
-    }
-
-    console.warn('Join query failed, falling back to separate queries:', joinError);
-
-    // 6. Fallback: Load participants without profiles
-    const { data: participants, error: participantsError } = await supabase
-      .from('competition_participants')
-      .select(`
-        id,
-        competition_id,
-        user_id,
-        email,
-        status,
-        score,
-        correct_answers,
-        time_taken,
-        answers,
-        rank,
-        points_earned,
-        joined_at,
-        completed_at,
-        created_at,
-        is_online,
-        last_activity,
-        current_question,
-        questions_answered,
-        is_ready,
-        quiz_start_time,
-        quiz_end_time
-      `)
-      .eq('competition_id', competitionId)
-      .in('status', ['joined', 'completed'])
-      .order('score', { ascending: false })
-      .order('time_taken', { ascending: true });
-
-    if (participantsError) {
-      throw participantsError;
-    }
-
-    // 7. Load profiles separately if needed
-    const userIds = participants?.map(p => p.user_id).filter(Boolean) as string[];
-    let profilesMap = new Map<string, { full_name?: string; avatar_url?: string }>();
-
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, avatar_url')
-        .in('user_id', userIds);
-
-      profiles?.forEach(profile => {
-        profilesMap.set(profile.user_id, profile);
-      });
-    }
-
-    // 8. Format final participants data
-    const formattedParticipants = (participants || []).map(p => {
-      const profile = profilesMap.get(p.user_id);
-      return {
-        ...p,
-        // Ensure answers is properly handled as JSONB object
-        answers: p.answers || {},
-        profile: {
-          full_name: profile?.full_name || p.email?.split('@')[0] || 'Anonymous',
-          avatar_url: profile?.avatar_url || null
-        },
-        is_online: p.is_online ?? true,
-        last_activity: p.last_activity ?? new Date().toISOString(),
-        current_question: p.current_question ?? 0,
-        questions_answered: p.questions_answered ?? 0,
-        is_ready: p.is_ready ?? false,
-        score: p.score ?? 0,
-        correct_answers: p.correct_answers ?? 0,
-        time_taken: p.time_taken ?? 0
-      };
-    });
-
-    set({ 
-      participants: formattedParticipants,
-      isLoading: false 
-    });
-
-  } catch (error: any) {
-    console.error('Error in loadParticipants:', error);
-    set({ 
-      error: error.message,
-      isLoading: false,
-      participants: [] 
-    });
-  }
-},
-
-updateParticipantProgress: async (competitionId, answers, score, correctAnswers, timeTaken, currentQuestion) => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    console.log('Updating participant progress:', {
-      competitionId,
-      answers: typeof answers,
-      answersKeys: Object.keys(answers || {}),
-      score,
-      correctAnswers,
-      timeTaken,
-      currentQuestion
-    });
-
-    // Ensure answers is a proper object and serialize it correctly for JSONB
-    const answersObject = answers && typeof answers === 'object' ? answers : {};
-
-    const updateData: any = {
-      answers: answersObject, // Store as JSONB object directly
-      score: Math.round(score), // Round score to nearest integer
-      correct_answers: Math.round(correctAnswers), // Ensure this is also an integer
-      time_taken: Math.round(timeTaken), // Ensure this is also an integer
-      last_activity: new Date().toISOString(),
-      is_online: true
-    };
-
-    // Add progress tracking
-    if (currentQuestion !== undefined) {
-      updateData.current_question = Math.round(currentQuestion); // Ensure integer
-      updateData.questions_answered = Object.keys(answersObject).length;
-    }
-
-    console.log('Update data being sent:', updateData);
-
-    const { error } = await supabase
-      .from('competition_participants')
-      .update(updateData)
-      .eq('competition_id', competitionId)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Database update error:', error);
-      throw error;
-    }
-
-    console.log('Participant progress updated successfully');
-
-    // Update local state for real-time updates
-    set(state => ({
-      participants: state.participants.map(p => 
-        p.user_id === user.id 
-          ? { ...p, ...updateData, answers: answersObject } // Keep as object in local state
-          : p
-      )
-    }));
-  } catch (error: any) {
-    console.error('Error updating participant progress:', error);
-    set({ error: error.message });
-    throw error; // Re-throw to handle in component
-  }
-},
-
-  completeCompetition: async (competitionId) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      console.log('Completing competition for user:', user.id);
-
-      // Mark participant as completed
-      const { error } = await supabase
-        .from('competition_participants')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          quiz_end_time: new Date().toISOString(),
-          last_activity: new Date().toISOString(),
-          is_online: true
-        })
-        .eq('competition_id', competitionId)
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error completing competition:', error);
-        throw error;
-      }
-
-      console.log('Competition completed successfully');
-
-      // Update local state
-      set(state => ({
-        participants: state.participants.map(p => 
-          p.user_id === user.id 
-            ? { 
-                ...p, 
-                status: 'completed',
-                completed_at: new Date().toISOString(),
-                quiz_end_time: new Date().toISOString()
-              }
-            : p
-        )
-      }));
-
-      // CRITICAL FIX: Check if all participants have completed and update competition status
-      // Get all participants for this competition
-      const { data: allParticipants, error: participantsError } = await supabase
-        .from('competition_participants')
-        .select('status')
-        .eq('competition_id', competitionId)
-        .in('status', ['joined', 'completed']);
-
-      if (!participantsError && allParticipants) {
-        const completedCount = allParticipants.filter(p => p.status === 'completed').length;
-        const totalParticipants = allParticipants.length;
-
-        console.log(`Competition ${competitionId}: ${completedCount}/${totalParticipants} participants completed`);
-
-        // If all participants have completed, mark competition as completed
-        if (completedCount === totalParticipants) {
-          console.log('All participants completed, updating competition status to completed');
-          
-          const { error: competitionUpdateError } = await supabase
-            .from('competitions')
-            .update({ 
-              status: 'completed',
-              end_time: new Date().toISOString()
-            })
-            .eq('id', competitionId);
-
-          if (competitionUpdateError) {
-            console.error('Error updating competition status:', competitionUpdateError);
-          } else {
-            console.log('Competition status updated to completed');
-            
-            // Update local competition state
-            set(state => ({
-              currentCompetition: state.currentCompetition ? {
-                ...state.currentCompetition,
-                status: 'completed',
-                end_time: new Date().toISOString()
-              } : null
-            }));
-          }
-        }
-      }
-
-      // The database trigger will handle competition finalization
-    } catch (error: any) {
-      console.error('Error in completeCompetition:', error);
-      set({ error: error.message });
-      throw error; // Re-throw to handle in component
-    }
-  },
-
-  finalizeCompetition: async (competitionId) => {
-    try {
-      // This is now handled by database triggers
-      console.log('Competition finalization handled by database triggers');
-    } catch (error: any) {
-      set({ error: error.message });
-    }
-  },
-
-  updateUserStats: async (userId, rank, points, timeTaken) => {
-    try {
-      const { data: stats } = await supabase
-        .from('user_stats')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      const isWin = rank === 1;
-      const isLoss = rank > 1;
-
-      if (stats) {
-        // Calculate new average score
-        const newTotalComps = stats.total_competitions + 1;
-        const newAvgScore = ((stats.average_score * stats.total_competitions) + points) / newTotalComps;
-
-        // Update existing stats
-        await supabase
-          .from('user_stats')
-          .update({
-            total_competitions: newTotalComps,
-            wins: stats.wins + (isWin ? 1 : 0),
-            losses: stats.losses + (isLoss ? 1 : 0),
-            total_points: stats.total_points + points,
-            average_score: newAvgScore,
-            best_rank: stats.best_rank ? Math.min(stats.best_rank, rank) : rank,
-            total_time_played: stats.total_time_played + timeTaken
-          })
-          .eq('user_id', userId);
-      } else {
-        // Create new stats
-        await supabase
-          .from('user_stats')
-          .insert({
-            user_id: userId,
-            total_competitions: 1,
-            wins: isWin ? 1 : 0,
-            losses: isLoss ? 1 : 0,
-            total_points: points,
-            average_score: points,
-            best_rank: rank,
-            total_time_played: timeTaken
-          });
-      }
-    } catch (error: any) {
-      console.error('Error updating user stats:', error);
-    }
-  },
-
-  loadUserStats: async (userId) => {
-    try {
-      const { data: stats, error } = await supabase
-        .from('user_stats')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error && error.code !== 'PGRST116') throw error;
-
-      set({ userStats: stats });
-    } catch (error: any) {
-      set({ error: error.message });
-    }
-  },
-
-  joinRandomQueue: async (data) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      // Remove any existing queue entries
-      await supabase
-        .from('random_queue')
-        .delete()
-        .eq('user_id', user.id);
-
-      // Add to queue
-      const { data: queueEntry, error } = await supabase
-        .from('random_queue')
-        .insert({
-          user_id: user.id,
-          topic: data.topic,
-          difficulty: data.difficulty,
-          language: data.language,
-          status: 'waiting'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      set({ queueEntry, isLoading: false });
-
-      // Check for matches
-      setTimeout(() => get().checkForMatches(data.topic, data.difficulty, data.language), 1000);
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
-    }
-  },
-
-  checkForMatches: async (topic, difficulty, language) => {
-    try {
-      const { data: waitingUsers } = await supabase
-        .from('random_queue')
-        .select('*')
-        .eq('topic', topic)
-        .eq('difficulty', difficulty)
-        .eq('language', language)
-        .eq('status', 'waiting')
-        .limit(8); // Max 8 players for random match
-
-      if (waitingUsers && waitingUsers.length >= 2) {
-        // Create random competition
-        const competitionData = {
-          creator_id: waitingUsers[0].user_id,
-          title: `Random ${topic} Challenge`,
-          description: `${difficulty} difficulty ${topic} competition`,
-          competition_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
-          type: 'random',
-          max_participants: waitingUsers.length,
-          quiz_preferences: {
-            course: topic,
-            difficulty,
-            language,
-            questionCount: 10,
-            questionTypes: ['multiple-choice', 'true-false'],
-            mode: 'exam',
-            timeLimitEnabled: true,
-            timeLimit: '30',
-            totalTimeLimit: '600'
-          }
-        };
-
-        const { data: competition } = await supabase
-          .from('competitions')
-          .insert(competitionData)
-          .select()
-          .single();
-
-        if (competition) {
-          // Add all waiting users as participants
-          const participants = waitingUsers.map(user => ({
-            competition_id: competition.id,
-            user_id: user.user_id,
-            status: 'joined',
-            joined_at: new Date().toISOString(),
-            is_online: true,
-            last_activity: new Date().toISOString(),
-            current_question: 0,
-            questions_answered: 0,
-            is_ready: false
-          }));
-
-          await supabase
-            .from('competition_participants')
-            .insert(participants);
-
-          // Update queue status
-          await supabase
-            .from('random_queue')
-            .update({ status: 'matched' })
-            .in('id', waitingUsers.map(u => u.id));
-
-          // Start competition after 30 seconds
-          setTimeout(() => {
-            get().startCompetition(competition.id);
-          }, 30000);
-        }
-      }
-    } catch (error: any) {
-      console.error('Error checking for matches:', error);
-    }
-  },
-
-  leaveRandomQueue: async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      await supabase
-        .from('random_queue')
-        .delete()
-        .eq('user_id', user.id);
-
-      set({ queueEntry: null });
-    } catch (error: any) {
-      set({ error: error.message });
-    }
-  },
-
-startCompetition: async (competitionId, apiKey) => {
-  set({ isLoading: true, error: null });
-  try {
-    const { currentCompetition } = get();
-    if (!currentCompetition || currentCompetition.id !== competitionId) {
-      throw new Error('Competition not found or mismatched.');
-    }
-
-    // 1. Generate questions using the stored quiz preferences
-    if (!currentCompetition.quiz_preferences) {
-      throw new Error('Quiz preferences not found for this competition.');
-    }
-
-    const questions = await generateQuiz(apiKey, currentCompetition.quiz_preferences);
-    if (!questions || questions.length === 0) {
-      throw new Error('Failed to generate questions for the competition.');
-    }
-
-    // Calculate quiz start time (e.g., 5 seconds from now for countdown)
-    const quizStartTime = new Date(Date.now() + 5 * 1000).toISOString();
-
-    // 2. Update competition status to 'active', store questions, and set start_time
-    // The .select() method ensures the updated record is returned
-    const { data: updatedCompetition, error: updateError } = await supabase
-      .from('competitions')
-      .update({
-        status: 'active',
-        questions: questions,
-        start_time: quizStartTime,
-      })
-      .eq('id', competitionId)
-      .select()
-      .single();
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    console.log('startCompetition: updatedCompetition from DB:', updatedCompetition);
-    console.log('startCompetition: questions array from DB:', updatedCompetition?.questions);
-
-    // 3. Update all participants' quiz_start_time for synchronization
-    const { error: participantUpdateError } = await supabase
-      .from('competition_participants')
-      .update({ quiz_start_time: quizStartTime })
-      .eq('competition_id', competitionId);
-
-    if (participantUpdateError) {
-      console.error('Error updating participant quiz_start_time:', participantUpdateError);
-      // Do not throw, as competition status is already updated
-    }
-
-    // 4. Directly update the currentCompetition state with the fetched data
-    // This ensures the store's state is immediately consistent with the database
-    set({ currentCompetition: updatedCompetition });
-
-    console.log('startCompetition: currentCompetition in store after set:', get().currentCompetition);
-    console.log('startCompetition: questions in store after set:', get().currentCompetition?.questions);
-
-    // Remove the redundant loadCompetition call, as the state is already updated
-    // await loadCompetition(competitionId); // REMOVE THIS LINE
-
-  } catch (error: any) {
-    set({ error: error.message || 'Failed to start competition' });
-    throw error;
-  } finally {
-    set({ isLoading: false });
-  }
-},
-
-  loadCompetitionResultsHistory: async (userId) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data, error } = await supabase
-        .from('competition_results')
-        .select(`
-          *,
-          profiles(full_name)
-        `)
-        .eq('user_id', userId)
-        .order('competition_date', { ascending: false });
-
-      if (error) throw error;
-      set({ competitionResultsHistory: data || [] });
-    } catch (error: any) {
-      set({ error: error.message || 'Failed to load competition results history' });
     } finally {
       set({ isLoading: false });
     }
   },
 
+  clearCurrentCompetition: () => {
+    set({ currentCompetition: null, participants: [], chatMessages: [], queueEntry: null });
+  },
 
+  loadUserStats: async (userId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await supabase
+        .from('user_stats')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+        throw error;
+      }
+      set({ userStats: data ?? null });
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to load user stats' });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+ loadCompetitionResultsHistory: async (userId) => {
+    set({ isLoading: true, error: null });
+    try {
+      // 1. Fetch competition results without attempting to join profiles
+      const { data: results, error: resultsError } = await supabase
+        .from('competition_results')
+        .select('*') // Select all columns from competition_results
+        .eq('user_id', userId)
+        .order('competition_date', { ascending: false });
+
+      if (resultsError) {
+        console.error('Error fetching competition results history:', resultsError);
+        throw resultsError;
+      }
+
+      if (!results || results.length === 0) {
+        set({ competitionResultsHistory: [] });
+        return;
+      }
+
+      // 2. Extract unique user_ids from the results
+      const uniqueUserIds = [...new Set(results.map(r => r.user_id))];
+
+      // 3. Fetch profiles for these unique user_ids
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', uniqueUserIds);
+
+      if (profilesError) {
+        console.error('Error fetching profiles for competition results:', profilesError);
+        // Continue without profile names if fetching profiles fails
+        set({ competitionResultsHistory: results || [] });
+        return;
+      }
+
+      // Create a map for quick lookup of full_name by user_id
+      const profileMap = new Map(profiles.map(p => [p.user_id, p.full_name]));
+
+      // 4. Manually merge full_name into competition results
+      const mergedResults = results.map(result => ({
+        ...result,
+        profile: {
+          full_name: profileMap.get(result.user_id) || 'Anonymous User' // Default if profile not found
+        }
+      }));
+
+      set({ competitionResultsHistory: mergedResults });
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to load competition results history' });
+    } finally {
+      set({ isLoading: false });
+    }
+  }, 
+
+  // Chat actions
   loadChatMessages: async (competitionId) => {
     try {
-      // Enhanced query to get chat messages with profile data
-      const { data: messagesWithProfiles, error } = await supabase
+      const { data, error } = await supabase
         .from('competition_chat')
         .select(`
           *,
-          profiles!competition_chat_user_id_profiles_fkey (
-            full_name,
-            avatar_url
-          )
+          profile:profiles(full_name)
         `)
         .eq('competition_id', competitionId)
         .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error('Error loading chat messages with profiles:', error);
-        
-        // Fallback: Load messages without profiles
-        const { data: messages, error: fallbackError } = await supabase
-          .from('competition_chat')
-          .select('*')
-          .eq('competition_id', competitionId)
-          .order('created_at', { ascending: true });
-
-        if (fallbackError) {
-          console.error('Fallback chat query also failed:', fallbackError);
-          throw fallbackError;
-        }
-
-        // Format messages without profile data
-        const formattedMessages = (messages || []).map(m => ({
-          ...m,
-          profile: {
-            full_name: 'Anonymous User',
-            avatar_url: null
-          }
-        }));
-
-        set({ chatMessages: formattedMessages });
-        return;
-      }
-
-      console.log('Chat messages with profiles loaded:', messagesWithProfiles);
-
-      // Format messages with profile data
-      const formattedMessages = (messagesWithProfiles || []).map(m => ({
-        ...m,
-        profile: m.profiles ? {
-          full_name: m.profiles.full_name || 'Anonymous User',
-          avatar_url: m.profiles.avatar_url
-        } : {
-          full_name: 'Anonymous User',
-          avatar_url: null
-        }
-      }));
-
-      console.log('Formatted chat messages:', formattedMessages);
-      set({ chatMessages: formattedMessages });
+      if (error) throw error;
+      set({ chatMessages: data || [] });
     } catch (error: any) {
-      console.error('Error in loadChatMessages:', error);
-      set({ error: error.message });
+      console.error('Error loading chat messages:', error.message);
+      set({ error: error.message || 'Failed to load chat messages' });
     }
   },
 
   sendChatMessage: async (competitionId, message) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
       const { error } = await supabase
@@ -1289,308 +576,187 @@ startCompetition: async (competitionId, apiKey) => {
         .insert({
           competition_id: competitionId,
           user_id: user.id,
-          message
+          message,
         });
 
       if (error) throw error;
     } catch (error: any) {
-      set({ error: error.message });
+      console.error('Error sending chat message:', error.message);
+      set({ error: error.message || 'Failed to send message' });
     }
   },
-
-  loadPendingInvites: async (userId) => {
-    try {
-      const { data: invites, error } = await supabase
-        .from('competition_participants')
-        .select(`
-          competition_id,
-          competitions!inner (
-            competition_code,
-            title,
-            creator_id,
-            max_participants,
-            profiles!competitions_creator_id_fkey (
-              full_name
-            )
-          )
-        `)
-        .eq('user_id', userId)
-        .eq('status', 'invited');
-
-      if (error) throw error;
-
-      const formattedInvites = (invites || []).map((invite: any) => ({
-        competition_id: invite.competition_id,
-        competition_code: invite.competitions.competition_code,
-        title: invite.competitions.title,
-        creator_name: invite.competitions.profiles?.full_name || 'Unknown',
-        participant_count: 0, // Would need additional query
-        max_participants: invite.competitions.max_participants
-      }));
-
-      set({ pendingInvites: formattedInvites });
-    } catch (error: any) {
-      set({ error: error.message });
-    }
-  },
-
-  respondToInvite: async (competitionId, accept) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const status = accept ? 'joined' : 'declined';
-      const updateData: any = { status };
-      
-      if (accept) {
-        updateData.joined_at = new Date().toISOString();
-        updateData.is_online = true;
-        updateData.last_activity = new Date().toISOString();
-        updateData.current_question = 0;
-        updateData.questions_answered = 0;
-        updateData.is_ready = false;
-      }
-
-      const { error } = await supabase
-        .from('competition_participants')
-        .update(updateData)
-        .eq('competition_id', competitionId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      // Remove from pending invites
-      set(state => ({
-        pendingInvites: state.pendingInvites.filter(
-          invite => invite.competition_id !== competitionId
-        )
-      }));
-    } catch (error: any) {
-      set({ error: error.message });
-    }
-  },
-
-  getLiveLeaderboard: (competitionId) => {
-    const { participants } = get();
-    return participants
-      .filter(p => p.competition_id === competitionId && p.status !== 'declined')
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        if (b.correct_answers !== a.correct_answers) return b.correct_answers - a.correct_answers;
-        return a.time_taken - b.time_taken;
-      });
-  },
-
-  clearCurrentCompetition: () => {
-    get().cleanupSubscriptions();
-    set({ currentCompetition: null, participants: [], chatMessages: [] });
-  },
-
-  cleanupSubscriptions: () => {
-    const { activeSubscriptions } = get();
-    activeSubscriptions.forEach((subscription, key) => {
-      console.log(`Cleaning up subscription: ${key}`);
-      if (subscription && typeof subscription.unsubscribe === 'function') {
-        subscription.unsubscribe();
-      }
-    });
-    set({ activeSubscriptions: new Map() });
-  },
-
-  // Enhanced Real-time subscriptions with better error handling
-subscribeToCompetition: (competitionId) => {
-  const { activeSubscriptions } = get();
-  
-  // Clean up existing subscription for this competition
-  const existingKey = `competition:${competitionId}`;
-  if (activeSubscriptions.has(existingKey)) {
-    const existing = activeSubscriptions.get(existingKey);
-    if (existing && typeof existing.unsubscribe === 'function') {
-      existing.unsubscribe();
-    }
-  }
-
-  console.log(`Setting up competition subscription for: ${competitionId}`);
-  
-  const subscription = supabase
-    .channel(`competition:${competitionId}`)
-    .on('postgres_changes', 
-      { 
-        event: '*', 
-        schema: 'public', 
-        table: 'competitions',
-        filter: `id=eq.${competitionId}`
-      }, 
-      (payload) => {
-        console.log('Competition change detected:', payload);
-        if (payload.eventType === 'UPDATE') {
-          set({ currentCompetition: payload.new as Competition });
-        }
-      }
-    )
-    .on('postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'competition_participants',
-        filter: `competition_id=eq.${competitionId}`
-      },
-      (payload) => {
-        console.log('Participant change detected:', payload);
-        // Force reload participants when any change occurs
-        setTimeout(() => {
-          get().loadParticipants(competitionId);
-        }, 500); // Increased delay to ensure database consistency
-      }
-    )
-    .on('postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'profiles'
-      },
-      (payload) => {
-        console.log('Profile change detected:', payload);
-        // Reload participants when profile changes occur
-        setTimeout(() => {
-          get().loadParticipants(competitionId);
-        }, 300);
-      }
-    )
-    .subscribe((status) => {
-      console.log(`Competition subscription status: ${status}`);
-      if (status === 'SUBSCRIBED') {
-        console.log('Successfully subscribed to competition updates');
-        // Initial load after subscription is established
-        setTimeout(() => {
-          get().loadParticipants(competitionId);
-        }, 100);
-      } else if (status === 'CHANNEL_ERROR') {
-        console.error('Competition subscription error');
-        // Retry subscription after a delay
-        setTimeout(() => {
-          get().subscribeToCompetition(competitionId);
-        }, 5000);
-      }
-    });
-
-  // Store subscription for cleanup
-  activeSubscriptions.set(existingKey, subscription);
-  set({ activeSubscriptions });
-
-  return () => {
-    console.log(`Unsubscribing from competition: ${competitionId}`);
-    subscription.unsubscribe();
-    activeSubscriptions.delete(existingKey);
-    set({ activeSubscriptions });
-  };
-},
-
-
 
   subscribeToChat: (competitionId) => {
-    const { activeSubscriptions } = get();
-    
-    // Clean up existing subscription for this chat
-    const existingKey = `chat:${competitionId}`;
-    if (activeSubscriptions.has(existingKey)) {
-      const existing = activeSubscriptions.get(existingKey);
-      if (existing && typeof existing.unsubscribe === 'function') {
-        existing.unsubscribe();
-      }
-    }
-
-    console.log(`Setting up chat subscription for: ${competitionId}`);
-    
     const subscription = supabase
-      .channel(`chat:${competitionId}`)
-      .on('postgres_changes',
+      .channel(`competition_chat_${competitionId}`)
+      .on(
+        'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'competition_chat',
-          filter: `competition_id=eq.${competitionId}`
+          filter: `competition_id=eq.${competitionId}`,
         },
         (payload) => {
-          console.log('New chat message:', payload);
-          get().loadChatMessages(competitionId);
+          console.log('New chat message received!', payload);
+          get().loadChatMessages(competitionId); // Reload chat messages on new insert
         }
       )
-      .subscribe((status) => {
-        console.log(`Chat subscription status: ${status}`);
-        if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to chat updates');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('Chat subscription error');
-          // Retry subscription after a delay
-          setTimeout(() => {
-            get().subscribeToChat(competitionId);
-          }, 5000);
-        }
-      });
-
-    // Store subscription for cleanup
-    activeSubscriptions.set(existingKey, subscription);
-    set({ activeSubscriptions });
+      .subscribe();
 
     return () => {
-      console.log(`Unsubscribing from chat: ${competitionId}`);
-      subscription.unsubscribe();
-      activeSubscriptions.delete(existingKey);
-      set({ activeSubscriptions });
+      console.log(`Unsubscribing from competition_chat_${competitionId}`);
+      supabase.removeChannel(subscription);
     };
   },
 
-  subscribeToInvites: (userId) => {
-    const { activeSubscriptions } = get();
-    
-    // Clean up existing subscription for invites
-    const existingKey = `invites:${userId}`;
-    if (activeSubscriptions.has(existingKey)) {
-      const existing = activeSubscriptions.get(existingKey);
-      if (existing && typeof existing.unsubscribe === 'function') {
-        existing.unsubscribe();
+  // Random Matchmaking
+  joinRandomQueue: async (preferences) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { user } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Check if already in queue
+      const { data: existingEntry } = await supabase
+        .from('random_queue')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('status', ['waiting', 'matched'])
+        .maybeSingle();
+
+      if (existingEntry) {
+        set({ queueEntry: existingEntry });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('random_queue')
+        .insert({
+          user_id: user.id,
+          topic: preferences.topic,
+          difficulty: preferences.difficulty,
+          language: preferences.language,
+          status: 'waiting',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      set({ queueEntry: data });
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to join queue' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  leaveRandomQueue: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { user } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('random_queue')
+        .update({ status: 'cancelled' })
+        .eq('user_id', user.id)
+        .in('status', ['waiting', 'matched']);
+
+      if (error) throw error;
+      set({ queueEntry: null });
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to leave queue' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  subscribeToRandomQueue: (userId) => {
+    const subscription = supabase
+      .channel(`random_queue_${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'random_queue',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log('Random queue entry updated!', payload);
+          set({ queueEntry: payload.new as RandomQueueEntry });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log(`Unsubscribing from random_queue_${userId}`);
+      supabase.removeChannel(subscription);
+    };
+  },
+
+  cleanupSubscriptions: () => {
+    // This function is a placeholder. Actual unsubscription logic is handled
+    // by the return functions of `subscribeToCompetition` and `subscribeToChat`.
+    // This is mainly to signal that cleanup should occur.
+    console.log('Cleanup subscriptions triggered in store.');
+  },
+
+  setCleanupFlag: (flag) => {
+    set({ cleanupFlag: flag });
+  },
+
+  // New: Calculate overall stats
+  calculateOverallStats: (soloHistory, competitionHistory, userStats) => {
+    let totalQuizzesPlayed = 0;
+    let overallPoints = 0;
+    let totalWins = 0;
+    let totalCompetitionsParticipated = 0;
+    let bestOverallRank: number | null = null;
+
+    // From solo quiz history
+    totalQuizzesPlayed += soloHistory.length;
+    soloHistory.forEach(quiz => {
+      overallPoints += quiz.percentage_score || 0; // Assuming percentage score contributes to points
+    });
+
+    // From competition results history
+    totalQuizzesPlayed += competitionHistory.length;
+    competitionHistory.forEach(compResult => {
+      overallPoints += compResult.points_earned || 0;
+      if (compResult.final_rank === 1) {
+        totalWins++;
+      }
+      totalCompetitionsParticipated++;
+       if (compResult.final_rank !== null && (bestOverallRank === null || compResult.final_rank < bestOverallRank)) {
+        bestOverallRank = compResult.final_rank;
+      }
+    });
+
+    // From user_stats table (for competitions created/participated)
+    if (userStats) {
+      overallPoints += userStats.total_points || 0;
+      totalWins += userStats.wins || 0;
+      totalCompetitionsParticipated += userStats.total_competitions || 0;
+      if (userStats.best_rank !== null && (bestOverallRank === null || userStats.best_rank < bestOverallRank)) {
+        bestOverallRank = userStats.best_rank;
       }
     }
 
-    console.log(`Setting up invites subscription for: ${userId}`);
-    
-    const subscription = supabase
-      .channel(`invites:${userId}`)
-      .on('postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'competition_participants',
-          filter: `user_id=eq.${userId}`
-        },
-        (payload) => {
-          console.log('Invite change detected:', payload);
-          get().loadPendingInvites(userId);
-        }
-      )
-      .subscribe((status) => {
-        console.log(`Invites subscription status: ${status}`);
-        if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to invite updates');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('Invites subscription error');
-          // Retry subscription after a delay
-          setTimeout(() => {
-            get().subscribeToInvites(userId);
-          }, 5000);
-        }
-      });
+    const overallWinRate = totalCompetitionsParticipated > 0
+      ? parseFloat(((totalWins / totalCompetitionsParticipated) * 100).toFixed(1))
+      : 0;
 
-    // Store subscription for cleanup
-    activeSubscriptions.set(existingKey, subscription);
-    set({ activeSubscriptions });
-
-    return () => {
-      console.log(`Unsubscribing from invites: ${userId}`);
-      subscription.unsubscribe();
-      activeSubscriptions.delete(existingKey);
-      set({ activeSubscriptions });
-    };
-  }
-})); 
+    set({
+      overallStats: {
+        bestOverallRank,
+        overallPoints,
+        overallWinRate,
+        totalQuizzesPlayed,
+      }
+    });
+  },
+}));

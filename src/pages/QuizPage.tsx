@@ -139,9 +139,26 @@ useEffect(() => {
         }
         return;
       }
+      // NEW: Handle solo-preferences and random-match from location state
+      if (location.state?.mode === 'solo-preferences') {
+        if (isComponentMountedRef.current) {
+          setStep('solo-preferences');
+          currentStepRef.current = 'solo-preferences';
+          setSelectedMode('solo'); // Set selected mode to ensure correct back navigation
+        }
+        return;
+      }
+      if (location.state?.mode === 'random-match') {
+        if (isComponentMountedRef.current) {
+          setStep('random-match');
+          currentStepRef.current = 'random-match';
+          setSelectedMode('random-match'); // Set selected mode
+        }
+        return;
+      }
 
       // CRITICAL FIX: Don't override manual step changes from mode selection
-      if (selectedMode && (step === 'solo-preferences' || step === 'create-competition' || 
+      if (selectedMode && (step === 'solo-preferences' || step === 'create-competition' ||
           step === 'join-competition' || step === 'random-match')) {
         console.log('User has selected a mode, maintaining current step:', step);
         return;
@@ -885,4 +902,3 @@ const handleCreateCompetitionSuccess = useCallback(() => {
 };
 
 export default QuizPage;
-

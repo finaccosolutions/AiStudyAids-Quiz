@@ -33,11 +33,12 @@ const CompetitionManagement: React.FC<CompetitionManagementProps> = ({ userId })
     loadUserCompetitions(userId);
   }, [userId, loadUserCompetitions]);
 
-const activeOrWaitingCompetitions = competitions.filter(competition =>
+// Ensure competitions is an array before filtering
+const activeOrWaitingCompetitions = (competitions ?? []).filter(competition =>
   (competition.status === 'waiting' || competition.status === 'active') && competition.creator_id === userId
 );
 
-const filteredCompetitions = competitions.filter(competition => {
+const filteredCompetitions = (competitions ?? []).filter(competition => {
   const matchesFilter = filter === 'all' || competition.status === filter;
   const matchesSearch = competition.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        competition.competition_code.toLowerCase().includes(searchTerm.toLowerCase());
@@ -140,7 +141,7 @@ const filteredCompetitions = competitions.filter(competition => {
       </Card>
 
       {/* Competition Stats */}
-          // Locate the "Competition Stats" section (around line 120) and add this block immediately after it:
+          {/* Locate the "Competition Stats" section (around line 120) and add this block immediately after it: */}
     {activeOrWaitingCompetitions.length > 0 && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -193,25 +194,25 @@ const filteredCompetitions = competitions.filter(competition => {
         {[
           { 
             label: 'Total Competitions', 
-            value: competitions.length, 
+            value: (competitions ?? []).length, 
             icon: Trophy, 
-            color: 'from-purple-500 to-indigo-500' 
+            color: 'from-blue-500 to-cyan-500' 
           },
           { 
             label: 'Active', 
-            value: competitions.filter(c => c.status === 'active').length, 
+            value: (competitions ?? []).filter(c => c.status === 'active').length, 
             icon: Play, 
             color: 'from-green-500 to-emerald-500' 
           },
           { 
             label: 'Completed', 
-            value: competitions.filter(c => c.status === 'completed').length, 
+            value: (competitions ?? []).filter(c => c.status === 'completed').length, 
             icon: CheckCircle, 
             color: 'from-blue-500 to-cyan-500' 
           },
           { 
             label: 'Waiting', 
-            value: competitions.filter(c => c.status === 'waiting').length, 
+            value: (competitions ?? []).filter(c => c.status === 'waiting').length, 
             icon: Clock, 
             color: 'from-yellow-500 to-orange-500' 
           }

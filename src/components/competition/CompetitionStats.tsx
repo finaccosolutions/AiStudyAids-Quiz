@@ -446,4 +446,4 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
   );
 };
 
-export default CompetitionStats;
+export default CompetitionStats; 

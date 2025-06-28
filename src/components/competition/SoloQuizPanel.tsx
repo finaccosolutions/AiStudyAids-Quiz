@@ -4,8 +4,9 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useQuizStore, defaultPreferences } from '../../store/useQuizStore';
 import QuizPreferencesForm from '../quiz/QuizPreferences';
 import SoloQuizStats from './SoloQuizStats';
+import SoloQuizManagement from './SoloQuizManagement'; // New import
 import { Button } from '../ui/Button';
-import { BookOpen, History, Brain } from 'lucide-react';
+import { BookOpen, History, Brain, Play } from 'lucide-react'; // Added Play icon
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
@@ -44,33 +45,27 @@ const SoloQuizPanel: React.FC<SoloQuizPanelProps> = ({ userId }) => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
+        transition={{ delay: 0.6 }}
+        className="text-center"
       >
-        <QuizPreferencesForm
-          userId={userId}
-          initialPreferences={preferences || defaultPreferences}
-          onSave={handleStartSoloQuiz}
-          isGeneratingQuiz={isGeneratingQuiz}
-        />
+        <Button
+          onClick={() => navigate('/quiz', { state: { mode: 'solo-preferences' } })} // Navigate to preferences to start a new quiz
+          className="gradient-bg hover:opacity-90 transition-all duration-300 px-6 py-3"
+        >
+          <Play className="w-5 h-5 mr-2" />
+          Start New Solo Quiz
+        </Button>
       </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="text-center"
+        transition={{ delay: 0.8 }}
       >
-        <Button
-          onClick={() => navigate('/competitions', { state: { activeTab: 'my-history', historyFilter: 'solo' } })}
-          variant="outline"
-          className="border-2 border-purple-200 text-purple-600 hover:bg-purple-50 px-6 py-3"
-        >
-          <History className="w-5 h-5 mr-2" />
-          View Solo Quiz History
-        </Button>
+        <SoloQuizManagement userId={userId} /> {/* New component */}
       </motion.div>
     </div>
   );
 };
 
-export default SoloQuizPanel;
+export default SoloQuizPanel; 

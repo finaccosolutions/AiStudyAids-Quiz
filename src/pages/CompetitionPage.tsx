@@ -111,13 +111,14 @@ const CompetitionPage: React.FC = () => {
       description: 'See how you rank against players worldwide',
       color: 'from-yellow-500 to-orange-500'
     },
-    {
-      id: 'my-history',
-      label: 'My History',
-      icon: BookOpen,
-      description: 'Review your past quizzes and competition results',
-      color: 'from-purple-500 to-pink-500'
-    }
+    // Removed 'My History' tab as per request
+    // {
+    //   id: 'my-history',
+    //   label: 'My History',
+    //   icon: BookOpen,
+    //   description: 'Review your past quizzes and competition results',
+    //   color: 'from-purple-500 to-pink-500'
+    // }
   ];
 
   const quickStats = [
@@ -229,7 +230,8 @@ const CompetitionPage: React.FC = () => {
         >
           <Card className="shadow-xl border-0 overflow-hidden">
             <CardBody className="p-0">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+              {/* Adjusted grid-cols for 5 tabs */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5"> 
                 {tabs.map((tab, index) => (
                   <motion.button
                     key={tab.id}
@@ -298,9 +300,10 @@ const CompetitionPage: React.FC = () => {
               <RandomMatchPanel userId={user.id} />
             )}
             {activeTab === 'global-leaderboard' && <GlobalLeaderboard />}
-            {activeTab === 'my-history' && user && (
+            {/* Removed 'my-history' tab content */}
+            {/* {activeTab === 'my-history' && user && (
               <QuizHistory userId={user.id} filter={historyFilter} />
-            )}
+            )} */}
           </motion.div>
         </AnimatePresence>
       </div>
