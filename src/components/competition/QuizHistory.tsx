@@ -1,7 +1,8 @@
+// src/components/competition/QuizHistory.tsx
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useQuizStore } from '../../store/useQuizStore';
-import { useCompetitionStore } from '../../store/useCompetitionStore';
+import { useCompetitionStore } from '../../store/useCompetitionStore'; // Corrected import statement
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import {
@@ -14,13 +15,14 @@ import QuizResults from '../quiz/QuizResults'; // Reusable QuizResults component
 
 interface QuizHistoryProps {
   userId: string;
+  filter?: 'all' | 'solo' | 'competition' | 'random'; // Added filter prop
 }
 
-const QuizHistory: React.FC<QuizHistoryProps> = ({ userId }) => {
+const QuizHistory: React.FC<QuizHistoryProps> = ({ userId, filter = 'all' }) => {
   const { soloQuizHistory, loadSoloQuizHistory, deleteSoloQuizResult, preferences } = useQuizStore();
   const { competitionResultsHistory, loadCompetitionResultsHistory } = useCompetitionStore();
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'solo' | 'competition'>('all');
+  const [currentFilter, setCurrentFilter] = useState<'all' | 'solo' | 'competition' | 'random'>(filter); // Use currentFilter state
   const [searchTerm, setSearchTerm] = useState('');
   const [showSoloQuizDetails, setShowSoloQuizDetails] = useState<any | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ id: string; type: 'solo' | 'competition' } | null>(null);
@@ -37,13 +39,17 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId }) => {
     loadHistory();
   }, [userId, loadSoloQuizHistory, loadCompetitionResultsHistory]);
 
+  useEffect(() => {
+    setCurrentFilter(filter); // Update filter when prop changes
+  }, [filter]);
+
   const allHistory = [
     ...soloQuizHistory.map(item => ({ ...item, type: 'solo', date: new Date(item.quiz_date) })),
-    ...competitionResultsHistory.map(item => ({ ...item, type: 'competition', date: new Date(item.competition_date) }))
+    ...competitionResultsHistory.map(item => ({ ...item, type: item.competition_type === 'random' ? 'random' : 'competition', date: new Date(item.competition_date) }))
   ].sort((a, b) => b.date.getTime() - a.date.getTime()); // Sort by most recent
 
   const filteredHistory = allHistory.filter(item => {
-    const matchesFilter = filter === 'all' || item.type === filter;
+    const matchesFilter = currentFilter === 'all' || item.type === currentFilter;
     const matchesSearch = item.type === 'solo'
       ? (item.topic?.toLowerCase().includes(searchTerm.toLowerCase()) || item.course?.toLowerCase().includes(searchTerm.toLowerCase()))
       : (item.competition_title?.toLowerCase().includes(searchTerm.toLowerCase()) || item.competition_code?.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -125,13 +131,14 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId }) => {
             <div className="flex items-center space-x-2">
               <Filter className="w-5 h-5 text-gray-500" />
               <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value as any)}
+                value={currentFilter}
+                onChange={(e) => setCurrentFilter(e.target.value as any)}
                 className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none transition-colors"
               >
                 <option value="all">All Quizzes</option>
                 <option value="solo">Solo Quizzes</option>
                 <option value="competition">Competitions</option>
+                <option value="random">Random Matches</option>
               </select>
             </div>
           </div>
@@ -150,7 +157,7 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId }) => {
               No history found
             </h3>
             <p className="text-gray-500">
-              {searchTerm || filter !== 'all'
+              {searchTerm || currentFilter !== 'all'
                 ? 'Try adjusting your search or filter criteria'
                 : 'Start a quiz or competition to see your history here!'
               }
@@ -222,7 +229,7 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId }) => {
                           View Details
                         </Button>
                       )}
-                      {item.type === 'competition' && (
+                      {(item.type === 'competition' || item.type === 'random') && (
                         <Button
                           onClick={() => console.log('View competition results for:', item.id)} // Implement competition results view
                           className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 px-4 py-2"

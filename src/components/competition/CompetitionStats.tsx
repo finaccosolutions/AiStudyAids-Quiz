@@ -1,17 +1,18 @@
+// src/components/competition/CompetitionStats.tsx
 import React, { useState, useEffect } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { 
+import { Card, CardBody, CardHeader } from '../ui/Card';
+import {
   Trophy, TrendingUp, Target, Clock, Users, Award,
   BarChart3, PieChart, Activity, Star, Zap, Calendar,
   ChevronDown, ChevronUp, Filter, Download, Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart as RechartsPieChart, Cell, Area, AreaChart
+  LineChart, Line, PieChart as RechartsPieChart, Cell, Area, AreaChart, Pie // Add Pie here
 } from 'recharts';
 
 interface CompetitionStatsProps {
@@ -95,7 +96,7 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
     },
     {
       title: 'Win Rate',
-      value: userStats?.total_competitions ? 
+      value: userStats?.total_competitions ?
         `${((userStats.wins / userStats.total_competitions) * 100).toFixed(1)}%` : '0%',
       icon: Target,
       color: 'from-green-500 to-emerald-500',
@@ -128,7 +129,7 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
     },
     {
       title: 'Time Played',
-      value: userStats?.total_time_played ? 
+      value: userStats?.total_time_played ?
         `${Math.floor(userStats.total_time_played / 3600)}h ${Math.floor((userStats.total_time_played % 3600) / 60)}m` : '0h 0m',
       icon: Clock,
       color: 'from-teal-500 to-cyan-500',
@@ -157,7 +158,7 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
           <h1 className="text-4xl font-bold text-gray-800 mb-2">Competition Statistics</h1>
           <p className="text-gray-600 text-lg">Track your performance and progress over time</p>
         </div>
-        
+
         <div className="flex items-center space-x-4 mt-4 md:mt-0">
           {/* Period Selector */}
           <select
@@ -171,7 +172,7 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
               </option>
             ))}
           </select>
-          
+
           {/* Action Buttons */}
           <Button variant="outline" className="flex items-center space-x-2">
             <Download className="w-4 h-4" />
@@ -238,19 +239,19 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
                   <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
-                  <Area 
-                    type="monotone" 
-                    dataKey="averageScore" 
-                    stroke="#8B5CF6" 
-                    fill="#8B5CF6" 
+                  <Area
+                    type="monotone"
+                    dataKey="averageScore"
+                    stroke="#8B5CF6"
+                    fill="#8B5CF6"
                     fillOpacity={0.3}
                     name="Average Score (%)"
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="competitions" 
-                    stroke="#06B6D4" 
-                    fill="#06B6D4" 
+                  <Area
+                    type="monotone"
+                    dataKey="competitions"
+                    stroke="#06B6D4"
+                    fill="#06B6D4"
                     fillOpacity={0.3}
                     name="Competitions"
                   />
@@ -328,7 +329,7 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
               </Button>
             </div>
           </CardHeader>
-          
+
           <AnimatePresence>
             {showDetailedStats && (
               <motion.div
@@ -351,10 +352,10 @@ const CompetitionStats: React.FC<CompetitionStatsProps> = ({ userId }) => {
                           <XAxis dataKey="day" />
                           <YAxis />
                           <Tooltip />
-                          <Line 
-                            type="monotone" 
-                            dataKey="score" 
-                            stroke="#10B981" 
+                          <Line
+                            type="monotone"
+                            dataKey="score"
+                            stroke="#10B981"
                             strokeWidth={3}
                             dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
                             name="Score (%)"

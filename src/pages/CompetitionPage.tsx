@@ -1,19 +1,25 @@
+// src/pages/CompetitionPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useCompetitionStore } from '../store/useCompetitionStore';
 import { useQuizStore } from '../store/useQuizStore';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import GlobalLeaderboard from '../components/competition/GlobalLeaderboard';
 import CompetitionStats from '../components/competition/CompetitionStats';
 import CompetitionManagement from '../components/competition/CompetitionManagement';
-import QuizHistory from '../components/competition/QuizHistory'; // New import
-import { 
-  Trophy, BarChart3, Settings, Users, Target, 
+import QuizHistory from '../components/competition/QuizHistory';
+import DashboardPanel from '../components/competition/DashboardPanel'; // New import
+import SoloQuizPanel from '../components/competition/SoloQuizPanel'; // New import
+import CompetitionPanel from '../components/competition/CompetitionPanel'; // New import
+import RandomMatchPanel from '../components/competition/RandomMatchPanel'; // New import
+
+import {
+  Trophy, BarChart3, Settings, Users, Target,
   Crown, Star, TrendingUp, Zap, Globe, Activity,
   Rocket, Shield, Award, Medal, Timer, Brain,
-  Sparkles, ArrowRight, Play, Plus, BookOpen, // BookOpen added for history tab
+  Sparkles, ArrowRight, Play, Plus, BookOpen,
   FileQuestion, PenTool, NotebookText, Calendar,
   LineChart, CheckCircle, Clock, Flame, Layers,
   Cpu, Database, Code, Palette, Briefcase, Heart
@@ -22,18 +28,48 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const CompetitionPage: React.FC = () => {
   const { user, isLoggedIn } = useAuthStore();
-  const { userStats, loadUserStats, loadUserActiveCompetitions, userActiveCompetitions } = useCompetitionStore();
-  const { preferences, soloQuizHistory, loadSoloQuizHistory } = useQuizStore(); // New import
+  const {
+    userStats,
+    loadUserStats,
+    loadUserActiveCompetitions,
+    userActiveCompetitions,
+    calculateOverallStats,
+    overallStats, // Import overallStats
+    competitionResultsHistory, // Import competitionResultsHistory
+    loadCompetitionResultsHistory // Import loadCompetitionResultsHistory
+  } = useCompetitionStore();
+  const { preferences, soloQuizHistory, loadSoloQuizHistory } = useQuizStore();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'leaderboard' | 'stats' | 'management' | 'history'>('overview'); // Added 'history' tab
+  const location = useLocation();
+
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'solo-quizzes' | 'competitions' | 'random-matches' | 'global-leaderboard' | 'my-history'>('dashboard');
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'solo' | 'competition' | 'random'>('all');
 
   useEffect(() => {
     if (user) {
       loadUserStats(user.id);
       loadUserActiveCompetitions(user.id);
-      loadSoloQuizHistory(user.id); // Load solo quiz history
+      loadSoloQuizHistory(user.id);
+      loadCompetitionResultsHistory(user.id); // Load competition results history
     }
-  }, [user, loadUserStats, loadUserActiveCompetitions, loadSoloQuizHistory]);
+  }, [user, loadUserStats, loadUserActiveCompetitions, loadSoloQuizHistory, loadCompetitionResultsHistory]);
+
+  // New useEffect to calculate overallStats when dependencies change
+  useEffect(() => {
+    if (userStats && soloQuizHistory && competitionResultsHistory) {
+      calculateOverallStats(soloQuizHistory, competitionResultsHistory, userStats);
+    }
+  }, [userStats, soloQuizHistory, competitionResultsHistory, calculateOverallStats]);
+
+
+  useEffect(() => {
+    if (location.state?.activeTab) {
+      setActiveTab(location.state.activeTab);
+    }
+    if (location.state?.historyFilter) {
+      setHistoryFilter(location.state.historyFilter);
+    }
+  }, [location.state]);
 
   if (!isLoggedIn) {
     return <Navigate to="/auth" />;
@@ -41,46 +77,53 @@ const CompetitionPage: React.FC = () => {
 
   const tabs = [
     {
-      id: 'overview',
+      id: 'dashboard',
       label: 'Quiz Hub',
       icon: Rocket,
       description: 'Your complete quiz and competition dashboard',
       color: 'from-blue-500 to-indigo-500'
     },
     {
-      id: 'leaderboard',
-      label: 'Global Leaderboard',
+      id: 'solo-quizzes',
+      label: 'Solo Quizzes',
+      icon: Brain,
+      description: 'Practice with AI-generated questions',
+      color: 'from-violet-500 to-purple-500'
+    },
+    {
+      id: 'competitions',
+      label: 'Competitions',
       icon: Trophy,
+      description: 'Manage and participate in competitions',
+      color: 'from-green-500 to-emerald-500'
+    },
+    {
+      id: 'random-matches',
+      label: 'Random Matches',
+      icon: Zap,
+      description: 'Find opponents globally for quick battles',
+      color: 'from-orange-500 to-red-500'
+    },
+    {
+      id: 'global-leaderboard',
+      label: 'Global Leaderboard',
+      icon: Globe,
       description: 'See how you rank against players worldwide',
       color: 'from-yellow-500 to-orange-500'
     },
     {
-      id: 'stats',
-      label: 'My Statistics',
-      icon: BarChart3,
-      description: 'Detailed analytics of your performance',
-      color: 'from-blue-500 to-indigo-500'
-    },
-    {
-      id: 'management',
-      label: 'My Competitions',
-      icon: Settings,
-      description: 'Manage competitions you\'ve created',
-      color: 'from-purple-500 to-pink-500'
-    },
-    {
-      id: 'history', // New tab
-      label: 'Quiz History',
+      id: 'my-history',
+      label: 'My History',
       icon: BookOpen,
-      description: 'Review your past solo quizzes and competition results',
-      color: 'from-green-500 to-emerald-500'
+      description: 'Review your past quizzes and competition results',
+      color: 'from-purple-500 to-pink-500'
     }
   ];
 
   const quickStats = [
     {
       label: 'Global Rank',
-      value: userStats?.best_rank ? `#${userStats.best_rank}` : 'Unranked',
+      value: overallStats?.bestOverallRank ? `#${overallStats.bestOverallRank}` : 'Unranked',
       icon: Crown,
       color: 'from-yellow-500 to-orange-500',
       bgColor: 'bg-yellow-50',
@@ -88,7 +131,7 @@ const CompetitionPage: React.FC = () => {
     },
     {
       label: 'Total Points',
-      value: userStats?.total_points?.toLocaleString() || '0',
+      value: overallStats?.overallPoints?.toLocaleString() || '0',
       icon: Star,
       color: 'from-purple-500 to-pink-500',
       bgColor: 'bg-purple-50',
@@ -96,189 +139,21 @@ const CompetitionPage: React.FC = () => {
     },
     {
       label: 'Win Rate',
-      value: userStats?.total_competitions ? 
-        `${((userStats.wins / userStats.total_competitions) * 100).toFixed(1)}%` : '0%',
+      value: overallStats?.overallWinRate ? `${overallStats.overallWinRate}%` : '0%',
       icon: Target,
       color: 'from-green-500 to-emerald-500',
       bgColor: 'bg-green-50',
       textColor: 'text-green-700'
     },
     {
-      label: 'Competitions',
-      value: userStats?.total_competitions || 0,
+      label: 'Total Quizzes',
+      value: overallStats?.totalQuizzesPlayed || 0,
       icon: Users,
       color: 'from-blue-500 to-cyan-500',
       bgColor: 'bg-blue-50',
       textColor: 'text-blue-700'
     }
   ];
-
-  const quizLearningActions = [
-    {
-      title: 'Solo Quiz',
-      description: 'Generate personalized quizzes with intelligent questions',
-      icon: Brain,
-      action: () => navigate('/quiz'),
-      color: 'from-violet-500 to-purple-500',
-      stats: preferences ? `${preferences.questionCount} questions` : 'Not configured'
-    },
-    {
-      title: 'Create Competition',
-      description: 'Challenge friends and colleagues',
-      icon: Plus,
-      action: () => navigate('/quiz', { state: { mode: 'create-competition' } }),
-      color: 'from-purple-500 to-pink-500',
-      stats: 'Invite friends'
-    },
-    {
-      title: 'Join Competition',
-      description: 'Enter with a 6-digit code',
-      icon: Users,
-      action: () => navigate('/quiz', { state: { mode: 'join-competition' } }),
-      color: 'from-green-500 to-emerald-500',
-      stats: 'Quick join'
-    },
-    {
-      title: 'Random Match',
-      description: 'Find opponents globally',
-      icon: Zap,
-      action: () => navigate('/quiz', { state: { mode: 'random-match' } }),
-      color: 'from-orange-500 to-red-500',
-      stats: 'Global players'
-    }
-  ];
-
-  const renderOverview = () => (
-    <div className="space-y-8">
-      {/* Quiz Learnings Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <Card className="shadow-xl border-2 border-blue-100 overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                <Brain className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-800">Quiz Learnings</h3>
-                <p className="text-slate-600">Explore solo study tools and competitive quiz modes</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardBody className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {quizLearningActions.map((action, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + index * 0.05 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Card className="h-full overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group"
-                        onClick={action.action}>
-                    <CardBody className="p-6 relative">
-                      <div className={`absolute inset-0 bg-gradient-to-br ${action.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
-                      <div className="relative z-10">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className={`w-12 h-12 bg-gradient-to-r ${action.color} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                            <action.icon className="w-6 h-6 text-white" />
-                          </div>
-                          <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
-                            {action.stats}
-                          </span>
-                        </div>
-                        <h4 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-purple-600 transition-colors duration-300">
-                          {action.title}
-                        </h4>
-                        <p className="text-slate-600 text-sm leading-relaxed">{action.description}</p>
-                      </div>
-                    </CardBody>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-      </motion.div>
-
-      {/* Recent Activity */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-      >
-        <Card className="shadow-xl border-2 border-gray-100">
-          <CardHeader className="bg-gradient-to-r from-gray-50 to-slate-50">
-            <h3 className="text-2xl font-bold text-slate-800 flex items-center">
-              <Activity className="w-7 h-7 mr-3 text-slate-600" />
-              Recent Activity
-            </h3>
-          </CardHeader>
-          <CardBody className="p-6">
-            <div className="space-y-4">
-              {userActiveCompetitions.length > 0 && (
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                  <h4 className="font-semibold text-blue-800 mb-2 flex items-center">
-                    <Play className="w-5 h-5 mr-2" />
-                    Your Active Competitions
-                  </h4>
-                  {userActiveCompetitions.map((comp, idx) => (
-                    <div key={comp.id} className="flex items-center justify-between py-2 border-b border-blue-100 last:border-b-0">
-                      <div>
-                        <p className="font-medium text-blue-700">{comp.title}</p>
-                        <p className="text-sm text-blue-600">Status: {comp.status}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => navigate('/quiz', { state: { mode: 'competition-lobby', competitionId: comp.id } })}
-                        className="bg-blue-500 hover:bg-blue-600"
-                      >
-                        Continue
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {soloQuizHistory.length > 0 && (
-                <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
-                  <h4 className="font-semibold text-purple-800 mb-2 flex items-center">
-                    <BookOpen className="w-5 h-5 mr-2" />
-                    Your Latest Solo Quiz
-                  </h4>
-                  <div className="flex items-center justify-between py-2">
-                    <div>
-                      <p className="font-medium text-purple-700">{soloQuizHistory[0].course} - {soloQuizHistory[0].topic}</p>
-                      <p className="text-sm text-purple-600">Score: {soloQuizHistory[0].percentage_score?.toFixed(1)}%</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => setActiveTab('history')}
-                      className="bg-purple-500 hover:bg-purple-600"
-                    >
-                      View History
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Placeholder for other activities if no real data */}
-              {userActiveCompetitions.length === 0 && soloQuizHistory.length === 0 && (
-                <div className="text-center text-gray-500 py-4">
-                  <p>No recent activity. Start a quiz or competition!</p>
-                </div>
-              )}
-            </div>
-          </CardBody>
-        </Card>
-      </motion.div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -291,7 +166,7 @@ const CompetitionPage: React.FC = () => {
         >
           <div className="flex items-center justify-center mb-8">
             <motion.div
-              animate={{ 
+              animate={{
                 rotate: [0, 10, -10, 0],
                 scale: [1, 1.1, 1]
               }}
@@ -354,7 +229,7 @@ const CompetitionPage: React.FC = () => {
         >
           <Card className="shadow-xl border-0 overflow-hidden">
             <CardBody className="p-0">
-              <div className="grid grid-cols-1 lg:grid-cols-5"> {/* Changed to 5 columns */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
                 {tabs.map((tab, index) => (
                   <motion.button
                     key={tab.id}
@@ -408,11 +283,24 @@ const CompetitionPage: React.FC = () => {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
           >
-            {activeTab === 'overview' && renderOverview()}
-            {activeTab === 'leaderboard' && <GlobalLeaderboard />}
-            {activeTab === 'stats' && user && <CompetitionStats userId={user.id} />}
-            {activeTab === 'management' && user && <CompetitionManagement userId={user.id} />}
-            {activeTab === 'history' && user && <QuizHistory userId={user.id} />} {/* New tab content */}
+            {activeTab === 'dashboard' && user && (
+              <DashboardPanel
+                userId={user.id}
+              />
+            )}
+            {activeTab === 'solo-quizzes' && user && (
+              <SoloQuizPanel userId={user.id} />
+            )}
+            {activeTab === 'competitions' && user && (
+              <CompetitionPanel userId={user.id} />
+            )}
+            {activeTab === 'random-matches' && user && (
+              <RandomMatchPanel userId={user.id} />
+            )}
+            {activeTab === 'global-leaderboard' && <GlobalLeaderboard />}
+            {activeTab === 'my-history' && user && (
+              <QuizHistory userId={user.id} filter={historyFilter} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

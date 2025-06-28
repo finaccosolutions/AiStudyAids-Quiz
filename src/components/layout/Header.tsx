@@ -1,11 +1,12 @@
+// src/components/layout/Header.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../ui/Button';
-import { 
-  ChevronDown, LogOut, User, BookOpen, 
-  Home, Settings, GraduationCap, FileQuestion, 
+import {
+  ChevronDown, LogOut, User, BookOpen,
+  Home, Settings, GraduationCap, FileQuestion,
   PenTool, NotebookText, Calendar, LineChart,
-  Brain, Menu, Key, Trophy
+  Brain, Menu, Key, Trophy, Rocket // Added Rocket icon
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +19,7 @@ const Header: React.FC = () => {
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -28,11 +29,11 @@ const Header: React.FC = () => {
         setShowMenu(false);
       }
     };
-    
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-  
+
   const handleLogout = async () => {
     await logout();
     setShowDropdown(false);
@@ -64,7 +65,7 @@ const Header: React.FC = () => {
       { path: '/profile', icon: User, label: 'My Profile' },
       { path: '/api-settings', icon: Key, label: 'API Settings' },
     ];
-  
+
   return (
     <header className="bg-white sticky top-0 z-50 border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -78,15 +79,15 @@ const Header: React.FC = () => {
               Ai Study Aids
             </span>
           </Link>
-          
+
           <nav className="hidden md:flex items-center space-x-6">
             {isLoggedIn && (
               <>
-                <Link 
+                <Link
                   to="/"
                   className={`nav-link px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-1 text-gray-700 hover:text-purple-700 hover:bg-purple-50 ${
-                    isActive('/') 
-                      ? 'text-purple-700 bg-purple-50 font-semibold' 
+                    isActive('/')
+                      ? 'text-purple-700 bg-purple-50 font-semibold'
                       : ''
                   }`}
                 >
@@ -127,6 +128,17 @@ const Header: React.FC = () => {
                             <span>{item.label}</span>
                           </Link>
                         ))}
+                        {/* New link to Quiz Dashboard */}
+                        <Link
+                          to="/competitions"
+                          className={`flex items-center space-x-2 px-4 py-2 hover:bg-purple-50 transition-colors text-gray-700 hover:text-purple-700 ${
+                            isActive('/competitions') ? 'text-purple-700 bg-purple-50 font-semibold' : ''
+                          }`}
+                          onClick={() => setShowMenu(false)}
+                        >
+                          <Rocket className="w-4 h-4" />
+                          <span>Quiz Dashboard</span>
+                        </Link>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -134,7 +146,7 @@ const Header: React.FC = () => {
               </>
             )}
           </nav>
-          
+
           <div className="relative" ref={dropdownRef}>
             <Button
               variant="ghost"
@@ -149,7 +161,7 @@ const Header: React.FC = () => {
               <User className="h-5 w-5 group-hover:scale-110 transition-transform text-gray-700" />
               <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${showDropdown ? 'rotate-180' : ''} group-hover:text-purple-600 text-gray-700`} />
             </Button>
-            
+
             <AnimatePresence>
               {showDropdown && (
                 <motion.div
@@ -164,7 +176,7 @@ const Header: React.FC = () => {
                       <div className="px-4 py-2 border-b border-purple-100">
                         <div className="text-sm font-medium text-gray-900">{user?.email}</div>
                       </div>
-                      
+
                       {profileMenuItems.map((item) => (
                         <Link
                           key={item.path}
@@ -176,7 +188,7 @@ const Header: React.FC = () => {
                           <span>{item.label}</span>
                         </Link>
                       ))}
-                      
+
                       <button
                         onClick={handleLogout}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center space-x-2 transition-all duration-300"
@@ -210,5 +222,5 @@ const Header: React.FC = () => {
     </header>
   );
 };
- 
+
 export default Header;

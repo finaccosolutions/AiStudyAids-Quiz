@@ -11,6 +11,20 @@ import {
   CompetitionInvite,
   LiveCompetitionData
 } from '../types/competition';
+import { QuizResultData } from '../types'; // Assuming QuizResultData is defined in types/index.ts
+
+export interface OverallStats {
+  totalQuizzesPlayed: number;
+  totalCompetitionsParticipated: number;
+  totalSoloQuizzes: number;
+  totalRandomMatches: number;
+  totalWins: number;
+  overallWinRate: number;
+  overallPoints: number;
+  overallAverageScore: number;
+  bestOverallRank?: number;
+  totalTimeSpent: number; // in seconds
+}
 
 interface CompetitionState {
   // State
@@ -22,6 +36,7 @@ interface CompetitionState {
   chatMessages: CompetitionChat[];
   pendingInvites: CompetitionInvite[];
   liveData: LiveCompetitionData | null;
+  competitionResultsHistory: any[];
   isLoading: boolean;
   error: string | null;
   // Add subscription tracking
@@ -30,6 +45,7 @@ interface CompetitionState {
   userActiveCompetitions: Competition[];
   // Add cleanup flag
   cleanupFlag: boolean;
+  overallStats: OverallStats | null; // Add this line
 
   // Actions
   createCompetition: (data: any) => Promise<Competition>;
