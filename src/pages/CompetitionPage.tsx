@@ -10,10 +10,10 @@ import GlobalLeaderboard from '../components/competition/GlobalLeaderboard';
 import CompetitionStats from '../components/competition/CompetitionStats';
 import CompetitionManagement from '../components/competition/CompetitionManagement';
 import QuizHistory from '../components/competition/QuizHistory';
-import DashboardPanel from '../components/competition/DashboardPanel'; // New import
-import SoloQuizPanel from '../components/competition/SoloQuizPanel'; // New import
-import CompetitionPanel from '../components/competition/CompetitionPanel'; // New import
-import RandomMatchPanel from '../components/competition/RandomMatchPanel'; // New import
+import DashboardPanel from '../components/competition/DashboardPanel';
+import SoloQuizPanel from '../components/competition/SoloQuizPanel';
+import CompetitionPanel from '../components/competition/CompetitionPanel';
+import RandomMatchPanel from '../components/competition/RandomMatchPanel';
 
 import {
   Trophy, BarChart3, Settings, Users, Target,
@@ -34,11 +34,12 @@ const CompetitionPage: React.FC = () => {
     loadUserActiveCompetitions,
     userActiveCompetitions,
     calculateOverallStats,
-    overallStats, // Import overallStats
-    competitionResultsHistory, // Import competitionResultsHistory
-    loadCompetitionResultsHistory // Import loadCompetitionResultsHistory
+    overallStats,
+    competitionResultsHistory,
+    loadCompetitionResultsHistory,
+    isLoading: competitionStoreLoading // Get isLoading from competition store
   } = useCompetitionStore();
-  const { preferences, soloQuizHistory, loadSoloQuizHistory } = useQuizStore();
+  const { preferences, soloQuizHistory, loadSoloQuizHistory, isLoading: quizStoreLoading } = useQuizStore(); // Get isLoading from quiz store
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -47,19 +48,24 @@ const CompetitionPage: React.FC = () => {
 
   useEffect(() => {
     if (user) {
+      console.log('CompetitionPage: Starting data load for user:', user.id);
       loadUserStats(user.id);
       loadUserActiveCompetitions(user.id);
       loadSoloQuizHistory(user.id);
-      loadCompetitionResultsHistory(user.id); // Load competition results history
+      loadCompetitionResultsHistory(user.id);
+      console.log('CompetitionPage: Data load initiated.');
     }
   }, [user, loadUserStats, loadUserActiveCompetitions, loadSoloQuizHistory, loadCompetitionResultsHistory]);
 
-  // New useEffect to calculate overallStats when dependencies change
   useEffect(() => {
     if (userStats && soloQuizHistory && competitionResultsHistory) {
       calculateOverallStats(soloQuizHistory, competitionResultsHistory, userStats);
     }
-  }, [userStats, soloQuizHistory, competitionResultsHistory, calculateOverallStats]);
+    console.log('CompetitionPage: Current loading states:', {
+      competitionStoreLoading,
+      quizStoreLoading
+    });
+  }, [userStats, soloQuizHistory, competitionResultsHistory, calculateOverallStats, competitionStoreLoading, quizStoreLoading]);
 
 
   useEffect(() => {
@@ -81,44 +87,131 @@ const CompetitionPage: React.FC = () => {
       label: 'Quiz Hub',
       icon: Rocket,
       description: 'Your complete quiz and competition dashboard',
-      color: 'from-blue-500 to-indigo-500'
+      mainGradient: 'from-blue-500 to-indigo-600',
+      iconBgGradient: 'from-blue-400 to-indigo-500',
+      activeBg: 'bg-gradient-to-br from-blue-50 to-indigo-50',
+      hoverBg: 'hover:bg-blue-50',
+      borderColor: 'border-blue-200',
+      activeBorderColor: 'border-blue-500',
+      labelColor: 'text-slate-800',
+      descriptionColor: 'text-slate-600',
+      activeLabelColor: 'text-blue-700',
+      activeDescriptionColor: 'text-blue-600',
+      iconColor: 'text-slate-800', // Changed from text-white
+      iconSize: 'w-6 h-6 lg:w-7 lg:h-7', // Adjusted size
+      iconContainerSize: 'w-12 h-12 lg:w-14 lg:h-14', // Adjusted size
+      labelSize: 'text-lg lg:text-xl', // Adjusted size
+      descriptionSize: 'text-xs lg:text-sm', // Adjusted size
+      padding: 'p-4 lg:p-6',
+      borderRadius: 'rounded-xl',
+      hoverScale: 'scale-105',
+      hoverShadow: 'shadow-xl',
+      pattern: 'bg-gradient-to-br from-blue-100/50 to-indigo-100/30',
     },
     {
       id: 'solo-quizzes',
       label: 'Solo Quizzes',
       icon: Brain,
       description: 'Practice with AI-generated questions',
-      color: 'from-violet-500 to-purple-500'
+      mainGradient: 'from-violet-500 to-purple-500',
+      iconBgGradient: 'from-violet-400 to-purple-500',
+      activeBg: 'bg-gradient-to-br from-violet-50 to-purple-50',
+      hoverBg: 'hover:bg-violet-50',
+      borderColor: 'border-purple-200',
+      activeBorderColor: 'border-purple-500',
+      labelColor: 'text-slate-800',
+      descriptionColor: 'text-slate-600',
+      activeLabelColor: 'text-purple-700',
+      activeDescriptionColor: 'text-purple-600',
+      iconColor: 'text-slate-800', // Changed from text-white
+      iconSize: 'w-6 h-6 lg:w-7 lg:h-7', // Adjusted size
+      iconContainerSize: 'w-12 h-12 lg:w-14 lg:h-14', // Adjusted size
+      labelSize: 'text-lg lg:text-xl', // Adjusted size
+      descriptionSize: 'text-xs lg:text-sm', // Adjusted size
+      padding: 'p-4 lg:p-6',
+      borderRadius: 'rounded-xl',
+      hoverScale: 'scale-105',
+      hoverShadow: 'shadow-xl',
+      pattern: 'bg-gradient-to-br from-violet-100/50 to-purple-100/30',
     },
     {
       id: 'competitions',
       label: 'Competitions',
       icon: Trophy,
       description: 'Manage and participate in competitions',
-      color: 'from-green-500 to-emerald-500'
+      mainGradient: 'from-green-500 to-emerald-500',
+      iconBgGradient: 'from-green-400 to-emerald-500',
+      activeBg: 'bg-gradient-to-br from-green-50 to-emerald-50',
+      hoverBg: 'hover:bg-green-50',
+      borderColor: 'border-green-200',
+      activeBorderColor: 'border-green-500',
+      labelColor: 'text-slate-800',
+      descriptionColor: 'text-slate-600',
+      activeLabelColor: 'text-green-700',
+      activeDescriptionColor: 'text-green-600',
+      iconColor: 'text-slate-800', // Changed from text-white
+      iconSize: 'w-6 h-6 lg:w-7 lg:h-7', // Adjusted size
+      iconContainerSize: 'w-12 h-12 lg:w-14 lg:h-14', // Adjusted size
+      labelSize: 'text-lg lg:text-xl', // Adjusted size
+      descriptionSize: 'text-xs lg:text-sm', // Adjusted size
+      padding: 'p-4 lg:p-6',
+      borderRadius: 'rounded-xl',
+      hoverScale: 'scale-105',
+      hoverShadow: 'shadow-xl',
+      pattern: 'bg-gradient-to-br from-green-100/50 to-emerald-100/30',
     },
     {
       id: 'random-matches',
       label: 'Random Matches',
       icon: Zap,
       description: 'Find opponents globally for quick battles',
-      color: 'from-orange-500 to-red-500'
+      mainGradient: 'from-orange-500 to-red-500',
+      iconBgGradient: 'from-orange-400 to-red-500',
+      activeBg: 'bg-gradient-to-br from-orange-50 to-red-50',
+      hoverBg: 'hover:bg-orange-50',
+      borderColor: 'border-orange-200',
+      activeBorderColor: 'border-orange-500',
+      labelColor: 'text-slate-800',
+      descriptionColor: 'text-slate-600',
+      activeLabelColor: 'text-orange-700',
+      activeDescriptionColor: 'text-orange-600',
+      iconColor: 'text-slate-800', // Changed from text-white
+      iconSize: 'w-6 h-6 lg:w-7 lg:h-7', // Adjusted size
+      iconContainerSize: 'w-12 h-12 lg:w-14 lg:h-14', // Adjusted size
+      labelSize: 'text-lg lg:text-xl', // Adjusted size
+      descriptionSize: 'text-xs lg:text-sm', // Adjusted size
+      padding: 'p-4 lg:p-6',
+      borderRadius: 'rounded-xl',
+      hoverScale: 'scale-105',
+      hoverShadow: 'shadow-xl',
+      pattern: 'bg-gradient-to-br from-orange-100/50 to-red-100/30',
     },
     {
       id: 'global-leaderboard',
       label: 'Global Leaderboard',
       icon: Globe,
       description: 'See how you rank against players worldwide',
-      color: 'from-yellow-500 to-orange-500'
-    },
-    // Removed 'My History' tab as per request
-    // {
-    //   id: 'my-history',
-    //   label: 'My History',
-    //   icon: BookOpen,
-    //   description: 'Review your past quizzes and competition results',
-    //   color: 'from-purple-500 to-pink-500'
-    // }
+      mainGradient: 'from-yellow-500 to-orange-500',
+      iconBgGradient: 'from-yellow-400 to-orange-500',
+      activeBg: 'bg-gradient-to-br from-yellow-50 to-orange-50',
+      hoverBg: 'hover:bg-yellow-50',
+      borderColor: 'border-yellow-200',
+      activeBorderColor: 'border-yellow-500',
+      labelColor: 'text-slate-800',
+      descriptionColor: 'text-slate-600',
+      activeLabelColor: 'text-yellow-700',
+      activeDescriptionColor: 'text-yellow-600',
+      iconColor: 'text-slate-800', // Changed from text-white
+      iconSize: 'w-6 h-6 lg:w-7 lg:h-7', // Adjusted size
+      iconContainerSize: 'w-12 h-12 lg:w-14 lg:h-14', // Adjusted size
+      labelSize: 'text-lg lg:text-xl', // Adjusted size
+      descriptionSize: 'text-xs lg:text-sm', // Adjusted size
+      padding: 'p-4 lg:p-6',
+      borderRadius: 'rounded-xl',
+      hoverScale: 'scale-105',
+      hoverShadow: 'shadow-xl',
+      pattern: 'bg-gradient-to-br from-yellow-100/50 to-orange-100/30',
+    }
   ];
 
   const quickStats = [
@@ -228,52 +321,44 @@ const CompetitionPage: React.FC = () => {
           transition={{ delay: 0.8 }}
           className="mb-8"
         >
-          <Card className="shadow-xl border-0 overflow-hidden">
-            <CardBody className="p-0">
-              {/* Adjusted grid-cols for 5 tabs */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5"> 
-                {tabs.map((tab, index) => (
-                  <motion.button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`p-6 lg:p-8 text-left transition-all duration-300 relative overflow-hidden group ${
-                      activeTab === tab.id
-                        ? 'bg-gradient-to-br from-purple-50 to-indigo-50'
-                        : 'hover:bg-slate-50'
-                    }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    {activeTab === tab.id && (
-                      <motion.div
-                        layoutId="activeTab"
-                        className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-500"
-                        initial={false}
-                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                      />
-                    )}
-                    <div className="flex items-center space-x-4 relative z-10">
-                      <div className={`w-12 h-12 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all duration-300 ${
-                        activeTab === tab.id
-                          ? `bg-gradient-to-r ${tab.color} text-white shadow-lg`
-                          : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
-                      }`}>
-                        <tab.icon className="w-6 h-6 lg:w-7 lg:h-7" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className={`text-lg lg:text-xl font-semibold mb-1 transition-colors duration-300 ${
-                          activeTab === tab.id ? 'text-purple-700' : 'text-slate-800 group-hover:text-purple-600'
-                        }`}>
-                          {tab.label}
-                        </h3>
-                        <p className="text-slate-600 text-sm lg:text-base">{tab.description}</p>
-                      </div>
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
-            </CardBody>
-          </Card>
+          {/* Removed Card and CardBody wrappers */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 p-4"> {/* Added gap and padding */}
+            {tabs.map((tab, index) => (
+              <motion.button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`relative flex flex-col items-center text-center ${tab.padding} ${tab.borderRadius} transition-all duration-300 group overflow-hidden
+                  ${activeTab === tab.id ? `${tab.activeBg} border-2 ${tab.activeBorderColor} shadow-lg` : `bg-white border-2 ${tab.borderColor} ${tab.hoverBg} ${tab.hoverScale} ${tab.hoverShadow}`}
+                `}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {/* Background Pattern */}
+                <div className={`absolute inset-0 ${tab.pattern} opacity-50 group-hover:opacity-70 transition-opacity duration-500`} />
+                
+                {/* Active Tab Indicator */}
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className={`absolute inset-0 border-2 ${tab.activeBorderColor} ${tab.borderRadius} z-0`}
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
+                )}
+
+                <div className={`relative z-10 ${tab.iconContainerSize} ${tab.iconBgGradient} ${tab.borderRadius} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                  <tab.icon className={`${tab.iconSize} ${tab.iconColor} relative z-20`} />
+                </div>
+                <h3 className={`relative z-10 font-semibold mb-1 ${tab.labelSize} ${activeTab === tab.id ? tab.activeLabelColor : tab.labelColor} transition-colors duration-300`}>
+                  {tab.label}
+                </h3>
+                <p className={`relative z-10 ${tab.descriptionSize} ${activeTab === tab.id ? tab.activeDescriptionColor : tab.descriptionColor} transition-colors duration-300`}>
+                  {tab.description}
+                </p>
+              </motion.button>
+            ))}
+          </div>
+          {/* End Removed Card and CardBody wrappers */}
         </motion.div>
 
         {/* Tab Content */}
@@ -300,10 +385,6 @@ const CompetitionPage: React.FC = () => {
               <RandomMatchPanel userId={user.id} />
             )}
             {activeTab === 'global-leaderboard' && <GlobalLeaderboard />}
-            {/* Removed 'my-history' tab content */}
-            {/* {activeTab === 'my-history' && user && (
-              <QuizHistory userId={user.id} filter={historyFilter} />
-            )} */}
           </motion.div>
         </AnimatePresence>
       </div>

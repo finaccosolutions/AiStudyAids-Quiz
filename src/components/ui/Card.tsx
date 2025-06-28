@@ -1,13 +1,14 @@
+// src/components/ui/Card.tsx
 import React from 'react';
 
-interface CardProps {
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> { // Extend with HTMLDivElement attributes
   children: React.ReactNode;
   className?: string;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = '' }) => {
+export const Card: React.FC<CardProps> = ({ children, className = '', ...props }) => { // Destructure ...props
   return (
-    <div className={`bg-white rounded-xl shadow-md overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-xl shadow-md overflow-hidden ${className}`} {...props}> {/* Spread ...props here */}
       {children}
     </div>
   );
@@ -50,4 +51,4 @@ export const CardFooter: React.FC<CardFooterProps> = ({ children, className = ''
       {children}
     </div>
   );
-};
+}; 

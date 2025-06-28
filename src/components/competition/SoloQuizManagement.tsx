@@ -243,4 +243,4 @@ const SoloQuizManagement: React.FC<SoloQuizManagementProps> = ({ userId }) => {
   );
 };
 
-export default SoloQuizManagement; 
+export default SoloQuizManagement;  

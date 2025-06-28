@@ -6,7 +6,7 @@ import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { 
-  Brain, Plus, Users, Zap, Activity, BookOpen, Play, Trophy
+  Brain, Plus, Users, Zap, Activity, BookOpen, Play, Trophy, Hash
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -22,36 +22,60 @@ const DashboardPanel: React.FC<DashboardPanelProps> = ({ userId }) => {
 
   const quizLearningActions = [
     {
+      id: 'solo',
       title: 'Solo Quiz',
-      description: 'Generate personalized quizzes with intelligent questions',
+      subtitle: 'Master your skills',
+      description: 'Generate personalized quizzes with intelligent questions and get instant feedback',
       icon: Brain,
-      action: () => navigate('/quiz'),
+      path: '/quiz',
+      action: () => navigate('/quiz', { state: { mode: 'solo-preferences' } }),
       color: 'from-violet-500 to-purple-500',
-      stats: preferences ? `${preferences.questionCount} questions` : 'Not configured'
+      stats: preferences ? `${preferences.questionCount} questions` : 'Not configured',
+      features: ['Instant feedback', 'Progress tracking', 'Multiple formats'],
+      badge: 'Most Popular',
+      badgeColor: 'bg-violet-500'
     },
     {
+      id: 'create-competition',
       title: 'Create Competition',
-      description: 'Challenge friends and colleagues',
+      subtitle: 'Challenge friends',
+      description: 'Create custom competitions and invite friends to compete',
       icon: Plus,
+      path: '/quiz',
       action: () => navigate('/quiz', { state: { mode: 'create-competition' } }),
       color: 'from-purple-500 to-pink-500',
-      stats: 'Invite friends'
+      stats: 'Invite friends',
+      features: ['Invite friends', 'Real-time leaderboard', 'Custom settings'],
+      badge: 'Team Play',
+      badgeColor: 'bg-purple-500'
     },
     {
+      id: 'join-competition',
       title: 'Join Competition',
-      description: 'Enter with a 6-digit code',
-      icon: Users,
+      subtitle: 'Enter with code',
+      description: 'Join existing competitions using a 6-digit code',
+      icon: Hash,
+      path: '/quiz',
       action: () => navigate('/quiz', { state: { mode: 'join-competition' } }),
       color: 'from-green-500 to-emerald-500',
-      stats: 'Quick join'
+      stats: 'Quick join',
+      features: ['Quick join', 'Global competition', 'Earn achievements'],
+      badge: 'Quick Join',
+      badgeColor: 'bg-green-500'
     },
     {
+      id: 'random-match',
       title: 'Random Match',
-      description: 'Find opponents globally',
+      subtitle: 'Find opponents',
+      description: 'Get matched with players globally based on your skill level',
       icon: Zap,
+      path: '/quiz',
       action: () => navigate('/quiz', { state: { mode: 'random-match' } }),
       color: 'from-orange-500 to-red-500',
-      stats: 'Global players'
+      stats: 'Global players',
+      features: ['Global matchmaking', 'Skill-based pairing', 'Quick games'],
+      badge: 'Global Play',
+      badgeColor: 'bg-orange-500'
     }
   ];
 
@@ -79,7 +103,7 @@ const DashboardPanel: React.FC<DashboardPanelProps> = ({ userId }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {quizLearningActions.map((action, index) => (
                 <motion.div
-                  key={index}
+                  key={action.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 + index * 0.05 }}
@@ -161,7 +185,7 @@ const DashboardPanel: React.FC<DashboardPanelProps> = ({ userId }) => {
                   <div className="flex items-center justify-between py-2">
                     <div>
                       <p className="font-medium text-purple-700">{soloQuizHistory[0].course} - {soloQuizHistory[0].topic}</p>
-                      <p className="text-sm text-purple-600">Score: {soloQuizHistory[0].percentage_score?.toFixed(1)}%</p>
+                      <p className="text-sm text-purple-600">Score: {soloQuizHistory[0].percentage?.toFixed(1)}%</p>
                     </div>
                     <Button
                       size="sm"

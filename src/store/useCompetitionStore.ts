@@ -402,6 +402,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
 
   loadUserCompetitions: async (userId) => {
     set({ isLoading: true, error: null });
+    console.log('useCompetitionStore: loadUserCompetitions: Starting...');
     try {
       const { data, error } = await supabase
         .from('competitions')
@@ -411,7 +412,9 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
 
       if (error) throw error;
       set({ userActiveCompetitions: data || [] });
+      console.log('useCompetitionStore: loadUserCompetitions: Finished.');
     } catch (error: any) {
+      console.error('useCompetitionStore: loadUserCompetitions: Error:', error);
       set({ error: error.message || 'Failed to load user competitions' });
     } finally {
       set({ isLoading: false });
@@ -420,6 +423,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
 
   loadUserActiveCompetitions: async (userId) => {
     set({ isLoading: true, error: null });
+    console.log('useCompetitionStore: loadUserActiveCompetitions: Starting...');
     try {
       const { data, error } = await supabase
         .from('competition_participants')
@@ -438,8 +442,10 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
         .filter((comp: any) => comp && (comp.status === 'waiting' || comp.status === 'active'));
 
       set({ userActiveCompetitions: activeComps || [] });
+      console.log('useCompetitionStore: loadUserActiveCompetitions: Finished.');
       return activeComps || [];
     } catch (error: any) {
+      console.error('useCompetitionStore: loadUserActiveCompetitions: Error:', error);
       set({ error: error.message || 'Failed to load user active competitions' });
       throw error;
     } finally {
@@ -473,18 +479,21 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
 
   loadUserStats: async (userId) => {
     set({ isLoading: true, error: null });
+    console.log('useCompetitionStore: loadUserStats: Starting...');
     try {
       const { data, error } = await supabase
         .from('user_stats')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle(); // Change from .single() to .maybeSingle()
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is now handled by maybeSingle()
         throw error;
       }
       set({ userStats: data ?? null });
+      console.log('useCompetitionStore: loadUserStats: Finished.');
     } catch (error: any) {
+      console.error('useCompetitionStore: loadUserStats: Error:', error);
       set({ error: error.message || 'Failed to load user stats' });
     } finally {
       set({ isLoading: false });
@@ -493,6 +502,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
 
  loadCompetitionResultsHistory: async (userId) => {
     set({ isLoading: true, error: null });
+    console.log('useCompetitionStore: loadCompetitionResultsHistory: Starting...');
     try {
       // 1. Fetch competition results without attempting to join profiles
       const { data: results, error: resultsError } = await supabase
@@ -508,6 +518,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
 
       if (!results || results.length === 0) {
         set({ competitionResultsHistory: [] });
+        console.log('useCompetitionStore: loadCompetitionResultsHistory: No results found.');
         return;
       }
 
@@ -524,6 +535,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
         console.error('Error fetching profiles for competition results:', profilesError);
         // Continue without profile names if fetching profiles fails
         set({ competitionResultsHistory: results || [] });
+        console.log('useCompetitionStore: loadCompetitionResultsHistory: Finished with profile error.');
         return;
       }
 
@@ -539,7 +551,9 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       }));
 
       set({ competitionResultsHistory: mergedResults });
+      console.log('useCompetitionStore: loadCompetitionResultsHistory: Finished.');
     } catch (error: any) {
+      console.error('useCompetitionStore: loadCompetitionResultsHistory: Error:', error);
       set({ error: error.message || 'Failed to load competition results history' });
     } finally {
       set({ isLoading: false });
@@ -720,8 +734,8 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
     // From solo quiz history
     totalQuizzesPlayed += soloHistory.length;
     soloHistory.forEach(quiz => {
-      overallPoints += quiz.percentage_score || 0; // Assuming percentage score contributes to points
-    });
+      overallPoints += quiz.percentage || 0; // Assuming percentage score contributes to points
+    }); 
 
     // From competition results history
     totalQuizzesPlayed += competitionHistory.length;

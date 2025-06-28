@@ -30,11 +30,18 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId, filter = 'all' }) => 
   useEffect(() => {
     const loadHistory = async () => {
       setIsLoading(true);
-      await Promise.all([
-        loadSoloQuizHistory(userId),
-        loadCompetitionResultsHistory(userId)
-      ]);
-      setIsLoading(false);
+      console.log('QuizHistory: Starting to load solo and competition history...');
+      try {
+        await Promise.all([
+          loadSoloQuizHistory(userId),
+          loadCompetitionResultsHistory(userId)
+        ]);
+        console.log('QuizHistory: Finished loading solo and competition history.');
+      } catch (error) {
+        console.error('QuizHistory: Error loading history:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
     loadHistory();
   }, [userId, loadSoloQuizHistory, loadCompetitionResultsHistory]);
