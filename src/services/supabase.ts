@@ -166,7 +166,7 @@ const prefsData = {
     : null,
   time_limit_enabled: preferences.timeLimitEnabled || false,
   negative_marking: preferences.negativeMarking || false,
-  negative_marks: preferences.negativeMarks || 0,
+  negative_marks: preferences.negativeMarking ? (preferences.negativeMarks || 0) : 0,
   mode: preferences.mode || 'practice'
 };
 
@@ -593,6 +593,24 @@ export const getCompetitionResultsHistory = async (userId: string) => {
     return data;
   } catch (error) {
     console.error('getCompetitionResultsHistory error:', error);
+    throw error;
+  }
+};
+
+export const deleteQuizResult = async (quizResultId: string) => {
+  try {
+    const { error } = await supabase
+      .from('quiz_results')
+      .delete()
+      .eq('id', quizResultId);
+
+    if (error) {
+      console.error('Error deleting quiz result:', error);
+      throw error;
+    }
+    return true;
+  } catch (error) {
+    console.error('deleteQuizResult error:', error);
     throw error;
   }
 };

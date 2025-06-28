@@ -1,7 +1,7 @@
 // src/store/useQuizStore.ts
 import { create } from 'zustand';
 import { ApiKeyData, Question, QuizPreferences, QuizResult } from '../types';
-import { getApiKey, getQuizPreferences, saveApiKey, saveQuizPreferences, saveQuizResultToDatabase } from '../services/supabase';
+import { getApiKey, getQuizPreferences, saveApiKey, saveQuizPreferences, saveQuizResultToDatabase, getQuizResultsWithAnalytics, deleteQuizResult } from '../services/supabase';
 import { generateQuiz, getAnswerExplanation } from '../services/gemini';
 import { useAuthStore } from './useAuthStore';
 
@@ -54,6 +54,7 @@ interface QuizState {
   isLoading: boolean;
   error: string | null;
   explanation: string | null;
+  soloQuizHistory: any[]; // New state for solo quiz history
   
   // Preference actions
   loadApiKey: (userId: string) => Promise<void>;
@@ -72,6 +73,10 @@ interface QuizState {
   // Explanation
   getExplanation: (questionId: number) => Promise<void>;
   resetExplanation: () => void;
+
+  // Solo Quiz History actions
+  loadSoloQuizHistory: (userId: string) => Promise<void>;
+  deleteSoloQuizResult: (quizResultId: string) => Promise<void>;
 }
 
 export const defaultPreferences: QuizPreferences = {
@@ -101,6 +106,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   isLoading: false,
   error: null,
   explanation: null,
+  soloQuizHistory: [], // Initialize solo quiz history
   
   loadApiKey: async (userId) => {
     set({ isLoading: true, error: null });
@@ -176,7 +182,7 @@ const validatedPreferences = {
     ? preferences.totalTimeLimit 
     : null,
   negativeMarking: preferences.negativeMarking || false,
-  negativeMarks: preferences.negativeMarking ? (preferences.negativeMarks || -0.25) : 0,
+  negativeMarks: preferences.negativeMarking ? (preferences.negativeMarks || 0) : 0,
   mode: preferences.mode || 'practice',
   answerMode: preferences.mode === 'practice' ? 'immediate' : 'end'
 };
@@ -441,5 +447,33 @@ const validatedPreferences = {
   
   resetExplanation: () => {
     set({ explanation: null });
-  }
+  },
+
+  // Solo Quiz History actions
+  loadSoloQuizHistory: async (userId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const history = await getQuizResultsWithAnalytics(userId);
+      set({ soloQuizHistory: history });
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to load solo quiz history' });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  deleteSoloQuizResult: async (quizResultId) => {
+    set({ isLoading: true, error: null });
+    try {
+      await deleteQuizResult(quizResultId);
+      set((state) => ({
+        soloQuizHistory: state.soloQuizHistory.filter((result) => result.id !== quizResultId),
+      }));
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to delete solo quiz result' });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 }));
+

@@ -1176,6 +1176,27 @@ startCompetition: async (competitionId, apiKey) => {
   }
 },
 
+  loadCompetitionResultsHistory: async (userId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await supabase
+        .from('competition_results')
+        .select(`
+          *,
+          profiles(full_name)
+        `)
+        .eq('user_id', userId)
+        .order('competition_date', { ascending: false });
+
+      if (error) throw error;
+      set({ competitionResultsHistory: data || [] });
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to load competition results history' });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
 
   loadChatMessages: async (competitionId) => {
     try {
@@ -1556,4 +1577,4 @@ subscribeToCompetition: (competitionId) => {
       set({ activeSubscriptions });
     };
   }
-}));
+})); 

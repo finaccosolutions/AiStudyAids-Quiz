@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { QuizResult } from '../../types';
+import { QuizResult, QuizPreferences } from '../../types';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardFooter, CardHeader } from '../ui/Card';
 import { 
@@ -8,23 +8,27 @@ import {
   ChevronDown, ChevronUp, BarChart3, PieChart, Activity,
   Lightbulb, ThumbsUp, AlertTriangle, Sparkles
 } from 'lucide-react';
-import { useQuizStore } from '../../store/useQuizStore';
+import { useQuizStore } from '../../store/useQuizStore'; // Keep for explanation logic
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface QuizResultsProps {
   result: QuizResult;
-  onNewQuiz: () => void;
-  onChangePreferences: () => void;
+  preferences: QuizPreferences; // Now passed as a prop
+  onNewQuiz?: () => void; // Optional for solo quiz flow
+  onChangePreferences?: () => void; // Optional for solo quiz flow
+  onClose?: () => void; // Optional for history view
 }
 
 const QuizResults: React.FC<QuizResultsProps> = ({
   result,
+  preferences,
   onNewQuiz,
   onChangePreferences,
+  onClose
 }) => {
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
-  const { getExplanation, explanation, isLoading, resetExplanation, preferences } = useQuizStore();
+  const { getExplanation, explanation, isLoading, resetExplanation } = useQuizStore(); // Use store for explanation
   
   const handleGetExplanation = async (questionId: number) => {
     if (selectedQuestionId === questionId) {
@@ -498,28 +502,45 @@ const QuizResults: React.FC<QuizResultsProps> = ({
         </CardBody>
         
         <CardFooter className="flex flex-col sm:flex-row sm:justify-center gap-3 sm:gap-4 bg-gradient-to-r from-gray-50 to-purple-50 border-t border-purple-100 p-4 sm:p-6">
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
-            <Button
-              type="button"
-              onClick={onNewQuiz}
-              className="gradient-bg hover:opacity-90 transition-all duration-300 font-semibold px-6 sm:px-8 py-3 shadow-lg w-full sm:w-auto"
-            >
-              <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-              Try Again
-            </Button>
-          </motion.div>
+          {onNewQuiz && (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
+              <Button
+                type="button"
+                onClick={onNewQuiz}
+                className="gradient-bg hover:opacity-90 transition-all duration-300 font-semibold px-6 sm:px-8 py-3 shadow-lg w-full sm:w-auto"
+              >
+                <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                Try Again
+              </Button>
+            </motion.div>
+          )}
           
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onChangePreferences}
-              className="border-2 border-purple-200 text-purple-600 hover:bg-purple-50 font-semibold px-6 sm:px-8 py-3 w-full sm:w-auto"
-            >
-              <Target className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-              Change Settings
-            </Button>
-          </motion.div>
+          {onChangePreferences && (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onChangePreferences}
+                className="border-2 border-purple-200 text-purple-600 hover:bg-purple-50 font-semibold px-6 sm:px-8 py-3 w-full sm:w-auto"
+              >
+                <Target className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                Change Settings
+              </Button>
+            </motion.div>
+          )}
+
+          {onClose && (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                className="border-2 border-gray-300 text-gray-600 hover:bg-gray-100 font-semibold px-6 sm:px-8 py-3 w-full sm:w-auto"
+              >
+                Close
+              </Button>
+            </motion.div>
+          )}
         </CardFooter>
       </Card>
       
