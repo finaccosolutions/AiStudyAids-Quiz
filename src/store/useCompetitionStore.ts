@@ -31,7 +31,7 @@ interface CompetitionStoreState {
   cancelCompetition: (competitionId: string) => Promise<void>;
   startCompetition: (competitionId: string, apiKey: string) => Promise<void>;
   loadParticipants: (competitionId: string) => Promise<void>;
-  updateParticipantProgress: (competitionId: string, answers: Record<number, string>, score: number, correctAnswers: number, timeTaken: number, currentQuestionIndex: number) => Promise<void>;
+  updateParticipantProgress: (competitionId: string, answers: Record<number, string>, score: number, correctAnswers: number, timeTaken: number,   currentQuestionIndex: number) => Promise<void>;
   completeCompetition: (competitionId: string) => Promise<void>;
   subscribeToCompetition: (competitionId: string) => () => void;
   getLiveLeaderboard: (competitionId: string) => CompetitionParticipant[];
@@ -41,6 +41,7 @@ interface CompetitionStoreState {
   clearCurrentCompetition: () => void;
   loadUserStats: (userId: string) => Promise<void>;
   loadCompetitionResultsHistory: (userId: string) => Promise<void>;
+  createCompetition: (preferences: any, userId: string, title: string, description: string, type: 'private' | 'random') => Promise<string>;
   
   // Chat actions
   loadChatMessages: (competitionId: string) => Promise<void>;
@@ -120,8 +121,8 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
         .from('competitions')
         .insert({
           creator_id: user.id, // Use user.id from the session
-          title,
-          description,
+          title, // Modified: Added title
+          description, // Modified: Added description
           competition_code: competitionCode,
           type,
           quiz_preferences: preferences,

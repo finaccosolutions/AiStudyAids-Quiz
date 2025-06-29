@@ -42,6 +42,7 @@ const QuizPage: React.FC = () => {
     participants,
     loadParticipants,
     clearCurrentCompetition,
+    createCompetition, // Ensure createCompetition is imported
     cleanupSubscriptions,
     setCleanupFlag
   } = useCompetitionStore();
@@ -567,11 +568,24 @@ const handleStartCompetitionQuiz = useCallback(async () => {
     navigate('/');
   }, [navigate, clearCurrentCompetition, setCleanupFlag, cleanupSubscriptions]);
 
-const handleCreateCompetitionSuccess = useCallback(() => {
-  if (!isComponentMountedRef.current) return;
-  setStep('competition-lobby');
-  currentStepRef.current = 'competition-lobby';
-}, []);
+const handleCreateCompetitionSuccess = useCallback(async (preferences, title, description) => {
+  if (!user || !isComponentMountedRef.current) return;
+
+  setIsGeneratingQuiz(true); // Use isGeneratingQuiz for competition creation as well
+  try {
+    // Call the createCompetition function from useCompetitionStore
+    await createCompetition(preferences, user.id, title, description, 'private');
+    if (isComponentMountedRef.current) {
+      setStep('competition-lobby');
+      currentStepRef.current = 'competition-lobby';
+    }
+  } catch (error) {
+    console.error('Failed to create competition:', error);
+    // Handle error, maybe show a toast
+  } finally {
+    setIsGeneratingQuiz(false);
+  }
+}, [user, createCompetition]);
 
   const handleSelectActiveCompetition = useCallback((competition: any) => {
     if (!isComponentMountedRef.current) return;

@@ -4,7 +4,7 @@ import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card, CardBody, CardHeader } from '../ui/Card';
-import { QuizPreferences } from '../../types';
+import { QuizPreferences, QuestionType } from '../../types';
 import { 
   Brain, Users, Clock, Globe, Target, Zap, 
   BookOpen, GraduationCap, Settings, Play,
@@ -18,8 +18,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface QuizPreferencesFormProps {
   userId: string;
   initialPreferences: QuizPreferences;
-  onSave?: () => void;
-  onStartCompetition?: () => void;
+  onSave?: () => void; // For solo quiz
+  onStartCompetition?: (preferences: QuizPreferences, title: string, description: string) => void;
 }
 
 const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
@@ -30,8 +30,7 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
 }) => {
   const { savePreferences, isLoading, error } = useQuizStore();
   const { createCompetition } = useCompetitionStore();
-  
-  const [preferences, setPreferences] = useState<QuizPreferences>(initialPreferences);
+  const [preferences, setPreferences] = useState<QuizPreferences>(initialPreferences); 
   const [competitionData, setCompetitionData] = useState({
     title: '',
     description: '',
@@ -43,6 +42,8 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
   const [languageSearch, setLanguageSearch] = useState('');
   const [timeInputMode, setTimeInputMode] = useState<'perQuestion' | 'totalTime'>('perQuestion');
+  const [competitionTitle, setCompetitionTitle] = useState('');
+  const [competitionDescription, setCompetitionDescription] = useState('');
 
   const isCompetitionMode = !!onStartCompetition;
 
@@ -207,10 +208,10 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
           quizPreferences: preferences,
           emails: competitionData.emails
         });
-        
-        onStartCompetition();
+
+         await onStartCompetition(currentPreferences, competitionTitle, competitionDescription);onStartCompetition();
       } else if (onSave) {
-        onSave();
+        await onSave(currentPreferences);
       }
     } catch (error) {
       console.error('Failed to save preferences:', error);
