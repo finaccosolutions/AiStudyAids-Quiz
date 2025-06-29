@@ -1,8 +1,8 @@
 // src/pages/AuthPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { SignIn } from '../components/auth/SignIn';
 import { SignUp } from '../components/auth/SignUp';
-import { ForgotPassword } from '../components/auth/ForgotPassword'; // Import new component
+import { ForgotPassword } from '../components/auth/ForgotPassword';
 import { Brain, CheckCircle, Sparkles, Users, Award, TrendingUp } from 'lucide-react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
@@ -11,21 +11,22 @@ import { motion } from 'framer-motion';
 const AuthPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || 'signin';
-  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot-password'>(mode as 'signin' | 'signup' | 'forgot-password'); // Updated state type
   const { isLoggedIn } = useAuthStore();
-  
-  useEffect(() => {
-    setAuthMode(mode as 'signin' | 'signup' | 'forgot-password');
-  }, [mode]);
-  
+
+  // Directly derive authMode from the URL search parameter
+  const authMode = mode as 'signin' | 'signup' | 'forgot-password';
+
   if (isLoggedIn) {
     return <Navigate to="/" />;
   }
 
   const handleToggleMode = (newMode: 'signin' | 'signup' | 'forgot-password') => {
-    setAuthMode(newMode);
+    // Update the URL search parameter to change the mode
+    const newSearchParams = new URLSearchParams();
+    newSearchParams.set('mode', newMode);
+    window.history.replaceState(null, '', `?${newSearchParams.toString()}`);
   };
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 relative overflow-hidden">
       {/* Background decorative elements */}
@@ -35,7 +36,7 @@ const AuthPage: React.FC = () => {
         <div className="absolute bottom-20 left-20 w-40 h-40 bg-blue-200 rounded-full blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '2s' }} />
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-full blur-3xl opacity-30" />
       </div>
-      
+
       <div className="relative z-10 min-h-screen flex flex-col lg:flex-row">
         {/* Left side - Branding and Features */}
         <div className="hidden lg:flex lg:w-1/2 flex-col justify-center px-12 xl:px-16">
@@ -60,7 +61,7 @@ const AuthPage: React.FC = () => {
                 <p className="text-gray-600 text-lg">AI-Powered Learning Platform</p>
               </div>
             </div>
-            
+
             {/* Features */}
             <div className="space-y-6">
               <motion.div
@@ -77,7 +78,7 @@ const AuthPage: React.FC = () => {
                   <p className="text-gray-600">AI-powered quizzes that adapt to your knowledge level and learning style.</p>
                 </div>
               </motion.div>
-              
+
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -92,7 +93,7 @@ const AuthPage: React.FC = () => {
                   <p className="text-gray-600">Get detailed explanations and insights for every answer to accelerate learning.</p>
                 </div>
               </motion.div>
-              
+
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -131,7 +132,7 @@ const AuthPage: React.FC = () => {
             </motion.div>
           </motion.div>
         </div>
-        
+
         {/* Right side - Auth Forms */}
         <div className="w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <div className="w-full max-w-full sm:max-w-md lg:max-w-lg">
@@ -149,7 +150,7 @@ const AuthPage: React.FC = () => {
                 {authMode === 'signin' ? 'Welcome back!' : authMode === 'signup' ? 'Join our community of learners' : 'Reset your password'}
               </p>
             </div>
-            
+
             {/* Auth Forms */}
             <motion.div
               key={authMode} // Use authMode as key to trigger re-animation

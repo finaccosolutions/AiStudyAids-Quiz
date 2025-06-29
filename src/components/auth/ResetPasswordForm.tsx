@@ -14,20 +14,23 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ onResetSuc
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // New state
 
-  const { updateUserPassword, isLoading, error } = useAuthStore();
+  const { updateUserPassword, error } = useAuthStore(); // Removed isLoading from useAuthStore
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      // This error will be caught by the UI validation, but good to have a fallback
       return;
     }
+    setIsSubmitting(true); // Set submitting to true
     try {
       await updateUserPassword(password);
       onResetSuccess();
     } catch (err) {
       console.error('Password reset failed:', err);
+    } finally {
+      setIsSubmitting(false); // Set submitting to false
     }
   };
 
@@ -41,7 +44,7 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ onResetSuc
       >
         {/* Background gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-indigo-50/50 pointer-events-none" />
-        
+
         <div className="relative z-10">
           {/* Header */}
           <div className="text-center mb-6 sm:mb-8">
@@ -171,7 +174,7 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ onResetSuc
             {/* Submit Button */}
             <motion.button
               type="submit"
-              disabled={isLoading || password !== confirmPassword || !password}
+              disabled={isSubmitting || password !== confirmPassword || !password} // Use isSubmitting
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 sm:py-4 px-6 rounded-xl font-bold text-base sm:text-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] relative overflow-hidden group"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -180,7 +183,7 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ onResetSuc
               transition={{ delay: 0.5 }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              {isLoading ? (
+              {isSubmitting ? ( // Use isSubmitting for button text
                 <div className="flex items-center justify-center">
                   <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
                   Resetting Password...

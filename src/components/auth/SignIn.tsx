@@ -5,7 +5,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { motion } from 'framer-motion';
 
 interface SignInProps {
-  onToggleMode: (mode: 'signup' | 'forgot-password') => void; // Updated prop type
+  onToggleMode: (mode: 'signup' | 'forgot-password') => void;
 }
 
 export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
@@ -15,15 +15,19 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // New state
 
-  const { login, isLoading, error } = useAuthStore();
+  const { login, error } = useAuthStore(); // Removed isLoading from useAuthStore
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true); // Set submitting to true
     try {
       await login(formData.email, formData.password);
     } catch (error) {
       console.error('Login failed:', error);
+    } finally {
+      setIsSubmitting(false); // Set submitting to false
     }
   };
 
@@ -37,14 +41,13 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
   return (
     <div className="w-full">
       <motion.div
-        // Removed initial={{ opacity: 0, y: 20 }} from here
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl border border-white/20 p-4 sm:p-8 relative overflow-hidden w-full"
       >
         {/* Background gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-indigo-50/50 pointer-events-none" />
-        
+
         <div className="relative z-10">
           {/* Header */}
           <div className="text-center mb-6 sm:mb-8">
@@ -152,7 +155,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
                 <div className="text-right mt-2">
                   <button
                     type="button"
-                    onClick={() => onToggleMode('forgot-password')} // New: Toggle to forgot password
+                    onClick={() => onToggleMode('forgot-password')}
                     className="text-blue-600 hover:text-blue-700 text-sm font-semibold hover:underline transition-all duration-300"
                   >
                     Forgot Password?
@@ -164,7 +167,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
             {/* Submit Button */}
             <motion.button
               type="submit"
-              disabled={isLoading}
+              disabled={isSubmitting} // Use isSubmitting
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 sm:py-4 px-6 rounded-xl font-bold text-base sm:text-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] relative overflow-hidden group"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -173,7 +176,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
               transition={{ delay: 0.5 }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              {isLoading ? (
+              {isSubmitting ? ( // Use isSubmitting for button text
                 <div className="flex items-center justify-center">
                   <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
                   Signing In...
@@ -197,7 +200,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
             <p className="text-gray-600 text-base sm:text-lg">
               Don't have an account?{' '}
               <button
-                onClick={() => onToggleMode('signup')} // Updated: Pass 'signup' mode
+                onClick={() => onToggleMode('signup')}
                 className="text-blue-600 hover:text-blue-700 font-bold hover:underline transition-all duration-300 relative group"
               >
                 Sign Up

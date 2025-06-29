@@ -1,3 +1,4 @@
+// src/components/auth/SignUp.tsx
 import React, { useState } from 'react';
 import { Eye, EyeOff, User, Mail, Phone, Lock, Sparkles, CheckCircle, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -5,7 +6,7 @@ import { countries } from '../../data/countries';
 import { motion } from 'framer-motion';
 
 interface SignUpProps {
-  onToggleMode: () => void;
+  onToggleMode: (mode: 'signin') => void; // Updated prop type to expect 'signin'
 }
 
 export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
@@ -21,18 +22,20 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { register, isLoading, error } = useAuthStore();
+  const { register, error } = useAuthStore();
 
   const selectedCountry = countries.find(c => c.code === formData.countryCode);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (formData.password !== formData.confirmPassword) {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await register(
         formData.email,
@@ -43,6 +46,8 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
       setIsSubmitted(true);
     } catch (error: any) {
       console.error('Registration failed:', error?.message || error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -63,7 +68,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
           className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl border border-white/20 p-4 sm:p-8 text-center relative overflow-hidden w-full"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 via-transparent to-emerald-50/50 pointer-events-none" />
-          
+
           <div className="relative z-10">
             <motion.div
               initial={{ scale: 0 }}
@@ -75,11 +80,11 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
             </motion.div>
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Check Your Email!</h2>
             <p className="text-gray-600 mb-6 text-base sm:text-lg leading-relaxed">
-              We've sent a verification link to <strong className="text-green-600">{formData.email}</strong>. 
+              We've sent a verification link to <strong className="text-green-600">{formData.email}</strong>.
               Please check your email and click the link to activate your account.
             </p>
             <motion.button
-              onClick={onToggleMode}
+              onClick={() => onToggleMode('signin')} // Changed to explicitly pass 'signin'
               className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 sm:py-4 px-6 rounded-xl font-bold text-base sm:text-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -102,7 +107,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
       >
         {/* Background gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-transparent to-purple-50/50 pointer-events-none" />
-        
+
         <div className="relative z-10">
           {/* Header */}
           <div className="text-center mb-6 sm:mb-8">
@@ -344,7 +349,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
             {/* Submit Button */}
             <motion.button
               type="submit"
-              disabled={isLoading || formData.password !== formData.confirmPassword}
+              disabled={isSubmitting || formData.password !== formData.confirmPassword}
               className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 sm:py-4 px-6 rounded-xl font-bold text-base sm:text-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] relative overflow-hidden group"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -353,7 +358,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
               transition={{ delay: 0.8 }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              {isLoading ? (
+              {isSubmitting ? (
                 <div className="flex items-center justify-center">
                   <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
                   Creating Account...
@@ -377,7 +382,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
             <p className="text-gray-600 text-base sm:text-lg">
               Already have an account?{' '}
               <button
-                onClick={onToggleMode}
+                onClick={() => onToggleMode('signin')} // Changed to explicitly pass 'signin'
                 className="text-indigo-600 hover:text-indigo-700 font-bold hover:underline transition-all duration-300 relative group"
               >
                 Sign In
