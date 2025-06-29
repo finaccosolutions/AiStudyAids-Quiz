@@ -208,29 +208,26 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (isCompetitionMode && onStartCompetition) {
       setIsCreatingCompetition(true);
 
-      // 3. Prepare competition data
+      // 3. Prepare competition data with guaranteed non-null title
       const competitionPayload = {
         preferences: finalPreferences,
-        userId, // Pass the userId explicitly
-        title: competitionData.title || `${preferences.course} Quiz Challenge`,
-        description: competitionData.description || `Test your knowledge in ${preferences.course}`,
-        type: 'private' as const, // Ensure type is 'private' or 'random'
+        userId,
+        title: competitionData.title.trim() || `${preferences.course} Quiz Challenge`,
+        description: competitionData.description.trim() || `Test your knowledge in ${preferences.course}`,
+        type: 'private' as const,
         emails: competitionData.emails
       };
 
-      console.log("Creating competition with:", competitionPayload); // Debug log
+      console.log("Creating competition with:", competitionPayload);
 
-      // 4. Create competition
-      const competitionId = await createCompetition(competitionPayload);
-
-      // 5. Start competition
+      // 4. Create competition - ensure this matches your Supabase table structure
       await onStartCompetition(
-        finalPreferences, 
-        competitionPayload.title, 
+        finalPreferences,
+        competitionPayload.title,
         competitionPayload.description
       );
     } else if (onSave) {
-      await onSave(finalPreferences);
+      await onSave();
     }
   } catch (error) {
     console.error('Submission failed:', error);
@@ -1160,4 +1157,4 @@ const decrementTime = () => {
   );
 };
 
-export default QuizPreferencesForm;  
+export default QuizPreferencesForm; 
