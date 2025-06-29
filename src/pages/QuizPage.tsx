@@ -573,8 +573,8 @@ const handleCreateCompetitionSuccess = useCallback(async (preferences, title, de
 
   setIsGeneratingQuiz(true); // Use isGeneratingQuiz for competition creation as well
   try {
-    // Call the createCompetition function from useCompetitionStore
-    await createCompetition(preferences, user.id, title, description, 'private');
+    // Call the createCompetition function from useCompetitionStore 
+    await createCompetition(preferences, user.id, title, description, 'private'); 
     if (isComponentMountedRef.current) {
       setStep('competition-lobby');
       currentStepRef.current = 'competition-lobby';

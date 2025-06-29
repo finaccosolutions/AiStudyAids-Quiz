@@ -19,7 +19,7 @@ interface QuizPreferencesFormProps {
   userId: string;
   initialPreferences: QuizPreferences;
   onSave?: () => void; // For solo quiz
-  onStartCompetition?: (preferences: QuizPreferences, title: string, description: string) => void;
+  onStartCompetition?: (preferences: QuizPreferences, title: string, description: string) => void; // For competition
 }
 
 const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
@@ -30,7 +30,9 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
 }) => {
   const { savePreferences, isLoading, error } = useQuizStore();
   const { createCompetition } = useCompetitionStore();
-  const [preferences, setPreferences] = useState<QuizPreferences>(initialPreferences); 
+  const [preferences, setPreferences] = useState<QuizPreferences>(initialPreferences);
+  const [competitionTitle, setCompetitionTitle] = useState('');
+  const [competitionDescription, setCompetitionDescription] = useState('');
   const [competitionData, setCompetitionData] = useState({
     title: '',
     description: '',
@@ -42,8 +44,6 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
   const [languageSearch, setLanguageSearch] = useState('');
   const [timeInputMode, setTimeInputMode] = useState<'perQuestion' | 'totalTime'>('perQuestion');
-  const [competitionTitle, setCompetitionTitle] = useState('');
-  const [competitionDescription, setCompetitionDescription] = useState('');
 
   const isCompetitionMode = !!onStartCompetition;
 
@@ -192,33 +192,52 @@ const QuizPreferencesForm: React.FC<QuizPreferencesFormProps> = ({
   answerMode: onStartCompetition ? 'end' : preferences.answerMode
 };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      await savePreferences(userId, finalPreferences);
-      
-      if (isCompetitionMode && onStartCompetition) {
-        setIsCreatingCompetition(true);
-        
-        const competition = await createCompetition({
-          title: competitionData.title || `${preferences.course} Quiz Challenge`,
-          description: competitionData.description || `Test your knowledge in ${preferences.course}`,
-          type: 'private',
-          quizPreferences: preferences,
-          emails: competitionData.emails
-        });
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-         await onStartCompetition(currentPreferences, competitionTitle, competitionDescription);onStartCompetition();
-      } else if (onSave) {
-        await onSave(currentPreferences);
-      }
-    } catch (error) {
-      console.error('Failed to save preferences:', error);
-    } finally {
-      setIsCreatingCompetition(false);
+  // 1. Validate required fields
+  if (isCompetitionMode && !competitionData.title?.trim()) {
+    alert("Please enter a competition title");
+    return;
+  }
+
+  try {
+    // 2. Save quiz preferences
+    await savePreferences(userId, finalPreferences);
+
+    if (isCompetitionMode && onStartCompetition) {
+      setIsCreatingCompetition(true);
+
+      // 3. Prepare competition data
+      const competitionPayload = {
+        preferences: finalPreferences,
+        userId, // Pass the userId explicitly
+        title: competitionData.title || `${preferences.course} Quiz Challenge`,
+        description: competitionData.description || `Test your knowledge in ${preferences.course}`,
+        type: 'private' as const, // Ensure type is 'private' or 'random'
+        emails: competitionData.emails
+      };
+
+      console.log("Creating competition with:", competitionPayload); // Debug log
+
+      // 4. Create competition
+      const competitionId = await createCompetition(competitionPayload);
+
+      // 5. Start competition
+      await onStartCompetition(
+        finalPreferences, 
+        competitionPayload.title, 
+        competitionPayload.description
+      );
+    } else if (onSave) {
+      await onSave(finalPreferences);
     }
-  };
+  } catch (error) {
+    console.error('Submission failed:', error);
+  } finally {
+    setIsCreatingCompetition(false);
+  }
+};
 
   const handleQuestionTypeToggle = (type: string) => {
     setPreferences(prev => ({
@@ -331,6 +350,7 @@ const decrementTime = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
           {/* Competition Details (only for competition mode) */}
+          
           {isCompetitionMode && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -352,7 +372,7 @@ const decrementTime = () => {
                           Competition Title
                         </label>
                         <div className="relative group">
-                          <Input
+                          <Input 
                             type="text"
                             value={competitionData.title}
                             onChange={(e) => setCompetitionData(prev => ({ ...prev, title: e.target.value }))}

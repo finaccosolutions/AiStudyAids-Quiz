@@ -22,7 +22,15 @@ interface CompetitionStoreState {
     overallWinRate: number;
     totalQuizzesPlayed: number;
   } | null;
-
+createCompetition: (params: {
+    preferences: any;
+    userId: string;
+    title: string;
+    description: string;
+    type: 'private' | 'random';
+    emails?: string[];
+  }) => Promise<string>;
+  
   // Actions
   loadCompetition: (competitionId: string) => Promise<void>;
   createCompetition: (preferences: any, userId: string, title: string, description: string, type: 'private' | 'random') => Promise<string>;
@@ -93,9 +101,15 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
     }
   },
 
-  createCompetition: async (preferences, userId, title, description, type) => {
-    set({ isLoading: true, error: null });
-    try {
+  createCompetition: async ({ preferences, userId, title, description, type, emails = [] }) => {
+  set({ isLoading: true, error: null });
+  try {
+    console.log("[DEBUG] Creating competition:", { 
+      title, 
+      description,
+      creator_id: userId,
+      type
+    });
       // Generate a unique 6-character alphanumeric code
       let competitionCode = '';
       let isUnique = false;
@@ -144,13 +158,13 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       });
 
       return data.id;
-    } catch (error: any) {
-      set({ error: error.message || 'Failed to create competition' });
-      throw error;
-    } finally {
-      set({ isLoading: false });
-    }
-  },
+    } catch (error) {
+    console.error("[DEBUG] Competition creation failed:", error);
+    throw error;
+  } finally {
+    set({ isLoading: false });
+  }
+},
 
   joinCompetition: async (competitionCode) => {
     set({ isLoading: true, error: null });
