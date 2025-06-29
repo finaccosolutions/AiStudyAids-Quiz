@@ -77,7 +77,10 @@ const Header: React.FC = () => {
               <div className="absolute inset-0 bg-purple-500/20 rounded-full blur-xl transition-all duration-300 group-hover:blur-2xl" />
             </div>
             <span className="text-xl font-bold text-purple-600">
-              Ai Study Aids
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Ai
+              </span>{' '}
+              Study Aids
             </span>
           </Link>
 
