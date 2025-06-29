@@ -1,12 +1,12 @@
 // src/components/auth/SignUp.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Import useEffect
 import { Eye, EyeOff, User, Mail, Phone, Lock, Sparkles, CheckCircle, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { countries } from '../../data/countries';
 import { motion } from 'framer-motion';
 
 interface SignUpProps {
-  onToggleMode: (mode: 'signin') => void; // Updated prop type to expect 'signin'
+  onToggleMode: (mode: 'signin') => void;
 }
 
 export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
@@ -25,6 +25,11 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { register, error } = useAuthStore();
+
+  // Add useEffect to reset isSubmitting on mount
+  useEffect(() => {
+    setIsSubmitting(false);
+  }, []);
 
   const selectedCountry = countries.find(c => c.code === formData.countryCode);
 
@@ -84,7 +89,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
               Please check your email and click the link to activate your account.
             </p>
             <motion.button
-              onClick={() => onToggleMode('signin')} // Changed to explicitly pass 'signin'
+              onClick={() => onToggleMode('signin')}
               className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 sm:py-4 px-6 rounded-xl font-bold text-base sm:text-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -382,7 +387,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onToggleMode }) => {
             <p className="text-gray-600 text-base sm:text-lg">
               Already have an account?{' '}
               <button
-                onClick={() => onToggleMode('signin')} // Changed to explicitly pass 'signin'
+                onClick={() => onToggleMode('signin')}
                 className="text-indigo-600 hover:text-indigo-700 font-bold hover:underline transition-all duration-300 relative group"
               >
                 Sign In

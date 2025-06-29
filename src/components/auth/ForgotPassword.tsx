@@ -1,5 +1,5 @@
 // src/components/auth/ForgotPassword.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Import useEffect
 import { Mail, ArrowLeft, Send } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { motion } from 'framer-motion';
@@ -12,20 +12,25 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onToggleMode }) 
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // New state
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { resetPassword, error } = useAuthStore(); // Removed isLoading from useAuthStore
+  const { resetPassword, error } = useAuthStore();
+
+  // Add useEffect to reset isSubmitting on mount
+  useEffect(() => {
+    setIsSubmitting(false);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true); // Set submitting to true
+    setIsSubmitting(true);
     try {
       await resetPassword(email);
       setIsSubmitted(true);
     } catch (err) {
       console.error('Password reset request failed:', err);
     } finally {
-      setIsSubmitting(false); // Set submitting to false
+      setIsSubmitting(false);
     }
   };
 
@@ -147,7 +152,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onToggleMode }) 
             {/* Submit Button */}
             <motion.button
               type="submit"
-              disabled={isSubmitting} // Use isSubmitting
+              disabled={isSubmitting}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 sm:py-4 px-6 rounded-xl font-bold text-base sm:text-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] relative overflow-hidden group"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -156,7 +161,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onToggleMode }) 
               transition={{ delay: 0.4 }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              {isSubmitting ? ( // Use isSubmitting for button text
+              {isSubmitting ? (
                 <div className="flex items-center justify-center">
                   <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
                   Sending Link...

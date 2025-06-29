@@ -1,5 +1,5 @@
 // src/components/auth/SignIn.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Import useEffect
 import { Eye, EyeOff, Mail, Lock, LogIn, Sparkles, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { motion } from 'framer-motion';
@@ -15,19 +15,24 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // New state
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login, error } = useAuthStore(); // Removed isLoading from useAuthStore
+  const { login, error } = useAuthStore();
+
+  // Add useEffect to reset isSubmitting on mount
+  useEffect(() => {
+    setIsSubmitting(false);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true); // Set submitting to true
+    setIsSubmitting(true);
     try {
       await login(formData.email, formData.password);
     } catch (error) {
       console.error('Login failed:', error);
     } finally {
-      setIsSubmitting(false); // Set submitting to false
+      setIsSubmitting(false);
     }
   };
 
@@ -167,7 +172,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
             {/* Submit Button */}
             <motion.button
               type="submit"
-              disabled={isSubmitting} // Use isSubmitting
+              disabled={isSubmitting}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 sm:py-4 px-6 rounded-xl font-bold text-base sm:text-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] relative overflow-hidden group"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -176,7 +181,7 @@ export const SignIn: React.FC<SignInProps> = ({ onToggleMode }) => {
               transition={{ delay: 0.5 }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              {isSubmitting ? ( // Use isSubmitting for button text
+              {isSubmitting ? (
                 <div className="flex items-center justify-center">
                   <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
                   Signing In...

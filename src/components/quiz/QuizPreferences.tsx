@@ -1139,4 +1139,4 @@ const decrementTime = () => {
   );
 };
 
-export default QuizPreferencesForm;
+export default QuizPreferencesForm;  

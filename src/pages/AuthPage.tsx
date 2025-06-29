@@ -9,7 +9,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { motion } from 'framer-motion';
 
 const AuthPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams(); // Destructure setSearchParams
   const mode = searchParams.get('mode') || 'signin';
   const { isLoggedIn } = useAuthStore();
 
@@ -22,9 +22,7 @@ const AuthPage: React.FC = () => {
 
   const handleToggleMode = (newMode: 'signin' | 'signup' | 'forgot-password') => {
     // Update the URL search parameter to change the mode
-    const newSearchParams = new URLSearchParams();
-    newSearchParams.set('mode', newMode);
-    window.history.replaceState(null, '', `?${newSearchParams.toString()}`);
+    setSearchParams({ mode: newMode }); // Use setSearchParams here
   };
 
   return (
@@ -176,4 +174,4 @@ const AuthPage: React.FC = () => {
   );
 };
 
-export default AuthPage; 
+export default AuthPage;

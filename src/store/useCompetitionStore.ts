@@ -110,10 +110,16 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
         }
       }
 
+      // Get the current authenticated user's ID directly from Supabase session
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User not authenticated. Please log in to create a competition.');
+      }
+
       const { data, error } = await supabase
         .from('competitions')
         .insert({
-          creator_id: userId,
+          creator_id: user.id, // Use user.id from the session
           title,
           description,
           competition_code: competitionCode,
@@ -132,7 +138,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       // Add creator as a participant
       await supabase.from('competition_participants').insert({
         competition_id: data.id,
-        user_id: userId,
+        user_id: user.id, // Use user.id from the session
         status: 'joined',
       });
 
@@ -494,7 +500,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
     }
   },
 
- loadCompetitionResultsHistory: async (userId) => {
+loadCompetitionResultsHistory: async (userId) => {
     set({ isLoading: true, error: null });
     try {
       // 1. Fetch competition results without attempting to join profiles
@@ -734,7 +740,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
         totalWins++;
       }
       totalCompetitionsParticipated++;
-       if (compResult.final_rank !== null && (bestOverallRank === null || compResult.final_rank < bestOverallRank)) {
+      if (compResult.final_rank !== null && (bestOverallRank === null || compResult.final_rank < bestOverallRank)) {
         bestOverallRank = compResult.final_rank;
       }
     });
