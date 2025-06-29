@@ -1,6 +1,7 @@
+// src/store/useAuthStore.ts
 import { create } from 'zustand';
 import { UserData } from '../types';
-import { getCurrentUser, signIn, signOut, signUp, resetPassword as resetPasswordRequest } from '../services/supabase';
+import { getCurrentUser, signIn, signOut, signUp, resetPassword as resetPasswordRequest, updatePassword, resendVerificationEmail as resendEmailRequest } from '../services/supabase'; // Import resendVerificationEmail
 
 interface AuthState {
   user: UserData | null;
@@ -14,6 +15,8 @@ interface AuthState {
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  resendVerificationEmail: (email: string) => Promise<void>; // New action
+  updateUserPassword: (newPassword: string) => Promise<void>; // New action
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -140,4 +143,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: false });
     }
   },
-}));
+
+  resendVerificationEmail: async (email) => { // New action implementation
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await resendEmailRequest(email);
+      if (error) throw error;
+      set({ error: 'Verification email resent successfully!' }); // Using error state for success message
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to resend verification email' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+  
+  updateUserPassword: async (newPassword) => { // New action implementation
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await updatePassword(newPassword);
+      if (error) throw error;
+      set({ error: 'Password updated successfully!' });
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to update password' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+})); 

@@ -1,3 +1,4 @@
+// src/services/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 import { ApiKeyData, QuizPreferences, UserProfile, QuizResultData, FavoriteQuestion } from '../types';
 
@@ -161,7 +162,7 @@ const prefsData = {
   time_limit: preferences.timeLimitEnabled && preferences.timeLimit && preferences.totalTimeLimit === null 
     ? parseInt(preferences.timeLimit) 
     : null,
-  total_time_limit: preferences.timeLimitEnabled && preferences.totalTimeLimit && preferences.timeLimit === null 
+  total_time_limit: preferences.timeLimitEnabled && preferences.timeLimit === null 
     ? parseInt(preferences.totalTimeLimit) 
     : null,
   time_limit_enabled: preferences.timeLimitEnabled || false,
@@ -206,7 +207,7 @@ export const signUp = async (
           registration_status: 'pending_verification',
           registration_date: new Date().toISOString(),
         },
-        emailRedirectTo: `${window.location.origin}/auth?mode=signin`,
+        emailRedirectTo: `${window.location.origin}/auth-redirect`, // Updated redirect URL
       }
     });
 
@@ -357,7 +358,7 @@ export const getCurrentUser = async () => {
 export const resetPassword = async (email: string) => {
   try {
     return supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}/auth-redirect`, // Updated redirect URL
     });
   } catch (error) {
     console.error('resetPassword error:', error);
@@ -370,6 +371,15 @@ export const updatePassword = async (newPassword: string) => {
     return supabase.auth.updateUser({ password: newPassword });
   } catch (error) {
     console.error('updatePassword error:', error);
+    throw error;
+  }
+};
+
+export const resendVerificationEmail = async (email: string) => {
+  try {
+    return supabase.auth.resend({ type: 'signup', email });
+  } catch (error) {
+    console.error('resendVerificationEmail error:', error);
     throw error;
   }
 };

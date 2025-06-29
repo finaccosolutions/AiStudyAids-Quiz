@@ -1,6 +1,8 @@
+// src/pages/AuthPage.tsx
 import React, { useState, useEffect } from 'react';
 import { SignIn } from '../components/auth/SignIn';
 import { SignUp } from '../components/auth/SignUp';
+import { ForgotPassword } from '../components/auth/ForgotPassword'; // Import new component
 import { Brain, CheckCircle, Sparkles, Users, Award, TrendingUp } from 'lucide-react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
@@ -9,16 +11,20 @@ import { motion } from 'framer-motion';
 const AuthPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || 'signin';
-  const [isSignIn, setIsSignIn] = useState(mode === 'signin');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot-password'>(mode as 'signin' | 'signup' | 'forgot-password'); // Updated state type
   const { isLoggedIn } = useAuthStore();
   
   useEffect(() => {
-    setIsSignIn(mode === 'signin');
+    setAuthMode(mode as 'signin' | 'signup' | 'forgot-password');
   }, [mode]);
   
   if (isLoggedIn) {
     return <Navigate to="/" />;
   }
+
+  const handleToggleMode = (newMode: 'signin' | 'signup' | 'forgot-password') => {
+    setAuthMode(newMode);
+  };
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 relative overflow-hidden">
@@ -140,22 +146,26 @@ const AuthPage: React.FC = () => {
                 <h1 className="text-2xl sm:text-3xl font-bold gradient-text">QuizGenius</h1>
               </motion.div>
               <p className="text-gray-600 text-sm sm:text-base">
-                {isSignIn ? 'Welcome back!' : 'Join our community of learners'}
+                {authMode === 'signin' ? 'Welcome back!' : authMode === 'signup' ? 'Join our community of learners' : 'Reset your password'}
               </p>
             </div>
             
             {/* Auth Forms */}
             <motion.div
-              key={isSignIn ? 'signin' : 'signup'}
-              initial={{ opacity: 0, x: isSignIn ? -20 : 20 }}
+              key={authMode} // Use authMode as key to trigger re-animation
+              initial={{ opacity: 0, x: authMode === 'signin' ? -20 : 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
               className="w-full"
             >
-              {isSignIn ? (
-                <SignIn onToggleMode={() => setIsSignIn(false)} />
-              ) : (
-                <SignUp onToggleMode={() => setIsSignIn(true)} />
+              {authMode === 'signin' && (
+                <SignIn onToggleMode={handleToggleMode} />
+              )}
+              {authMode === 'signup' && (
+                <SignUp onToggleMode={handleToggleMode} />
+              )}
+              {authMode === 'forgot-password' && (
+                <ForgotPassword onToggleMode={handleToggleMode} />
               )}
             </motion.div>
           </div>
@@ -165,4 +175,4 @@ const AuthPage: React.FC = () => {
   );
 };
 
-export default AuthPage;
+export default AuthPage; 

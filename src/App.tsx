@@ -1,4 +1,4 @@
-// App.tsx
+// src/App.tsx
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/useAuthStore';
@@ -17,7 +17,8 @@ import ProgressTrackerPage from './pages/ProgressTrackerPage';
 import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 import CompetitionPage from './pages/CompetitionPage';
-import AiTutorialPage from './pages/AiTutorialPage'; // Import the new page
+import AiTutorialPage from './pages/AiTutorialPage';
+import AuthRedirectPage from './pages/AuthRedirectPage'; // Updated import
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isLoggedIn, isLoading } = useAuthStore();
@@ -68,6 +69,7 @@ const App: React.FC = () => {
       <Route path="/" element={<MainLayout />}>
         <Route index element={<HomePage />} />
         <Route path="auth" element={<AuthPage />} />
+        <Route path="auth-redirect" element={<AuthRedirectPage />} /> {/* Updated route path */}
         <Route path="quiz" element={<ProtectedRoute><QuizRoute /></ProtectedRoute>} />
         <Route path="api-settings" element={<ProtectedRoute><ApiSettingsPage /></ProtectedRoute>} />
         <Route path="question-bank" element={<ProtectedRoute><QuestionBankPage /></ProtectedRoute>} />
@@ -78,11 +80,11 @@ const App: React.FC = () => {
         <Route path="chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
         <Route path="profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="competitions" element={<ProtectedRoute><CompetitionPage /></ProtectedRoute>} />
-        <Route path="ai-tutorial" element={<ProtectedRoute><AiTutorialPage /></ProtectedRoute>} /> {/* New route */}
+        <Route path="ai-tutorial" element={<ProtectedRoute><AiTutorialPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );
 };
 
-export default App;
+export default App; 
