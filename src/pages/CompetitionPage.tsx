@@ -323,7 +323,7 @@ const CompetitionPage: React.FC = () => {
           className="mb-8"
         >
           {/* Removed Card and CardBody wrappers */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 p-4"> {/* Added gap and padding */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 p-4"> {/* Added gap and padding */}
             {tabs.map((tab, index) => (
               <motion.button
                 key={tab.id}

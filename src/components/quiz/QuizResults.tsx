@@ -984,4 +984,4 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   );
 };
 
-export default QuizResults; 
+export default QuizResults;

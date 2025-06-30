@@ -1,3 +1,4 @@
+// src/components/quiz/JoinCompetitionForm.tsx
 import React, { useState } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { Button } from '../ui/Button';

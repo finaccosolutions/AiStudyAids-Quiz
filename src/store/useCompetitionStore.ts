@@ -49,7 +49,6 @@ createCompetition: (params: {
   clearCurrentCompetition: () => void;
   loadUserStats: (userId: string) => Promise<void>;
   loadCompetitionResultsHistory: (userId: string) => Promise<void>;
-  createCompetition: (preferences: any, userId: string, title: string, description: string, type: 'private' | 'random') => Promise<string>;
   
   // Chat actions
   loadChatMessages: (competitionId: string) => Promise<void>;
@@ -169,8 +168,10 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
   joinCompetition: async (competitionCode) => {
     set({ isLoading: true, error: null });
     try {
-      const { user } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User not authenticated. Please log in to join a competition.');
+      }
 
       const { data: competition, error: competitionError } = await supabase
         .from('competitions')
@@ -236,7 +237,6 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       set({ currentCompetition: null, participants: [] });
     } catch (error: any) {
       set({ error: error.message || 'Failed to leave competition' });
-      throw error;
     } finally {
       set({ isLoading: false });
     }
@@ -255,7 +255,6 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       set({ currentCompetition: null, participants: [] });
     } catch (error: any) {
       set({ error: error.message || 'Failed to cancel competition' });
-      throw error;
     } finally {
       set({ isLoading: false });
     }
@@ -369,7 +368,6 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       if (error) throw error;
     } catch (error: any) {
       set({ error: error.message || 'Failed to complete competition' });
-      throw error;
     } finally {
       set({ isLoading: false });
     }
@@ -485,7 +483,6 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       }));
     } catch (error: any) {
       set({ error: error.message || 'Failed to delete competition' });
-      throw error;
     } finally {
       set({ isLoading: false });
     }
@@ -547,7 +544,7 @@ loadCompetitionResultsHistory: async (userId) => {
       if (profilesError) {
         console.error('Error fetching profiles for competition results:', profilesError);
         // Continue without profile names if fetching profiles fails
-        set({ competitionResultsHistory: results || [] });
+        set({ competitionResultsHistory: [] }); // Set to empty array on profile fetch error
         return;
       }
 
@@ -744,7 +741,7 @@ loadCompetitionResultsHistory: async (userId) => {
     // From solo quiz history
     totalQuizzesPlayed += soloHistory.length;
     soloHistory.forEach(quiz => {
-      overallPoints += quiz.percentage_score || 0; // Assuming percentage score contributes to points
+      overallPoints += quiz.percentage || 0; // Assuming percentage score contributes to points
     });
 
     // From competition results history

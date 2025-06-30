@@ -88,7 +88,7 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId, filter = 'all' }) => 
 
   if (showSoloQuizDetails) {
     return (
-      <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4 overflow-y-auto max-h-screen">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
