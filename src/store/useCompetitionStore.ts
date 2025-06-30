@@ -225,6 +225,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
     set({ isLoading: true, error: null });
     try {
       const { user } = await supabase.auth.getUser();
+      console.log('User in leaveCompetition:', user); // ADD THIS LINE
       if (!user) throw new Error('User not authenticated');
 
       const { error } = await supabase
@@ -353,6 +354,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
   updateParticipantProgress: async (competitionId, answers, score, correctAnswers, timeTaken, currentQuestionIndex) => {
     try {
       const { user } = await supabase.auth.getUser();
+      console.log('User in updateParticipantProgress:', user); // ADD THIS LINE
       if (!user) throw new Error('User not authenticated');
 
       const { error } = await supabase
