@@ -578,13 +578,7 @@ export const getQuizResultById = async (resultId: string): Promise<QuizResult | 
   try {
     const { data, error } = await supabase
       .from('quiz_results')
-      .select(`
-        *,
-        quiz_preferences:quiz_preferences!quiz_results_user_id_fkey(
-          course, topic, subtopic, difficulty, question_count, question_types, language,
-          time_limit_enabled, time_limit, total_time_limit, negative_marking, negative_marks, mode
-        )
-      `)
+      .select(`*`) // Removed the quiz_preferences join
       .eq('id', resultId)
       .maybeSingle();
 
@@ -613,9 +607,8 @@ export const getQuizResultById = async (resultId: string): Promise<QuizResult | 
       completionRate: data.completion_rate,
       strengths: data.strengths || [],
       weaknesses: data.weaknesses || [],
-      recommendations: data.recommendations || [],
+      recommendations: data.recommendations || [], // Ensure this is an array
       comparativePerformance: data.comparative_performance || {},
-      quizDate: data.quiz_date ? new Date(data.quiz_date) : undefined,
 
       // Map quiz preferences directly to the result object
       course: data.course || undefined,
@@ -627,7 +620,7 @@ export const getQuizResultById = async (resultId: string): Promise<QuizResult | 
       timeLimit: data.time_limit_per_question || undefined,
       totalTimeLimit: data.total_time_limit || undefined,
       negativeMarking: data.negative_marking_applied || undefined,
-      negativeMarks: data.negative_marks_deducted || undefined,
+      negativeMarks: data.negative_marks_deducted || undefined, // Map to deducted marks if needed
       mode: data.mode || undefined,
     };
   } catch (error) {

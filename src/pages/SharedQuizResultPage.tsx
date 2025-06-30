@@ -1,4 +1,3 @@
-// src/pages/SharedQuizResultPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getQuizResultById } from '../services/supabase';
@@ -21,7 +20,7 @@ import QuizResults from '../components/quiz/QuizResults'; // Import QuizResults
 const SharedQuizResultPage: React.FC = () => {
   const { resultId } = useParams<{ resultId: string }>();
   const [result, setResult] = useState<QuizResult | null>(null);
-  const [preferences, setPreferences] = useState<QuizPreferences | null>(null); // Mock preferences for display
+  // Removed preferences state as it's no longer needed
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,21 +36,7 @@ const SharedQuizResultPage: React.FC = () => {
         const fetchedResult = await getQuizResultById(resultId);
         if (fetchedResult) {
           setResult(fetchedResult);
-          // Mock preferences for display purposes, as they are not stored with the result
-          // These preferences are derived from the result itself for display consistency
-          setPreferences({
-            course: fetchedResult.questions[0]?.course || 'General',
-            topic: fetchedResult.questions[0]?.topic || 'Quiz',
-            difficulty: fetchedResult.questions[0]?.difficulty || 'medium',
-            questionCount: fetchedResult.totalQuestions,
-            questionTypes: fetchedResult.questions.map(q => q.type),
-            language: fetchedResult.questions[0]?.language || 'English',
-            timeLimitEnabled: false, // Assuming not relevant for shared view
-            mode: 'practice', // Assuming not relevant for shared view
-            answerMode: 'immediate', // Assuming not relevant for shared view
-            negativeMarking: false, // Assuming not relevant for shared view
-            negativeMarks: 0, // Assuming not relevant for shared view
-          });
+          // Removed preferences mocking logic
         } else {
           setError('Quiz result not found.');
         }
@@ -101,7 +86,7 @@ const SharedQuizResultPage: React.FC = () => {
     );
   }
 
-  if (!result || !preferences) {
+  if (!result) { // Check only for result, as preferences are now part of result
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
         <motion.div
@@ -125,11 +110,11 @@ const SharedQuizResultPage: React.FC = () => {
   return (
     <QuizResults
       result={result}
-      preferences={preferences}
+      // preferences prop is no longer needed as data is directly in result
       isSharedPage={true} // Pass the new prop here
       // No onNewQuiz, onChangePreferences, or onClose for shared page
     />
   );
 };
 
-export default SharedQuizResultPage; 
+export default SharedQuizResultPage;

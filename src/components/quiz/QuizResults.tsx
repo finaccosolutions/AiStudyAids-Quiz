@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import { QuizResult, QuizPreferences } from '../../types';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardFooter, CardHeader } from '../ui/Card';
-import { 
-  CheckCircle, HelpCircle, RefreshCw, XCircle, Trophy, Target, 
+import {
+  CheckCircle, HelpCircle, RefreshCw, XCircle, Trophy, Target,
   Clock, Brain, TrendingUp, Award, Star, Zap, BookOpen,
   ChevronDown, ChevronUp, BarChart3, PieChart, Activity,
   Lightbulb, ThumbsUp, AlertTriangle, Sparkles, Share2, Copy, User, Calendar
@@ -44,7 +44,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   const [copied, setCopied] = useState(false);
 
   const { getExplanation, explanation, isLoading, resetExplanation, soloQuizHistory } = useQuizStore(); // Use store for explanation
-  
+
   const handleGetExplanation = async (questionId: number) => {
     if (selectedQuestionId === questionId) {
       setSelectedQuestionId(null);
@@ -62,15 +62,15 @@ const QuizResults: React.FC<QuizResultsProps> = ({
     const incorrectAnswers = totalQuestions - correctAnswers;
     const skippedAnswers = (result.questions || []).filter(q => !q.userAnswer || q.userAnswer.trim() === '').length;
     const answeredQuestions = totalQuestions - skippedAnswers;
-    
+
     // Calculate final score considering negative marking
     let finalScore = correctAnswers;
     if (result?.negativeMarking && result?.negativeMarks) {
       finalScore = correctAnswers + (incorrectAnswers * result.negativeMarks);
     }
-    
+
     const finalPercentage = totalQuestions > 0 ? Math.max(0, (finalScore / totalQuestions) * 100) : 0;
-    
+
     return {
       totalQuestions,
       correctAnswers,
@@ -92,55 +92,55 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   // Get performance level and message
   const getPerformanceLevel = () => {
     const percentage = stats.finalPercentage;
-    
-    if (percentage >= 90) return { 
-      level: 'Exceptional', 
-      message: 'Outstanding performance! You have mastered this topic.', 
+
+    if (percentage >= 90) return {
+      level: 'Exceptional',
+      message: 'Outstanding performance! You have mastered this topic.',
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50',
       borderColor: 'border-emerald-200',
       icon: Trophy,
       emoji: '🏆'
     };
-    if (percentage >= 80) return { 
-      level: 'Excellent', 
-      message: 'Great job! You have a strong understanding of the material.', 
+    if (percentage >= 80) return {
+      level: 'Excellent',
+      message: 'Great job! You have a strong understanding of the material.',
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
       borderColor: 'border-blue-200',
       icon: Award,
       emoji: '🌟'
     };
-    if (percentage >= 70) return { 
-      level: 'Good', 
-      message: 'Well done! You have a solid grasp of the concepts.', 
+    if (percentage >= 70) return {
+      level: 'Good',
+      message: 'Well done! You have a solid grasp of the concepts.',
       color: 'text-green-600',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
       icon: ThumbsUp,
       emoji: '👍'
     };
-    if (percentage >= 60) return { 
-      level: 'Fair', 
-      message: 'Not bad! With some more practice, you can improve further.', 
+    if (percentage >= 60) return {
+      level: 'Fair',
+      message: 'Not bad! With some more practice, you can improve further.',
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
       borderColor: 'border-yellow-200',
       icon: Target,
       emoji: '📚'
     };
-    if (percentage >= 50) return { 
-      level: 'Passing', 
-      message: 'You passed! Focus on reviewing the topics you missed.', 
+    if (percentage >= 50) return {
+      level: 'Passing',
+      message: 'You passed! Focus on reviewing the topics you missed.',
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
       borderColor: 'border-orange-200',
       icon: BookOpen,
       emoji: '📖'
     };
-    return { 
-      level: 'Needs Improvement', 
-      message: 'Keep studying! Review the fundamentals and practice more.', 
+    return {
+      level: 'Needs Improvement',
+      message: 'Keep studying! Review the fundamentals and practice more.',
       color: 'text-red-600',
       bgColor: 'bg-red-50',
       borderColor: 'border-red-200',
@@ -186,7 +186,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   // Format explanation text
   const formatExplanation = (text: string) => {
     if (!text) return text;
-    
+
     return text
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
@@ -197,8 +197,8 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   };
 
   const handleShareResult = () => {
-    // Construct the shareable URL using the new route
-    const shareUrl = `${window.location.origin}/shared-quiz-result/${result.id}`;
+    // Construct the shareable URL using the new route and hardcoded domain
+    const shareUrl = `https://aistudyaids.com/shared-quiz-result/${result.id}`;
     setShareLink(shareUrl);
     setShowShareModal(true);
   };
@@ -208,7 +208,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -223,19 +223,19 @@ const QuizResults: React.FC<QuizResultsProps> = ({
         transition={{ delay: 0.2 }}
         className="flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-4 p-4 sm:p-0" // Aligned to end
       >
-        {!isSharedPage && onNewQuiz && (
+        {!isSharedPage && onClose && (
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
             <Button
               type="button"
-              onClick={onNewQuiz}
+              onClick={onClose}
               className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 sm:px-8 py-3 text-base font-semibold shadow-lg w-full sm:w-auto"
             >
-              <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-              Try Again
+              <XCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              Close
             </Button>
           </motion.div>
         )}
-        
+
         {!isSharedPage && onChangePreferences && (
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
               <Button
@@ -244,8 +244,8 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                 onClick={onChangePreferences}
                 className="border-2 border-purple-200 text-purple-600 hover:bg-purple-50 font-semibold px-6 sm:px-8 py-3 w-full sm:w-auto"
               >
-                <Target className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                Change Settings
+                <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                Try Again
               </Button>
             </motion.div>
           )}
@@ -262,25 +262,13 @@ const QuizResults: React.FC<QuizResultsProps> = ({
           </Button>
         </motion.div>
 
-        {onClose && (
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="border-2 border-gray-300 text-gray-600 hover:bg-gray-100 font-semibold px-6 sm:px-8 py-3 w-full sm:w-auto"
-            >
-              <XCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-              Close
-            </Button>
-          </motion.div>
-        )}
+        {/* Removed onNewQuiz button as per request */}
       </motion.div>
 
       {/* Main Results Card */}
       <Card className={`w-full mx-auto overflow-hidden ${isSharedPage ? 'bg-gradient-to-br from-blue-50 to-indigo-50' : 'bg-gradient-to-br from-white to-purple-50'} border-2 ${isSharedPage ? 'border-blue-100' : 'border-purple-100'} shadow-2xl`}>
         <div className={`absolute top-0 left-0 w-full h-2 ${isSharedPage ? 'bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500' : 'bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500'}`} />
-        
+
         <CardHeader className={`text-center py-4 sm:py-8 ${isSharedPage ? 'bg-gradient-to-r from-blue-50 to-cyan-50' : 'bg-gradient-to-r from-purple-50 to-indigo-50'}`}>
           <motion.div
             initial={{ scale: 0 }}
@@ -295,7 +283,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
             <p className={`text-lg sm:text-2xl font-bold ${performance.color}`}>{performance.level}</p>
           </motion.div>
         </CardHeader>
-        
+
         <CardBody className="py-4 sm:py-8 px-4 sm:px-6">
           {/* User and Quiz Details - Three Panels */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
@@ -305,10 +293,10 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
               whileHover={{ scale: 1.02, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
-              className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 flex flex-col items-center text-center"
+              className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-2xl shadow-lg border border-blue-200 flex flex-col items-center text-center"
             >
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-purple-100 rounded-full flex items-center justify-center mb-3">
-                <User className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                <User className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
               </div>
               <h4 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">{user?.profile?.fullName || 'Guest'}</h4>
               <p className="text-sm sm:text-base text-gray-600">
@@ -320,19 +308,19 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               </p>
             </motion.div>
 
-            {/* Panel 2: Total Marks */}
+            {/* Panel 2: Total Score */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
               whileHover={{ scale: 1.02, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
-              className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 flex flex-col items-center text-center"
+              className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 sm:p-6 rounded-2xl shadow-lg border border-emerald-200 flex flex-col items-center text-center"
             >
               <div className="w-12 h-12 sm:w-16 sm:h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-3">
                 <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-600" />
               </div>
               <h4 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Total Score</h4>
-              <p className="text-2xl sm:text-3xl font-bold text-emerald-600">{stats.finalScore.toFixed(1)} / {stats.totalQuestions}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-600">{Math.round(stats.finalScore)} / {stats.totalQuestions}</p>
             </motion.div>
 
             {/* Panel 3: Date & Time Taken */}
@@ -341,10 +329,10 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
               whileHover={{ scale: 1.02, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
-              className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 flex flex-col items-center text-center"
+              className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 sm:p-6 rounded-2xl shadow-lg border border-purple-200 flex flex-col items-center text-center"
             >
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-                <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-purple-100 rounded-full flex items-center justify-center mb-3">
+                <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
               </div>
               <h4 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Date & Time</h4>
               <p className="text-sm sm:text-base text-gray-600">{result.quizDate?.toLocaleDateString('en-GB')}</p> {/* DD-MM-YYYY */}
@@ -365,7 +353,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               </div>
               {/* Removed the Sparkles icon as requested */}
             </motion.div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -402,7 +390,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                   <div className="text-2xl sm:text-3xl font-bold text-red-600">{stats.incorrectAnswers}</div>
                   <div className="text-xs sm:text-sm text-gray-600">Incorrect ({stats.incorrectPercentage.toFixed(1)}%)</div>
                   <div className="text-sm sm:text-lg font-semibold text-red-600">
-                    {result?.negativeMarking ? 
+                    {result?.negativeMarking ?
                       `${(stats.incorrectAnswers * (result.negativeMarks || 0)).toFixed(1)} marks` :
                       '0 marks'
                     }
@@ -747,7 +735,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               {result.weaknesses && result.weaknesses.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 1.2 }}
                   className="p-4 sm:p-6 rounded-2xl border-2 shadow-lg bg-red-50 border-red-200"
                 >
@@ -778,7 +766,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
           </motion.div>
         </CardBody>
       </Card>
-      
+
       {/* Question Review Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -795,13 +783,13 @@ const QuizResults: React.FC<QuizResultsProps> = ({
             {result.questions.length} questions
           </div>
         </div>
-        
+
         <div className="grid gap-4 sm:gap-6">
           {result.questions.map((question, index) => {
             // Use the pre-calculated isCorrect from the question object
             const isCorrect = question.isCorrect || false;
             const isSkipped = !question.userAnswer || question.userAnswer.trim() === '';
-            
+
             return (
               <motion.div
                 key={question.id}
@@ -845,7 +833,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                             }`}>
                               {isCorrect ? 'Correct (+1 mark)' :
                                isSkipped ? 'Skipped (0 marks)' :
-                               result?.negativeMarking ? 
+                               result?.negativeMarking ?
                                  `Incorrect (${result.negativeMarks} marks)` :
                                  'Incorrect (0 marks)'
                               }
@@ -865,7 +853,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                         </Button>
                       </motion.div>
                     </div>
-                    
+
                     {/* Question Text and Answers */}
                     <div className="space-y-4 pl-0 sm:pl-0"> {/* Removed left padding */}
                       <h4 className="text-sm sm:text-lg font-medium text-gray-800 leading-relaxed break-words">
@@ -883,26 +871,26 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                           </span>
                         </div>
                       )}
-                      
+
                       {isSkipped && (
                         <div className="bg-gray-100 p-3 sm:p-4 rounded-xl border border-gray-200">
                           <span className="text-gray-600 italic text-sm sm:text-base">Question was skipped</span>
                         </div>
                       )}
-                      
+
                       <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-sm">
                         <div className="flex items-center mb-2">
                           <span className="text-xs sm:text-sm font-medium text-gray-600">Correct answer:</span>
                           </div>
                         <span className="text-sm sm:text-lg font-medium text-emerald-600 break-words">
-                           {question.correctAnswer || 
+                           {question.correctAnswer ||
                            (question.correctOptions ? question.correctOptions.join(', ') : '') ||
                            (question.correctSequence ? question.correctSequence.join(' → ') : '') ||
                            'N/A'}
                         </span>
                       </div>
                     </div>
-                    
+
                     <AnimatePresence>
                       {selectedQuestionId === question.id && (
                         <motion.div
@@ -923,7 +911,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                                 <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
                                 Detailed Explanation
                               </h5>
-                              <div 
+                              <div
                                 className="prose prose-purple max-w-none text-gray-700 leading-relaxed text-sm sm:text-base"
                                 dangerouslySetInnerHTML={{ __html: formatExplanation(explanation || question.explanation || 'No explanation available.') }}
                               />
