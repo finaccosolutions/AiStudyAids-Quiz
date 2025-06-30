@@ -72,13 +72,13 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   const questionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const totalTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isComponentMountedRef = useRef(true);
-
+  
   // New states for practice mode feedback
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrectAnswer, setIsCorrectAnswer] = useState<boolean | null>(null);
   const [practiceExplanation, setPracticeExplanation] = useState<string | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
-
+  const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false); // New state for submit button
 
   // Initialize timers based on preferences
 useEffect(() => {
@@ -99,6 +99,7 @@ useEffect(() => {
   setIsCorrectAnswer(null);
   setPracticeExplanation(null);
   setIsEvaluating(false);
+  setIsAnswerSubmitted(false); // Reset submit state for new question
 
   return () => {
     isComponentMountedRef.current = false;
@@ -152,6 +153,7 @@ useEffect(() => {
     if (question.id !== prevQuestionId.current) {
       setSelectedAnswer('');
       setIsAnswered(false);
+      setIsAnswerSubmitted(false); // Reset submit state
     } else {
       setSelectedAnswer(userAnswer);
       setIsAnswered(!!userAnswer && userAnswer.trim() !== '');
@@ -159,12 +161,17 @@ useEffect(() => {
     prevQuestionId.current = question.id;
   }, [userAnswer, question.id]);
 
-  const handleAnswerSelect = useCallback(async (answer: string) => {
-    if (showFeedback && mode === 'practice') return; // Prevent changing answer in practice mode after feedback
-    
+  const handleOptionSelect = useCallback((answer: string) => {
+    if (isAnswerSubmitted) return; // Prevent changing answer after submission
     setSelectedAnswer(answer);
     setIsAnswered(true);
-    onAnswer(answer);
+  }, [isAnswerSubmitted]);
+
+  const handleSubmitAnswer = useCallback(async () => {
+    if (!selectedAnswer || isAnswerSubmitted || isEvaluating) return;
+
+    setIsAnswerSubmitted(true);
+    onAnswer(selectedAnswer); // Update the main quiz state with the selected answer
 
     if (mode === 'practice' && apiKey && preferences) {
       setIsEvaluating(true);
@@ -177,17 +184,17 @@ useEffect(() => {
           case 'true-false':
           case 'case-study':
           case 'situation':
-            correct = answer.toLowerCase() === question.correctAnswer.toLowerCase();
+            correct = selectedAnswer.toLowerCase() === question.correctAnswer.toLowerCase();
             break;
           case 'multi-select':
-            const userOptions = answer.split(',').sort();
+            const userOptions = selectedAnswer.split(',').sort();
             const correctOptions = question.correctOptions?.sort() || [];
             correct = userOptions.length === correctOptions.length &&
                       userOptions.every((opt, index) => opt === correctOptions[index]);
             break;
           case 'sequence':
             try {
-              const userSequence = JSON.parse(answer);
+              const userSequence = JSON.parse(selectedAnswer);
               correct = userSequence.length === question.correctSequence?.length &&
                         userSequence.every((step: string, index: number) => step === question.correctSequence![index]);
             } catch (e) {
@@ -199,7 +206,7 @@ useEffect(() => {
             const evaluation = await evaluateTextAnswer(
               apiKey,
               question.text,
-              answer,
+              selectedAnswer,
               question.correctAnswer || '',
               question.keywords || [],
               language
@@ -222,9 +229,9 @@ useEffect(() => {
         setIsEvaluating(false);
       }
     }
-  }, [onAnswer, mode, apiKey, preferences, question, language, showFeedback]);
+  }, [onAnswer, mode, apiKey, preferences, question, language, selectedAnswer, isAnswerSubmitted, isEvaluating]);
 
-  const handleNext = useCallback(() => {
+  const handleNextQuestion = useCallback(() => {
     if (isLastQuestion) {
       onFinish();
     } else {
@@ -278,7 +285,7 @@ useEffect(() => {
       tap: { scale: 0.98 }
     };
 
-    const isOptionDisabled = (mode === 'practice' && showFeedback) || isEvaluating;
+    const isOptionDisabled = isAnswerSubmitted || isEvaluating;
 
     const getOptionClassNames = (option: string, index: number) => {
       const isSelected = selectedAnswer === option;
@@ -366,7 +373,7 @@ useEffect(() => {
                   animate="visible"
                   whileHover="hover"
                   whileTap="tap"
-                  onClick={() => handleAnswerSelect(option)}
+                  onClick={() => handleOptionSelect(option)}
                   className={getOptionClassNames(option, index)}
                   disabled={isOptionDisabled}
                 >
@@ -409,7 +416,7 @@ useEffect(() => {
                   animate="visible"
                   whileHover="hover"
                   whileTap="tap"
-                  onClick={() => handleAnswerSelect(option)}
+                  onClick={() => handleOptionSelect(option)}
                   className={`p-6 sm:p-8 rounded-2xl font-bold text-lg sm:text-xl transition-all duration-300 relative overflow-hidden group ${
                     isOptionDisabled ? 'opacity-70 cursor-not-allowed' : ''
                   } ${
@@ -478,7 +485,7 @@ useEffect(() => {
                     const newSelected = isSelected
                       ? selectedOptions.filter(opt => opt !== option)
                       : [...selectedOptions, option];
-                    handleAnswerSelect(newSelected.join(','));
+                    handleOptionSelect(newSelected.join(','));
                   }}
                   className={`w-full p-3 sm:p-6 text-left rounded-2xl border-2 transition-all duration-300 group ${
                     isOptionDisabled ? 'opacity-70 cursor-not-allowed' : ''
@@ -565,7 +572,7 @@ useEffect(() => {
                           onClick={() => {
                             if (isOptionDisabled) return;
                             const newOrder = sequenceOrder.filter(s => s !== step);
-                            handleAnswerSelect(JSON.stringify(newOrder)); // Stringify the array
+                            handleOptionSelect(JSON.stringify(newOrder)); // Stringify the array
                           }}
                           className={`text-red-500 hover:text-red-700 p-1 ${isOptionDisabled ? 'cursor-not-allowed' : ''}`}
                           disabled={isOptionDisabled}
@@ -595,7 +602,7 @@ useEffect(() => {
                     onClick={() => {
                       if (isOptionDisabled) return;
                       const newOrder = [...sequenceOrder, step];
-                      handleAnswerSelect(JSON.stringify(newOrder)); // Stringify the array
+                      handleOptionSelect(JSON.stringify(newOrder)); // Stringify the array
                     }}
                     className={`p-3 sm:p-4 text-left rounded-xl border-2 border-gray-200 bg-white text-gray-800 hover:border-purple-300 hover:bg-purple-50 transition-all duration-300 text-sm sm:text-base ${isOptionDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
                     disabled={isOptionDisabled}
@@ -639,7 +646,7 @@ useEffect(() => {
                     animate="visible"
                     whileHover="hover"
                     whileTap="tap"
-                    onClick={() => handleAnswerSelect(option)}
+                    onClick={() => handleOptionSelect(option)}
                     className={getOptionClassNames(option, index)}
                     disabled={isOptionDisabled}
                   >
@@ -688,11 +695,10 @@ useEffect(() => {
                   : 'Type your answer here...'
                 }
                 value={selectedAnswer}
-                onChange={(e) => setSelectedAnswer(e.target.value)} // Update local state immediately
-                onBlur={() => handleAnswerSelect(selectedAnswer)} // Trigger onAnswer when input loses focus
+                onChange={(e) => handleOptionSelect(e.target.value)} // Update local state immediately
                 onKeyPress={(e) => { // Trigger onAnswer on Enter key press
-                  if (e.key === 'Enter') {
-                    handleAnswerSelect(selectedAnswer);
+                  if (e.key === 'Enter' && selectedAnswer.trim() !== '') {
+                    handleSubmitAnswer();
                   }
                 }}
                 className={`w-full p-3 sm:p-6 text-base sm:text-xl border-2 rounded-2xl focus:ring-4 focus:ring-purple-200 focus:outline-none transition-all duration-300 bg-white shadow-sm hover:shadow-md ${
@@ -860,7 +866,7 @@ useEffect(() => {
                   <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs sm:text-sm font-medium rounded-full capitalize">
                     {question.difficulty || 'Medium'}
                   </span>
-                  {isAnswered && (mode === 'exam' || (mode === 'practice' && !isEvaluating && isCorrectAnswer !== null)) && (
+                  {isAnswered && (mode === 'exam' || (mode === 'practice' && isAnswerSubmitted && !isEvaluating && isCorrectAnswer !== null)) && (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -900,6 +906,31 @@ useEffect(() => {
                 {renderQuestionContent()}
               </motion.div>
 
+              {/* Submit Answer Button for Practice Mode */}
+              {mode === 'practice' && !isAnswerSubmitted && selectedAnswer && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="flex justify-center mb-6 px-4"
+                >
+                  <Button
+                    onClick={handleSubmitAnswer}
+                    disabled={!selectedAnswer || isEvaluating}
+                    className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white px-8 py-3 text-lg font-bold shadow-xl"
+                  >
+                    {isEvaluating ? (
+                      <div className="flex items-center">
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Submitting...
+                      </div>
+                    ) : (
+                      'Submit Answer'
+                    )}
+                  </Button>
+                </motion.div>
+              )}
+
               {/* Practice Mode Explanation */}
               <AnimatePresence>
                 {(mode === 'practice' && showFeedback && practiceExplanation) && (
@@ -912,8 +943,12 @@ useEffect(() => {
                   >
                     <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 sm:p-6 rounded-2xl border border-purple-200 shadow-lg">
                       <h5 className="font-bold text-purple-800 mb-4 flex items-center text-base sm:text-lg">
-                        <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
-                        Explanation
+                        {isCorrectAnswer ? (
+                          <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-emerald-600" />
+                        ) : (
+                          <XCircle className="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-red-600" />
+                        )}
+                        {isCorrectAnswer ? 'Correct Answer!' : 'Incorrect Answer!'}
                       </h5>
                       <div 
                         className="prose prose-purple max-w-none text-gray-700 leading-relaxed text-sm sm:text-base"
@@ -951,7 +986,7 @@ useEffect(() => {
                   {/* Skip Button for Practice Mode */}
                   {mode === 'practice' && (
                     <Button
-                      onClick={handleNext}
+                      onClick={handleNextQuestion}
                       variant="outline"
                       className="px-4 sm:px-6 py-2 sm:py-3 text-gray-600 hover:text-gray-800"
                     >
@@ -962,10 +997,10 @@ useEffect(() => {
                   {/* Next/Finish Button */}
                   <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                     <Button
-                      onClick={handleNext}
-                      disabled={!isAnswered && mode === 'exam'}
+                      onClick={handleNextQuestion}
+                      disabled={!isAnswerSubmitted && mode === 'practice'} // Disable if not submitted in practice mode
                       className={`px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold shadow-xl transition-all duration-300 ${
-                        isAnswered 
+                        (isAnswerSubmitted || mode === 'exam') 
                           ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600' 
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
@@ -1035,4 +1070,4 @@ useEffect(() => {
   );
 };
 
-export default QuizQuestion; 
+export default QuizQuestion;

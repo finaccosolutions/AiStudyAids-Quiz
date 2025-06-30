@@ -7,7 +7,7 @@ import {
   CheckCircle, HelpCircle, RefreshCw, XCircle, Trophy, Target, 
   Clock, Brain, TrendingUp, Award, Star, Zap, BookOpen,
   ChevronDown, ChevronUp, BarChart3, PieChart, Activity,
-  Lightbulb, ThumbsUp, AlertTriangle, Sparkles
+  Lightbulb, ThumbsUp, AlertTriangle, Sparkles, Share2, Copy, User, Calendar
 } from 'lucide-react';
 import { useQuizStore } from '../../store/useQuizStore'; // Keep for explanation logic
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,6 +35,11 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
   const [showQuestionTypePerformance, setShowQuestionTypePerformance] = useState(false);
   const [showAnswerDistribution, setShowAnswerDistribution] = useState(false);
+  const [showScoreProgression, setShowScoreProgression] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareLink, setShareLink] = useState('');
+  const [copied, setCopied] = useState(false);
+
   const { getExplanation, explanation, isLoading, resetExplanation } = useQuizStore(); // Use store for explanation
   
   const handleGetExplanation = async (questionId: number) => {
@@ -160,6 +165,15 @@ const QuizResults: React.FC<QuizResultsProps> = ({
     { name: 'Skipped', value: stats.skippedAnswers, color: '#6B7280' },
   ];
 
+  // Mock data for score progression over time (replace with real data if available in result)
+  const scoreProgressionData = [
+    { name: 'Quiz 1', score: 65 },
+    { name: 'Quiz 2', score: 70 },
+    { name: 'Quiz 3', score: 72 },
+    { name: 'Quiz 4', score: 78 },
+    { name: 'Current', score: stats.finalPercentage },
+  ];
+
   // Format explanation text
   const formatExplanation = (text: string) => {
     if (!text) return text;
@@ -172,27 +186,41 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       .replace(/^\d+\.\s/gm, '<span class="font-semibold text-purple-600">$&</span>')
       .replace(/^[-•]\s/gm, '<span class="text-purple-600">• </span>');
   };
+
+  const handleShareResult = () => {
+    // In a real application, you would generate a unique URL for this specific result
+    // and store it in your database. For now, we'll use a mock URL.
+    const mockShareUrl = `${window.location.origin}/shared-quiz-result/${result.id}`;
+    setShareLink(mockShareUrl);
+    setShowShareModal(true);
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
   
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="space-y-4 sm:space-y-8 w-full max-w-7xl mx-auto px-4"
+      className="space-y-4 sm:space-y-8 w-full max-w-full mx-auto px-4 sm:px-6 lg:px-8" // Adjusted width and padding
     >
       {/* Action Buttons at Top */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="flex flex-col sm:flex-row sm:justify-center gap-3 sm:gap-4 p-4 sm:p-0"
+        className="flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-4 p-4 sm:p-0" // Aligned to end
       >
         {onNewQuiz && (
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
             <Button
               type="button"
               onClick={onNewQuiz}
-              className="gradient-bg hover:opacity-90 transition-all duration-300 font-semibold px-6 sm:px-8 py-3 shadow-lg w-full sm:w-auto"
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 sm:px-8 py-3 text-base font-semibold shadow-lg w-full sm:w-auto"
             >
               <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
               Try Again
@@ -200,6 +228,32 @@ const QuizResults: React.FC<QuizResultsProps> = ({
           </motion.div>
         )}
         
+        {onChangePreferences && (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onChangePreferences}
+                className="border-2 border-purple-200 text-purple-600 hover:bg-purple-50 font-semibold px-6 sm:px-8 py-3 w-full sm:w-auto"
+              >
+                <Target className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                Change Settings
+              </Button>
+            </motion.div>
+          )}
+
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleShareResult}
+            className="border-2 border-blue-200 text-blue-600 hover:bg-blue-50 font-semibold px-6 sm:px-8 py-3 w-full sm:w-auto"
+          >
+            <Share2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+            Share Result
+          </Button>
+        </motion.div>
+
         {onClose && (
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
             <Button
@@ -208,6 +262,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               onClick={onClose}
               className="border-2 border-gray-300 text-gray-600 hover:bg-gray-100 font-semibold px-6 sm:px-8 py-3 w-full sm:w-auto"
             >
+              <XCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
               Close
             </Button>
           </motion.div>
@@ -234,12 +289,44 @@ const QuizResults: React.FC<QuizResultsProps> = ({
         </CardHeader>
         
         <CardBody className="py-4 sm:py-8 px-4 sm:px-6">
+          {/* User and Quiz Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 flex items-center space-x-4"
+            >
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                <User className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
+              </div>
+              <div>
+                <h4 className="text-lg sm:text-xl font-bold text-gray-800">User: John Doe</h4>
+                <p className="text-sm sm:text-base text-gray-600">Quiz on: {preferences?.course || 'N/A'} - {preferences?.topic || 'N/A'}</p>
+              </div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 flex items-center space-x-4"
+            >
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="text-lg sm:text-xl font-bold text-gray-800">Date: {new Date().toLocaleDateString()}</h4>
+                <p className="text-sm sm:text-base text-gray-600">Time Taken: {Math.floor(result.totalTimeTaken / 60)}m {result.totalTimeTaken % 60}s</p>
+              </div>
+            </motion.div>
+          </div>
+
           {/* Score Display */}
           <div className="text-center mb-6 sm:mb-8">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.3, type: "spring", stiffness: 200, damping: 20 }}
+              transition={{ delay: 0.5, type: "spring", stiffness: 200, damping: 20 }}
               className="relative inline-block"
             >
               <div className="text-4xl sm:text-8xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-4">
@@ -258,7 +345,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
+                transition={{ delay: 0.6 }}
                 className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200"
               >
                 <div className="flex items-center justify-center mb-3">
@@ -278,7 +365,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
+                transition={{ delay: 0.7 }}
                 className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200"
               >
                 <div className="flex items-center justify-center mb-3">
@@ -301,7 +388,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
+                transition={{ delay: 0.8 }}
                 className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200"
               >
                 <div className="flex items-center justify-center mb-3">
@@ -321,7 +408,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
+              transition={{ delay: 0.9 }}
               className={`mt-6 sm:mt-8 p-4 sm:p-6 rounded-2xl border-2 ${performance.bgColor} ${performance.borderColor} shadow-lg`}
             >
               <div className="text-center">
@@ -345,7 +432,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
+            transition={{ delay: 1.0 }}
             className="mb-6 sm:mb-8"
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
@@ -464,7 +551,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                               <BarChart data={questionTypePerformanceData}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
-                                <YAxis domain={[0, 100]} />
+                                <YAxis />
                                 <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
                                 <Legend />
                                 <Bar dataKey="accuracy" fill="#8884d8" name="Accuracy (%)" />
@@ -527,6 +614,56 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                                 <Tooltip />
                                 <Legend />
                               </RechartsPieChart>
+                            </ResponsiveContainer>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Score Progression Chart (New) */}
+                    <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200">
+                      <div className="flex items-center justify-between mb-4 gap-2">
+                        <h4 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
+                          <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-teal-600" />
+                          Score Progression
+                        </h4>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowScoreProgression(!showScoreProgression)}
+                          className="text-teal-600 hover:text-teal-700 hover:bg-teal-50 text-sm"
+                        >
+                          {showScoreProgression ? (
+                            <>
+                              <ChevronUp className="w-4 h-4 mr-2" />
+                              Hide Chart
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-4 h-4 mr-2" />
+                              Show Chart
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <AnimatePresence>
+                        {showScoreProgression && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="mt-4 overflow-hidden"
+                          >
+                            <ResponsiveContainer width="100%" height={250}>
+                              <LineChart data={scoreProgressionData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" />
+                                <YAxis domain={[0, 100]} />
+                                <Tooltip />
+                                <Legend />
+                                <Line type="monotone" dataKey="score" stroke="#14b8a6" activeDot={{ r: 8 }} />
+                              </LineChart>
                             </ResponsiveContainer>
                           </motion.div>
                         )}
@@ -598,48 +735,6 @@ const QuizResults: React.FC<QuizResultsProps> = ({
             </div>
           </motion.div>
         </CardBody>
-        
-        <CardFooter className="flex flex-col sm:flex-row sm:justify-center gap-3 sm:gap-4 bg-gradient-to-r from-gray-50 to-purple-50 border-t border-purple-100 p-4 sm:p-6">
-          {onNewQuiz && (
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
-              <Button
-                type="button"
-                onClick={onNewQuiz}
-                className="gradient-bg hover:opacity-90 transition-all duration-300 font-semibold px-6 sm:px-8 py-3 shadow-lg w-full sm:w-auto"
-              >
-                <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                Try Again
-              </Button>
-            </motion.div>
-          )}
-          
-          {onChangePreferences && (
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onChangePreferences}
-                className="border-2 border-purple-200 text-purple-600 hover:bg-purple-50 font-semibold px-6 sm:px-8 py-3 w-full sm:w-auto"
-              >
-                <Target className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                Change Settings
-              </Button>
-            </motion.div>
-          )}
-
-          {onClose && (
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                className="border-2 border-gray-300 text-gray-600 hover:bg-gray-100 font-semibold px-6 sm:px-8 py-3 w-full sm:w-auto"
-              >
-                Close
-              </Button>
-            </motion.div>
-          )}
-        </CardFooter>
       </Card>
       
       {/* Question Review Section */}
@@ -744,9 +839,9 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                           <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-sm">
                             <div className="flex items-center mb-2">
                               <span className="text-xs sm:text-sm font-medium text-gray-600">Correct answer:</span>
-                            </div>
+                              </div>
                             <span className="text-sm sm:text-lg font-medium text-emerald-600 break-words">
-                              {question.correctAnswer || 
+                               {question.correctAnswer || 
                                (question.correctOptions ? question.correctOptions.join(', ') : '') ||
                                (question.correctSequence ? question.correctSequence.join(' → ') : '') ||
                                'N/A'}
@@ -804,6 +899,55 @@ const QuizResults: React.FC<QuizResultsProps> = ({
           })}
         </div>
       </motion.div>
+
+      {/* Share Modal */}
+      <AnimatePresence>
+        {showShareModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 sm:p-8 max-w-md mx-4 shadow-2xl w-full"
+            >
+              <div className="text-center">
+                <Share2 className="w-12 h-12 sm:w-16 sm:h-16 text-blue-500 mx-auto mb-4" />
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Share Your Result!</h3>
+                <p className="text-gray-600 mb-6 text-base sm:text-lg leading-relaxed">
+                  Copy the link below to share your quiz performance with others.
+                </p>
+                <div className="flex items-center space-x-2 bg-gray-100 p-3 rounded-lg mb-6">
+                  <input
+                    type="text"
+                    readOnly
+                    value={shareLink}
+                    className="flex-1 bg-transparent outline-none text-gray-800 text-sm sm:text-base font-mono"
+                  />
+                  <Button
+                    onClick={copyToClipboard}
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-600 hover:text-blue-600"
+                  >
+                    {copied ? <CheckCircle className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                  </Button>
+                </div>
+                <Button
+                  onClick={() => setShowShareModal(false)}
+                  className="w-full bg-blue-500 hover:bg-blue-600"
+                >
+                  Done
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
