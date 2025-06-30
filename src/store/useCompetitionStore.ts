@@ -260,7 +260,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
     }
   },
 
-  startCompetition: async (competitionId, apiKey) => {
+ startCompetition: async (competitionId, apiKey) => {
     set({ isLoading: true, error: null });
     try {
       const { data: competition, error: fetchError } = await supabase
@@ -292,15 +292,37 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start competition via Edge Function');
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = `Edge Function error: ${errorData.error}`;
+          } else if (errorData.details) {
+            errorMessage += ` - Details: ${errorData.details}`;
+          } else if (errorData.message) {
+            errorMessage += ` - Message: ${errorData.message}`;
+          }
+        } catch (parseError) {
+          // If response is not JSON, try to get plain text
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage += ` - Response: ${errorText}`;
+            }
+          } catch (textError) {
+            // Fallback to original HTTP error message
+          }
+        }
+        console.error('Failed to start competition:', errorMessage);
+        throw new Error(`Failed to start competition: ${errorMessage}`);
       }
 
       const result = await response.json();
       set({ currentCompetition: { ...competition, status: 'active', questions: result.questions, start_time: result.startTime } });
     } catch (error: any) {
+      console.error('Error starting competition:', error.message); // Log the error
       set({ error: error.message || 'Failed to start competition' });
-      throw error;
+      // Do not re-throw here, as the error is already handled by setting the state
     } finally {
       set({ isLoading: false });
     }
