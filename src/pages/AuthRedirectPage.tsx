@@ -18,24 +18,22 @@ const AuthRedirectPage: React.FC = () => {
   useEffect(() => {
     const handleRedirect = async () => {
       setIsProcessing(true);
-      const params = new URLSearchParams(location.search);
-      const type = params.get('type');
-      const hash = location.hash;
+      // Get 'type' from query parameters (location.search)
+      const queryParams = new URLSearchParams(location.search);
+      const type = queryParams.get('type');
+
+      // Get tokens from hash parameters (location.hash)
+      const hashParams = new URLSearchParams(location.hash.substring(1)); // Remove the leading '#'
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
 
       if (type === 'signup_confirmation') {
         setRedirectType('signup_confirmation');
         setMessage('Your email address has been successfully verified. You can now sign in to your account.');
         setIsProcessing(false);
       } else if (type === 'recovery' || type === 'password_reset') {
-        // Supabase sends recovery links with a hash containing access_token and refresh_token
-        const accessTokenMatch = hash.match(/access_token=([^&]+)/);
-        const refreshTokenMatch = hash.match(/refresh_token=([^&]+)/);
-
-        if (accessTokenMatch && refreshTokenMatch) {
-          const access_token = accessTokenMatch[1];
-          const refresh_token = refreshTokenMatch[1];
-
-          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
 
           if (error) {
             console.error('Error setting session:', error);
