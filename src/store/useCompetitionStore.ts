@@ -22,7 +22,7 @@ interface CompetitionStoreState {
     overallWinRate: number;
     totalQuizzesPlayed: number;
   } | null;
-createCompetition: (params: {
+  createCompetition: (params: {
     preferences: any;
     userId: string;
     title: string;
@@ -33,7 +33,6 @@ createCompetition: (params: {
   
   // Actions
   loadCompetition: (competitionId: string) => Promise<void>;
-  createCompetition: (preferences: any, userId: string, title: string, description: string, type: 'private' | 'random') => Promise<string>;
   joinCompetition: (competitionCode: string) => Promise<void>;
   leaveCompetition: (competitionId: string) => Promise<void>;
   cancelCompetition: (competitionId: string) => Promise<void>;
@@ -154,6 +153,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
         competition_id: data.id,
         user_id: user.id, // Use user.id from the session
         status: 'joined',
+        joined_at: new Date().toISOString(), // Set joined_at for creator
       });
 
       return data.id;
@@ -207,6 +207,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
         competition_id: competition.id,
         user_id: user.id,
         status: 'joined',
+        joined_at: new Date().toISOString(), // Set joined_at for new participant
       });
 
       if (insertError) throw insertError;
@@ -237,6 +238,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       set({ currentCompetition: null, participants: [] });
     } catch (error: any) {
       set({ error: error.message || 'Failed to leave competition' });
+      // Do not re-throw here, as the error is already handled by setting the state
     } finally {
       set({ isLoading: false });
     }
@@ -255,12 +257,13 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       set({ currentCompetition: null, participants: [] });
     } catch (error: any) {
       set({ error: error.message || 'Failed to cancel competition' });
+      // Do not re-throw here, as the error is already handled by setting the state
     } finally {
       set({ isLoading: false });
     }
   },
 
- startCompetition: async (competitionId, apiKey) => {
+  startCompetition: async (competitionId, apiKey) => {
     set({ isLoading: true, error: null });
     try {
       const { data: competition, error: fetchError } = await supabase
@@ -390,6 +393,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       if (error) throw error;
     } catch (error: any) {
       set({ error: error.message || 'Failed to complete competition' });
+      // Do not re-throw here, as the error is already handled by setting the state
     } finally {
       set({ isLoading: false });
     }
@@ -505,6 +509,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       }));
     } catch (error: any) {
       set({ error: error.message || 'Failed to delete competition' });
+      // Do not re-throw here, as the error is already handled by setting the state
     } finally {
       set({ isLoading: false });
     }
@@ -802,4 +807,4 @@ loadCompetitionResultsHistory: async (userId) => {
       }
     });
   },
-}));
+})); 

@@ -93,7 +93,7 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId, filter = 'all' }) => 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
-          className="relative w-full max-w-4xl mx-auto my-8"
+          className="relative w-full max-w-full mx-auto my-8" // Changed max-w-4xl to max-w-full
         >
           <QuizResults
             result={showSoloQuizDetails}
@@ -310,4 +310,4 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId, filter = 'all' }) => 
   );
 };
 
-export default QuizHistory;
+export default QuizHistory; 

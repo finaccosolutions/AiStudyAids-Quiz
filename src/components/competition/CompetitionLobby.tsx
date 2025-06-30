@@ -592,8 +592,8 @@ if (timeToQuizStart !== null && competition.status === 'active') {
                               <span className="font-medium">Ready for battle</span>
                             </div>
                             <div className="flex items-center space-x-2 sm:space-x-4 mt-2 text-xs text-slate-500">
-                            <span>Joined: {participant.joined_at ? new Date(participant.joined_at).toLocaleDateString() : 'N/A'} {participant.joined_at ? new Date(participant.joined_at).toLocaleTimeString() : 'N/A'}</span>
-                          </div>
+                              <span>Joined: {participant.joined_at ? new Date(participant.joined_at).toLocaleDateString() : 'N/A'} {participant.joined_at ? new Date(participant.joined_at).toLocaleTimeString() : 'N/A'}</span>
+                            </div>
                           </div>
                         </div>
                       </motion.div>
