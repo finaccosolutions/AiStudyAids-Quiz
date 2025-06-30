@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { ApiKeyData, Question, QuizPreferences, QuizResult } from '../types';
 import { getApiKey, getQuizPreferences, saveApiKey, saveQuizPreferences, saveQuizResultToDatabase, getQuizResultsWithAnalytics, deleteQuizResult } from '../services/supabase';
-import { generateQuiz, getAnswerExplanation } from '../services/gemini';
+import { generateQuiz, getAnswerExplanation, getQuizAnalysisAndRecommendations } from '../services/gemini';
 import { useAuthStore } from './useAuthStore';
 
 // Helper functions for local storage
@@ -225,7 +225,18 @@ const validatedPreferences = {
     }
     
     try {
-      const questions = await generateQuiz(apiKey, preferences);
+      // Fetch historical questions to avoid repetition
+      const historicalResults = await getQuizResultsWithAnalytics(userId, 50); // Fetch last 50 results
+      const historicalQuestions: string[] = [];
+      historicalResults.forEach((result: any) => {
+        if (result.questions) {
+          result.questions.forEach((q: any) => {
+            historicalQuestions.push(q.text);
+          });
+        }
+      });
+
+      const questions = await generateQuiz(apiKey, preferences, historicalQuestions);
       set({ 
         questions, 
         currentQuestionIndex: 0,
@@ -273,8 +284,8 @@ const validatedPreferences = {
     });
   },
   
-  finishQuiz: () => {
-    const { questions, answers, preferences, totalTimeElapsed } = get();
+  finishQuiz: async () => {
+    const { questions, answers, preferences, totalTimeElapsed, apiKey } = get();
   
   console.log('Starting finishQuiz with:', { questionsCount: questions.length, answersCount: Object.keys(answers).length });
   
@@ -378,37 +389,76 @@ const validatedPreferences = {
   const accuracyRate = questionsAttempted > 0 ? (correctAnswers / questionsAttempted) * 100 : 0;
   const completionRate = questions.length > 0 ? (questionsAttempted / questions.length) * 100 : 0;
 
-  // Simple rule-based recommendations for now
-  const strengths: string[] = [];
-  const weaknesses: string[] = [];
-  const recommendations: string[] = [];
+  const { user } = useAuthStore.getState();
+  let strengths: string[] = [];
+  let weaknesses: string[] = [];
+  let recommendations: string[] = [];
+  let comparativePerformance: any = {};
 
-  if (accuracyRate >= 80) {
-    strengths.push('Strong understanding of the topics.');
-    recommendations.push('Continue challenging yourself with advanced questions.');
-  } else if (accuracyRate >= 60) {
-    strengths.push('Good foundational knowledge.');
-    recommendations.push('Review incorrect answers and focus on understanding concepts.');
-  } else {
-    weaknesses.push('Needs improvement in core concepts.');
-    recommendations.push('Revisit study materials and practice more fundamental questions.');
-  }
-
-  if (completionRate < 100) {
-    weaknesses.push('Time management or question skipping issues.');
-    recommendations.push('Practice answering questions within time limits.');
-  }
-
-  if (Object.keys(questionTypePerformance).length > 0) {
-    for (const type in questionTypePerformance) {
-      const perf = questionTypePerformance[type];
-      const typeAccuracy = perf.total > 0 ? (perf.correct / perf.total) * 100 : 0;
-      if (typeAccuracy < 50) {
-        weaknesses.push(`Struggled with ${type.replace('-', ' ')} questions.`);
-        recommendations.push(`Focus on ${type.replace('-', ' ')} question types.`);
-      } else if (typeAccuracy > 80) {
-        strengths.push(`Excellent in ${type.replace('-', ' ')} questions.`);
+  if (user && preferences && apiKey) {
+    try {
+      const historicalResults = await getQuizResultsWithAnalytics(user.id, 10); // Fetch last 10 quizzes
+      const analysis = await getQuizAnalysisAndRecommendations(
+        apiKey,
+        { // Current quiz result structure for AI
+          totalQuestions: questions.length,
+          correctAnswers,
+          questionsAttempted,
+          questionsSkipped,
+          percentage: questions.length > 0 ? Math.round((finalScore / questions.length) * 100) : 0,
+          questions: questionsWithAnswers,
+          questionTypePerformance,
+          finalScore,
+          rawScore: correctAnswers,
+          negativeMarksDeducted: preferences?.negativeMarking ? Math.abs((correctAnswers - finalScore) * (preferences.negativeMarks || 0)) : 0,
+          totalTimeTaken: totalTimeElapsed,
+          accuracyRate,
+          completionRate,
+          id: '', // Not needed for analysis
+          course: preferences.course,
+          topic: preferences.topic,
+          subtopic: preferences.subtopic,
+          difficulty: preferences.difficulty,
+          language: preferences.language,
+          timeLimitEnabled: preferences.timeLimitEnabled,
+          timeLimit: preferences.timeLimit,
+          totalTimeLimit: preferences.totalTimeLimit,
+          negativeMarking: preferences.negativeMarking,
+          negativeMarks: preferences.negativeMarks,
+          mode: preferences.mode,
+        },
+        historicalResults,
+        preferences
+      );
+      strengths = analysis.strengths;
+      weaknesses = analysis.weaknesses;
+      recommendations = analysis.recommendations;
+      comparativePerformance = analysis.comparativePerformance;
+    } catch (analysisError) {
+      console.error("Failed to get AI analysis and recommendations:", analysisError);
+      // Fallback to simple recommendations if AI analysis fails
+      if (accuracyRate >= 80) {
+        strengths.push('Strong understanding of the topics.');
+        recommendations.push('Continue challenging yourself with advanced questions.');
+      } else if (accuracyRate >= 60) {
+        strengths.push('Good foundational knowledge.');
+        recommendations.push('Review incorrect answers and focus on understanding concepts.');
+      } else {
+        weaknesses.push('Needs improvement in core concepts.');
+        recommendations.push('Revisit study materials and practice more fundamental questions.');
       }
+    }
+  } else {
+    // Simple rule-based recommendations if no user/preferences/apiKey
+    if (accuracyRate >= 80) {
+      strengths.push('Strong understanding of the topics.');
+      recommendations.push('Continue challenging yourself with advanced questions.');
+    } else if (accuracyRate >= 60) {
+      strengths.push('Good foundational knowledge.');
+      recommendations.push('Review incorrect answers and focus on understanding concepts.');
+    } else {
+      weaknesses.push('Needs improvement in core concepts.');
+      recommendations.push('Revisit study materials and practice more fundamental questions.');
     }
   }
 
@@ -431,13 +481,25 @@ const validatedPreferences = {
     strengths, // Added
     weaknesses, // Added
     recommendations, // Added
-    comparativePerformance: {}, // Initialize
+    comparativePerformance, // Added
+
+    // Add quiz preferences directly to the result
+    course: preferences?.course,
+    topic: preferences?.topic,
+    subtopic: preferences?.subtopic,
+    difficulty: preferences?.difficulty,
+    language: preferences?.language,
+    timeLimitEnabled: preferences?.timeLimitEnabled,
+    timeLimit: preferences?.timeLimit,
+    totalTimeLimit: preferences?.totalTimeLimit,
+    negativeMarking: preferences?.negativeMarking,
+    negativeMarks: preferences?.negativeMarks,
+    mode: preferences?.mode,
   };
   
   console.log('Quiz result created:', result);
   
   // Save to database
-  const { user } = useAuthStore.getState();
   if (user && preferences) {
     saveQuizResultToDatabase(user.id, result, preferences)
       .then(data => {

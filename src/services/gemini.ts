@@ -1,10 +1,11 @@
 // src/services/gemini.ts
-import { QuizPreferences, Question } from '../types';
+import { QuizPreferences, Question, QuizResult } from '../types';
 
 // Function to generate quiz questions using Gemini API
 export const generateQuiz = async (
   apiKey: string,
-  preferences: QuizPreferences
+  preferences: QuizPreferences,
+  historicalQuestions: string[] = [] // Added new parameter
 ): Promise<Question[]> => {
   const { course, topic, subtopic, questionCount, questionTypes, language: quizLanguage, difficulty } = preferences;
 
@@ -26,6 +27,16 @@ export const generateQuiz = async (
   
   const selectedVariety = varietyPrompts[Math.floor(Math.random() * varietyPrompts.length)];
   
+  // Add historical questions to the prompt to avoid repetition
+  let historicalAvoidancePrompt = '';
+  if (historicalQuestions.length > 0) {
+    historicalAvoidancePrompt = `
+CRITICAL REPETITION AVOIDANCE:
+DO NOT generate questions that are similar to or exact duplicates of the following past questions:
+${historicalQuestions.map((q, index) => `${index + 1}. ${q}`).join('\n')}
+`;
+  }
+
   // Advanced prompt with variety mechanisms
   const prompt = `QUIZ GENERATION SESSION: ${sessionId} | VARIETY SEED: ${uniqueSeed}
 
@@ -58,6 +69,8 @@ UNIQUENESS MECHANISMS:
 5. Application Contexts: Use different industries, situations, and environments
 6. Cognitive Complexity: Vary the thinking processes required
 
+${historicalAvoidancePrompt}
+
 STRICT COMMERCIAL REQUIREMENTS:
 1. CORE PARAMETERS:
 - Course/Stream: ${course}
@@ -78,6 +91,7 @@ For multiple-choice:
 - MUST have "options": array of EXACTLY 4 distinct, complete answers
 - MUST have "correctAnswer": exact match of the correct option
 - MUST have "explanation": detailed explanation of why the answer is correct
+- Ensure the 'correctAnswer' is NOT always the first option in the 'options' array. Randomize the order of options for each question.
 Example:
 {
   "type": "multiple-choice",
@@ -617,6 +631,124 @@ Be strict with:
       isCorrect: userLower === correctLower || hasKeywords,
       score: userLower === correctLower ? 100 : hasKeywords ? 75 : 0,
       feedback: `Your answer "${userAnswer}" ${hasKeywords ? 'contains some correct elements' : 'needs improvement'}. The expected answer is "${correctAnswer}".`
+    };
+  }
+};
+
+export const getQuizAnalysisAndRecommendations = async (
+  apiKey: string,
+  currentQuizResult: QuizResult,
+  historicalQuizResults: QuizResult[],
+  preferences: QuizPreferences
+): Promise<{ strengths: string[]; weaknesses: string[]; recommendations: string[]; comparativePerformance: any }> => {
+  const prompt = `Analyze the user's quiz performance and provide personalized strengths, weaknesses, recommendations, and comparative performance.
+
+Current Quiz Result:
+- Score: ${currentQuizResult.percentage}%
+- Correct Answers: ${currentQuizResult.correctAnswers}/${currentQuizResult.totalQuestions}
+- Time Taken: ${currentQuizResult.totalTimeTaken} seconds
+- Accuracy Rate: ${currentQuizResult.accuracyRate}%
+- Completion Rate: ${currentQuizResult.completionRate}%
+- Question Type Performance: ${JSON.stringify(currentQuizResult.questionTypePerformance)}
+- Quiz Preferences: Course: ${preferences.course}, Topic: ${preferences.topic}, Difficulty: ${preferences.difficulty}, Language: ${preferences.language}
+
+Historical Quiz Results (last ${historicalQuizResults.length} quizzes, sorted by date descending):
+${historicalQuizResults.map((res, index) => `
+  Quiz ${index + 1}:
+  - Date: ${res.quizDate?.toLocaleDateString()}
+  - Score: ${res.percentage}%
+  - Correct: ${res.correctAnswers}/${res.totalQuestions}
+  - Time: ${res.totalTimeTaken}s
+  - Accuracy: ${res.accuracyRate}%
+  - Topic: ${res.topic}
+  - Difficulty: ${res.difficulty}
+  - Question Types: ${JSON.stringify(res.questionTypePerformance)}
+`).join('\n')}
+
+Based on the current quiz and historical data, provide the following in JSON format:
+{
+  "strengths": ["List of specific strengths based on performance patterns"],
+  "weaknesses": ["List of specific weaknesses based on performance patterns"],
+  "recommendations": ["Actionable recommendations for improvement"],
+  "comparativePerformance": {
+    "overall": "How current performance compares to historical average (e.g., 'X% higher than average')",
+    "topicSpecific": "How current performance compares to past quizzes on the same topic (if available)",
+    "difficultySpecific": "How current performance compares to past quizzes of the same difficulty (if available)"
+  }
+}
+
+Consider:
+- Consistency in performance over time.
+- Improvement or decline in specific topics or question types.
+- Efficiency (time taken vs. score).
+- Areas where the user consistently performs well or struggles.
+- Provide actionable and encouraging recommendations.
+- If no historical data, base analysis solely on the current quiz.
+`;
+
+  try {
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gemini`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        prompt,
+        apiKey,
+        temperature: 0.7 // Higher temperature for more creative analysis
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get analysis: ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error('Invalid response format from Gemini API');
+    }
+
+    const responseText = data.candidates[0].content.parts[0].text;
+    
+    // Extract JSON from the response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn("No valid JSON found in Gemini analysis response. Falling back to default.");
+      return {
+        strengths: ["Good effort in completing the quiz."],
+        weaknesses: ["Could not generate specific weaknesses due to AI response format."],
+        recommendations: ["Review all questions and explanations.", "Keep practicing to improve."],
+        comparativePerformance: { overall: "No comparative data available.", topicSpecific: "No comparative data available.", difficultySpecific: "No comparative data available." }
+      };
+    }
+
+    try {
+      const analysis = JSON.parse(jsonMatch[0]);
+      return {
+        strengths: analysis.strengths || [],
+        weaknesses: analysis.weaknesses || [],
+        recommendations: analysis.recommendations || [],
+        comparativePerformance: analysis.comparativePerformance || {}
+      };
+    } catch (parseError) {
+      console.error("Failed to parse AI analysis JSON:", parseError);
+      return {
+        strengths: ["Good effort in completing the quiz."],
+        weaknesses: ["Could not parse AI-generated analysis."],
+        recommendations: ["Review all questions and explanations.", "Ensure your API key is valid and try again."],
+        comparativePerformance: { overall: "Error parsing AI response.", topicSpecific: "Error parsing AI response.", difficultySpecific: "Error parsing AI response." }
+      };
+    }
+  } catch (error: any) {
+    console.error('Quiz analysis error:', error);
+    return {
+      strengths: ["Good effort in completing the quiz."],
+      weaknesses: ["Failed to generate personalized analysis."],
+      recommendations: ["Review all questions and explanations.", "Check your internet connection and API key."],
+      comparativePerformance: { overall: "Failed to generate comparative analysis.", topicSpecific: "Failed to generate comparative analysis.", difficultySpecific: "Failed to generate comparative analysis." }
     };
   }
 }; 

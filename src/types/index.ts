@@ -166,6 +166,19 @@ export type Question =
   weaknesses?: string[]; // Added
   recommendations?: string[]; // Added
   comparativePerformance?: any; // Added
+
+  // Add quiz preferences directly to the result for display purposes
+  course?: string;
+  topic?: string;
+  subtopic?: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  language?: QuizLanguage;
+  timeLimitEnabled?: boolean;
+  timeLimit?: string | null;
+  totalTimeLimit?: string | null;
+  negativeMarking?: boolean;
+  negativeMarks?: number;
+  mode?: 'practice' | 'exam';
 };
 
 

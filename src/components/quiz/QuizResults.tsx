@@ -19,7 +19,7 @@ import {
 
 interface QuizResultsProps {
   result: QuizResult;
-  preferences: QuizPreferences; // Now passed as a prop
+  // preferences: QuizPreferences; // Now part of result
   onNewQuiz?: () => void; // Optional for solo quiz flow
   onChangePreferences?: () => void; // Optional for solo quiz flow
   onClose?: () => void; // Optional for history view
@@ -28,7 +28,6 @@ interface QuizResultsProps {
 
 const QuizResults: React.FC<QuizResultsProps> = ({
   result,
-  preferences,
   onNewQuiz,
   onChangePreferences,
   onClose,
@@ -66,8 +65,8 @@ const QuizResults: React.FC<QuizResultsProps> = ({
     
     // Calculate final score considering negative marking
     let finalScore = correctAnswers;
-    if (preferences?.negativeMarking && preferences?.negativeMarks) {
-      finalScore = correctAnswers + (incorrectAnswers * preferences.negativeMarks);
+    if (result?.negativeMarking && result?.negativeMarks) {
+      finalScore = correctAnswers + (incorrectAnswers * result.negativeMarks);
     }
     
     const finalPercentage = totalQuestions > 0 ? Math.max(0, (finalScore / totalQuestions) * 100) : 0;
@@ -199,7 +198,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
 
   const handleShareResult = () => {
     // Construct the shareable URL using the new route
-    const shareUrl = `https://aistudyaids.com/shared-quiz-result/${result.id}`;
+    const shareUrl = `${window.location.origin}/shared-quiz-result/${result.id}`;
     setShareLink(shareUrl);
     setShowShareModal(true);
   };
@@ -312,7 +311,13 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                 <User className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
               </div>
               <h4 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">{user?.profile?.fullName || 'Guest'}</h4>
-              <p className="text-sm sm:text-base text-gray-600">Quiz on: {preferences?.course || 'N/A'} - {preferences?.topic || 'N/A'}</p>
+              <p className="text-sm sm:text-base text-gray-600">
+                Quiz on: {result.course || 'N/A'} - {result.topic || 'N/A'}
+                {result.subtopic && ` (${result.subtopic})`}
+              </p>
+              <p className="text-sm sm:text-base text-gray-600 capitalize">
+                Difficulty: {result.difficulty || 'N/A'} | Language: {result.language || 'N/A'}
+              </p>
             </motion.div>
 
             {/* Panel 2: Total Marks */}
@@ -342,7 +347,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                 <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
               </div>
               <h4 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Date & Time</h4>
-              <p className="text-sm sm:text-base text-gray-600">{new Date(result.quizDate || new Date()).toLocaleDateString('en-GB')}</p> {/* DD-MM-YYYY */}
+              <p className="text-sm sm:text-base text-gray-600">{result.quizDate?.toLocaleDateString('en-GB')}</p> {/* DD-MM-YYYY */}
               <p className="text-sm sm:text-base text-gray-600">Time Taken: {Math.floor(result.totalTimeTaken / 60)}m {result.totalTimeTaken % 60}s</p>
             </motion.div>
           </div>
@@ -397,8 +402,8 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                   <div className="text-2xl sm:text-3xl font-bold text-red-600">{stats.incorrectAnswers}</div>
                   <div className="text-xs sm:text-sm text-gray-600">Incorrect ({stats.incorrectPercentage.toFixed(1)}%)</div>
                   <div className="text-sm sm:text-lg font-semibold text-red-600">
-                    {preferences?.negativeMarking ? 
-                      `${(stats.incorrectAnswers * (preferences.negativeMarks || 0)).toFixed(1)} marks` :
+                    {result?.negativeMarking ? 
+                      `${(stats.incorrectAnswers * (result.negativeMarks || 0)).toFixed(1)} marks` :
                       '0 marks'
                     }
                   </div>
@@ -439,9 +444,9 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                 <p className={`text-sm sm:text-lg ${performance.color} font-medium`}>
                   {performance.message}
                 </p>
-                {preferences?.negativeMarking && (
+                {result?.negativeMarking && (
                   <p className="text-xs sm:text-sm text-gray-600 mt-2">
-                    * Negative marking applied: {preferences.negativeMarks} per wrong answer
+                    * Negative marking applied: {result.negativeMarks} per wrong answer
                   </p>
                 )}
               </div>
@@ -706,6 +711,23 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               <Star className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-yellow-500" />
               Personalized Recommendations
             </h3>
+            {result.comparativePerformance && Object.keys(result.comparativePerformance).length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.0 }}
+                className="p-4 sm:p-6 rounded-2xl border-2 shadow-lg bg-blue-50 border-blue-200 mb-4"
+              >
+                <h4 className="font-semibold text-blue-800 mb-2 text-base sm:text-lg flex items-center">
+                  <BarChart3 className="w-5 h-5 mr-2" /> Comparative Performance
+                </h4>
+                <ul className="list-disc list-inside text-gray-700 text-sm sm:text-base space-y-1">
+                  {result.comparativePerformance.overall && <li>{result.comparativePerformance.overall}</li>}
+                  {result.comparativePerformance.topicSpecific && <li>{result.comparativePerformance.topicSpecific}</li>}
+                  {result.comparativePerformance.difficultySpecific && <li>{result.comparativePerformance.difficultySpecific}</li>}
+                </ul>
+              </motion.div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               {result.strengths && result.strengths.length > 0 && (
                 <motion.div
@@ -823,8 +845,8 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                             }`}>
                               {isCorrect ? 'Correct (+1 mark)' :
                                isSkipped ? 'Skipped (0 marks)' :
-                               preferences?.negativeMarking ? 
-                                 `Incorrect (${preferences.negativeMarks} marks)` :
+                               result?.negativeMarking ? 
+                                 `Incorrect (${result.negativeMarks} marks)` :
                                  'Incorrect (0 marks)'
                               }
                             </span>
@@ -974,4 +996,4 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   );
 };
 
-export default QuizResults;
+export default QuizResults; 

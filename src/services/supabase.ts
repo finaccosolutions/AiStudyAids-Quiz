@@ -406,7 +406,7 @@ export const getQuizResults = async (userId: string) => {
   try {
     const { data, error } = await supabase
       .from('quiz_results')
-      .select('*')
+      .select('*, quiz_preferences(*)') // Select quiz_preferences table
       .eq('user_id', userId)
       .order('quiz_date', { ascending: false });
 
@@ -422,6 +422,23 @@ export const getQuizResults = async (userId: string) => {
       score: result.score,
       totalQuestions: result.total_questions,
       timeTaken: result.time_taken,
+      // Map preferences if available
+      preferences: result.quiz_preferences ? {
+        course: result.quiz_preferences.course || '',
+        topic: result.quiz_preferences.topic || '',
+        subtopic: result.quiz_preferences.subtopic || '',
+        questionCount: result.quiz_preferences.question_count || 5,
+        questionTypes: result.quiz_preferences.question_types || ['multiple-choice'],
+        language: result.quiz_preferences.language || 'English',
+        difficulty: result.quiz_preferences.difficulty || 'medium',
+        timeLimit: result.quiz_preferences.time_limit || null,
+        totalTimeLimit: result.quiz_preferences.total_time_limit || null,
+        timeLimitEnabled: result.quiz_preferences.time_limit_enabled || false,
+        negativeMarking: result.quiz_preferences.negative_marking || false,
+        negativeMarks: result.quiz_preferences.negative_marks || 0,
+        mode: result.quiz_preferences.mode || 'practice',
+        answerMode: result.quiz_preferences.mode === 'practice' ? 'immediate' : 'end'
+      } : undefined
     }));
   } catch (error) {
     console.error('getQuizResults error:', error);
@@ -561,7 +578,13 @@ export const getQuizResultById = async (resultId: string): Promise<QuizResult | 
   try {
     const { data, error } = await supabase
       .from('quiz_results')
-      .select('*')
+      .select(`
+        *,
+        quiz_preferences:quiz_preferences!quiz_results_user_id_fkey(
+          course, topic, subtopic, difficulty, question_count, question_types, language,
+          time_limit_enabled, time_limit, total_time_limit, negative_marking, negative_marks, mode
+        )
+      `)
       .eq('id', resultId)
       .maybeSingle();
 
@@ -592,7 +615,20 @@ export const getQuizResultById = async (resultId: string): Promise<QuizResult | 
       weaknesses: data.weaknesses || [],
       recommendations: data.recommendations || [],
       comparativePerformance: data.comparative_performance || {},
-      // Add any other fields from QuizResult that are stored in the database
+      quizDate: data.quiz_date ? new Date(data.quiz_date) : undefined,
+
+      // Map quiz preferences directly to the result object
+      course: data.course || undefined,
+      topic: data.topic || undefined,
+      subtopic: data.subtopic || undefined,
+      difficulty: data.difficulty || undefined,
+      language: data.language || undefined,
+      timeLimitEnabled: data.time_limit_enabled || undefined,
+      timeLimit: data.time_limit_per_question || undefined,
+      totalTimeLimit: data.total_time_limit || undefined,
+      negativeMarking: data.negative_marking_applied || undefined,
+      negativeMarks: data.negative_marks_deducted || undefined,
+      mode: data.mode || undefined,
     };
   } catch (error) {
     console.error('getQuizResultById error:', error);
