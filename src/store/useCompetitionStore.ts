@@ -38,7 +38,7 @@ interface CompetitionStoreState {
   cancelCompetition: (competitionId: string) => Promise<void>;
   startCompetition: (competitionId: string, apiKey: string) => Promise<void>;
   loadParticipants: (competitionId: string) => Promise<void>;
-  updateParticipantProgress: (competitionId: string, answers: Record<number, string>, score: number, correctAnswers: number, timeTaken: number,   currentQuestionIndex: number) => Promise<void>;
+  updateParticipantProgress: (userId: string, competitionId: string, answers: Record<number, string>, score: number, correctAnswers: number, timeTaken: number,   currentQuestionIndex: number) => Promise<void>;
   completeCompetition: (competitionId: string) => Promise<void>;
   subscribeToCompetition: (competitionId: string) => () => void;
   getLiveLeaderboard: (competitionId: string) => CompetitionParticipant[];
@@ -225,7 +225,6 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
     set({ isLoading: true, error: null });
     try {
       const { user } = await supabase.auth.getUser();
-      console.log('User in leaveCompetition:', user); // ADD THIS LINE
       if (!user) throw new Error('User not authenticated');
 
       const { error } = await supabase
@@ -351,12 +350,8 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
     }
   },
 
-  updateParticipantProgress: async (competitionId, answers, score, correctAnswers, timeTaken, currentQuestionIndex) => {
+  updateParticipantProgress: async (userId, competitionId, answers, score, correctAnswers, timeTaken, currentQuestionIndex) => {
     try {
-      const { user } = await supabase.auth.getUser();
-      console.log('User in updateParticipantProgress:', user); // ADD THIS LINE
-      if (!user) throw new Error('User not authenticated');
-
       const { error } = await supabase
         .from('competition_participants')
         .update({
@@ -368,7 +363,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
           last_activity: new Date().toISOString(),
         })
         .eq('competition_id', competitionId)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
     } catch (error: any) {
@@ -809,4 +804,4 @@ loadCompetitionResultsHistory: async (userId) => {
       }
     });
   },
-})); 
+}));

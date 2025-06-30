@@ -198,14 +198,17 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000); // Use questionStartTime
       const updatedAnswers = { ...answers, [currentQuestion.id]: userAnswer };
       
-      await updateParticipantProgress(
-        competition.id,
-        updatedAnswers,
-        Math.max(0, newScore),
-        newCorrectAnswers,
-        totalTimeElapsed, // Use totalTimeElapsed
-        currentQuestionIndex + 1
-      );
+      if (user?.id) { // Ensure user is authenticated before updating progress
+        await updateParticipantProgress(
+          user.id, // Pass user.id directly
+          competition.id,
+          updatedAnswers,
+          Math.max(0, newScore),
+          newCorrectAnswers,
+          totalTimeElapsed, // Use totalTimeElapsed
+          currentQuestionIndex + 1
+        );
+      }
       
       if (isLastQuestion) {
         console.log('Quiz completed, finishing...');
@@ -241,7 +244,8 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     isSubmitting,
     answers, // Include answers in dependency array
     totalTimeElapsed,
-    handleCompetitionCompletion
+    handleCompetitionCompletion,
+    user?.id // Add user.id to dependencies
   ]);
 
   // Load participants and set up subscriptions
