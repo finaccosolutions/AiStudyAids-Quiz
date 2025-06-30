@@ -71,6 +71,7 @@ interface BaseQuestion {
   userAnswer?: string;
   language?: QuizLanguage;
   keywords?: string[]; // For flexible answer matching
+  isCorrect?: boolean; // Added for tracking correctness
 }
 
 // Multiple choice question
@@ -155,13 +156,13 @@ export type Question =
   finalScore: number;
   rawScore: number;
   negativeMarksDeducted?: number;
-  timeAnalytics?: {
-    totalTime: number;
-    averageTimePerQuestion: number;
-  };
-  strengths?: string[];
-  weaknesses?: string[];
-  recommendations?: string[];
+  totalTimeTaken: number; // Added
+  accuracyRate: number; // Added
+  completionRate: number; // Added
+  strengths?: string[]; // Added
+  weaknesses?: string[]; // Added
+  recommendations?: string[]; // Added
+  comparativePerformance?: any; // Added
 };
 
 

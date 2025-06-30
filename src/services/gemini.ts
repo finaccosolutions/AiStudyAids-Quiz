@@ -1,3 +1,4 @@
+// src/services/gemini.ts
 import { QuizPreferences, Question } from '../types';
 
 // Function to generate quiz questions using Gemini API
@@ -193,7 +194,7 @@ Example:
     "Restore from the latest backup"
   ],
   "correctAnswer": "Analyze logs and metrics for root cause",
-  "explanation": "Analysis of each action and its consequences:\\n1. Rolling back immediately: Risky without understanding the issue, could cause data inconsistencies and might not solve the problem if it's unrelated to the deployment.\\n2. Scaling database resources: Premature solution without understanding if database is the real bottleneck, wastes time and resources if the issue lies elsewhere.\\n3. Analyzing logs and metrics: Best first action as it quickly identifies the root cause, minimizes risk, and ensures the correct solution is implemented. Allows for informed decision-making.\\n4. Restoring backup: Most disruptive option with guaranteed data loss, should only be used as a last resort after other options are exhausted."
+  "explanation": "Analysis of each action and its consequences:\\n1. Rolling back immediately: Risky without understanding the issue, could cause data inconsistencies and might not solve the problem if it's unrelated to the deployment.\\n2. Scaling database resources: Premature solution without understanding if database is the real bottleneck, wastes time and resources if the issue lies elsewhere.\\n3. Analyzing logs and metrics: Best first action as it quickly identifies the root cause, minimizes risk, and ensures the correct solution is implemented.\\n4. Restoring backup: Most disruptive option with guaranteed data loss, should only be used as a last resort after other options are exhausted."
 }
 
 For short-answer:
@@ -618,4 +619,4 @@ Be strict with:
       feedback: `Your answer "${userAnswer}" ${hasKeywords ? 'contains some correct elements' : 'needs improvement'}. The expected answer is "${correctAnswer}".`
     };
   }
-};
+}; 

@@ -30,7 +30,9 @@ const QuizPage: React.FC = () => {
     questions, generateQuiz, 
     currentQuestionIndex, answers, answerQuestion, 
     nextQuestion, prevQuestion, 
-    finishQuiz, resetQuiz, result 
+    finishQuiz, resetQuiz, result,
+    totalTimeElapsed, setTotalTimeElapsed, // Added
+    totalTimeRemaining, setTotalTimeRemaining, // Added
   } = useQuizStore();
   
   const {
@@ -67,10 +69,7 @@ const [step, setStep] = useState<
 // Add a new state for tracking quiz generation
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
-  const [totalTimeRemaining, setTotalTimeRemaining] = useState<number | null>(null);
-  const [competitionQuestions, setCompetitionQuestions] = useState<Question[]>([]);
-  const [totalTimeElapsed, setTotalTimeElapsed] = useState(0);
-  const [showCompetitionQuiz, setShowCompetitionQuiz] = useState(false); // Add this
+  const quizStartTimeRef = useRef<number | null>(null); // Added for solo quiz timer
 
 
   // Component lifecycle management
@@ -300,7 +299,7 @@ useEffect(() => {
         } else if (questions.length > 0 && !result) {
           newStep = 'quiz';
           // Initialize total time if set
-          if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit) {
+          if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit && totalTimeRemaining === null) {
             setTotalTimeRemaining(parseInt(preferences.totalTimeLimit));
           }
         } else {
@@ -324,7 +323,7 @@ useEffect(() => {
 
   const timeoutId = setTimeout(determineStep, 100);
   return () => clearTimeout(timeoutId);
-}, [questions, result, location.state, currentCompetition, navigate, user, isInitializedRef.current, isGeneratingQuiz, preferences, step, selectedMode]);
+}, [questions, result, location.state, currentCompetition, navigate, user, isInitializedRef.current, isGeneratingQuiz, preferences, step, selectedMode, totalTimeRemaining]);
 
 
   const handleFinishQuiz = useCallback(() => {
@@ -336,12 +335,12 @@ useEffect(() => {
     setStep('results');
     currentStepRef.current = 'results';
     setTotalTimeRemaining(null);
-  }, [finishQuiz]);
+  }, [finishQuiz, setTotalTimeRemaining]);
 
   
   // Total quiz timer effect
 useEffect(() => {
-  let timer: NodeJS.Timeout;
+  let timer: NodeJS.Timeout | null = null;
   // Only run if totalTimeLimit is enabled and per-question timeLimit is NOT set
   if (preferences?.timeLimitEnabled && preferences?.totalTimeLimit && preferences?.timeLimit === null && step === 'quiz' && questions.length > 0 && isComponentMountedRef.current) {
     // Initialize totalTimeRemaining if it's null or quiz just started
@@ -352,7 +351,7 @@ useEffect(() => {
     timer = setInterval(() => {
       setTotalTimeRemaining(prev => {
         if (prev === null || prev <= 1) {
-          clearInterval(timer); // Clear interval immediately
+          clearInterval(timer!); // Clear interval immediately
           if (isComponentMountedRef.current) {
             setTimeout(() => {
               handleFinishQuiz();
@@ -364,7 +363,7 @@ useEffect(() => {
       });
     }, 1000);
   } else {
-    setTotalTimeRemaining(null); // Clear total timer if not applicable
+    if (timer) clearInterval(timer); // Clear timer if conditions are no longer met
   }
 
   return () => {
@@ -372,17 +371,15 @@ useEffect(() => {
       clearInterval(timer);
     }
   };
-}, [step, questions.length, handleFinishQuiz, preferences, totalTimeRemaining]);
+}, [step, questions.length, handleFinishQuiz, preferences, totalTimeRemaining, setTotalTimeRemaining]);
 
     // Total time elapsed timer for solo quiz
-      const quizStartTimeRef = useRef<number | null>(null);
-
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     if (step === 'quiz' && questions.length > 0 && isComponentMountedRef.current) {
       // Initialize quizStartTimeRef if it's null or if a new quiz has started
       if (quizStartTimeRef.current === null || totalTimeElapsed === 0) {
-        quizStartTimeRef.current = Date.now();
+        quizStartTimeRef.current = Date.now() - (totalTimeElapsed * 1000); // Resume from saved elapsed time
       }
 
       timer = setInterval(() => {
@@ -392,6 +389,7 @@ useEffect(() => {
       }, 1000);
     } else {
       // Clear the ref when not in quiz step or questions are gone
+      if (timer) clearInterval(timer);
       quizStartTimeRef.current = null;
     }
 
@@ -400,7 +398,7 @@ useEffect(() => {
         clearInterval(timer);
       }
     };
-  }, [step, questions.length]);
+  }, [step, questions.length, setTotalTimeElapsed, totalTimeElapsed]);
 
   
   if (!isLoggedIn) {
@@ -432,12 +430,11 @@ useEffect(() => {
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
     setSelectedMode(null);
-    setTotalTimeRemaining(null);
-    setCompetitionQuestions([]);
-    setShowCompetitionQuiz(false); // Add this
+    setTotalTimeElapsed(0); // Reset total time elapsed
+    setTotalTimeRemaining(null); // Reset total time remaining
     setStep('mode-selector');
     currentStepRef.current = 'mode-selector';
-  }, [resetQuiz, clearCurrentCompetition, setCleanupFlag]);
+  }, [resetQuiz, clearCurrentCompetition, setCleanupFlag, setTotalTimeElapsed, setTotalTimeRemaining]);
 
   const handleShowCompetitionManagement = useCallback(() => {
     if (!isComponentMountedRef.current) return;
@@ -477,20 +474,22 @@ useEffect(() => {
     resetQuiz();
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
-    setTotalTimeRemaining(null);
+    setTotalTimeElapsed(0); // Reset total time elapsed
+    setTotalTimeRemaining(null); // Reset total time remaining
     setStep('mode-selector');
     currentStepRef.current = 'mode-selector';
-  }, [resetQuiz]);
+  }, [resetQuiz, setTotalTimeElapsed, setTotalTimeRemaining]);
   
   const handleChangePreferences = useCallback(() => {
     if (!isComponentMountedRef.current) return;
     
     resetQuiz();
-    setTotalTimeRemaining(null);
+    setTotalTimeElapsed(0); // Reset total time elapsed
+    setTotalTimeRemaining(null); // Reset total time remaining
     const newStep = selectedMode === 'solo' ? 'solo-preferences' : 'mode-selector';
     setStep(newStep);
     currentStepRef.current = newStep;
-  }, [resetQuiz, selectedMode]);
+  }, [resetQuiz, selectedMode, setTotalTimeElapsed, setTotalTimeRemaining]);
 
   const handleNext = useCallback(() => {
     nextQuestion();
@@ -517,7 +516,6 @@ const handleStartCompetitionQuiz = useCallback(async () => {
   if (!currentCompetition || !user || !apiKey || !isComponentMountedRef.current) return;
 
   try {
-    setShowCompetitionQuiz(true); // Set this to true
     setStep('competition-quiz');
     currentStepRef.current = 'competition-quiz';
   } catch (error) {
@@ -553,7 +551,6 @@ const handleStartCompetitionQuiz = useCallback(async () => {
     setCleanupFlag(false); // Reset cleanup flag for new session
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
-    setCompetitionQuestions([]);
     setStep('mode-selector');
     currentStepRef.current = 'mode-selector';
   }, [clearCurrentCompetition, setCleanupFlag]);
@@ -608,7 +605,6 @@ const handleCreateCompetitionSuccess = useCallback(async (preferences, title, de
     clearCurrentCompetition();
     competitionCompletedRef.current = false;
     isOnResultsPageRef.current = false;
-    setShowCompetitionQuiz(false); // Add this
     setStep('mode-selector');
     currentStepRef.current = 'mode-selector';
   }, [clearCurrentCompetition, setCleanupFlag, cleanupSubscriptions]);
@@ -821,16 +817,6 @@ const handleCreateCompetitionSuccess = useCallback(async (preferences, title, de
         case 'competition-quiz':
           if (!currentCompetition) {
             return <div>Loading competition...</div>;
-          }
-          // Render CompetitionQuiz only if the countdown has finished
-          if (!showCompetitionQuiz) {
-            return (
-              <CompetitionLobby
-                competition={currentCompetition}
-                onStartQuiz={handleStartCompetitionQuiz} // Pass the start quiz handler
-                onLeave={handleLeaveCompetition}
-              />
-            );
           }
           return (
             <CompetitionQuiz

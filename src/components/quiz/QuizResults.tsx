@@ -1,3 +1,4 @@
+// src/components/quiz/QuizResults.tsx
 import React, { useState } from 'react';
 import { QuizResult, QuizPreferences } from '../../types';
 import { Button } from '../ui/Button';
@@ -10,6 +11,10 @@ import {
 } from 'lucide-react';
 import { useQuizStore } from '../../store/useQuizStore'; // Keep for explanation logic
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart, Line, PieChart as RechartsPieChart, Cell, Area, AreaChart, Pie,
+} from 'recharts';
 
 interface QuizResultsProps {
   result: QuizResult;
@@ -28,6 +33,8 @@ const QuizResults: React.FC<QuizResultsProps> = ({
 }) => {
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
+  const [showQuestionTypePerformance, setShowQuestionTypePerformance] = useState(false);
+  const [showAnswerDistribution, setShowAnswerDistribution] = useState(false);
   const { getExplanation, explanation, isLoading, resetExplanation } = useQuizStore(); // Use store for explanation
   
   const handleGetExplanation = async (questionId: number) => {
@@ -67,7 +74,8 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       correctPercentage: totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0,
       incorrectPercentage: totalQuestions > 0 ? (incorrectAnswers / totalQuestions) * 100 : 0,
       skippedPercentage: totalQuestions > 0 ? (skippedAnswers / totalQuestions) * 100 : 0,
-      accuracy: answeredQuestions > 0 ? (correctAnswers / answeredQuestions) * 100 : 0
+      accuracy: result.accuracyRate, // Use directly from result
+      completion: result.completionRate, // Use directly from result
     };
   };
 
@@ -135,57 +143,22 @@ const QuizResults: React.FC<QuizResultsProps> = ({
 
   const performance = getPerformanceLevel();
 
-  // Generate recommendations
-  const getRecommendations = () => {
-    const recommendations = [];
-    
-    if (stats.correctPercentage < 70) {
-      recommendations.push({
-        icon: BookOpen,
-        title: 'Review Core Concepts',
-        description: 'Focus on understanding the fundamental principles of the topics you missed.',
-        priority: 'high'
-      });
-    }
-    
-    if (stats.skippedPercentage > 10) {
-      recommendations.push({
-        icon: Clock,
-        title: 'Time Management',
-        description: 'Practice answering questions within time limits to avoid skipping questions.',
-        priority: 'medium'
-      });
-    }
-    
-    if (stats.accuracy < 80 && stats.skippedPercentage < 10) {
-      recommendations.push({
-        icon: Target,
-        title: 'Accuracy Focus',
-        description: 'Take more time to read questions carefully and think through your answers.',
-        priority: 'high'
-      });
-    }
-    
-    if (stats.correctPercentage >= 80) {
-      recommendations.push({
-        icon: TrendingUp,
-        title: 'Advanced Practice',
-        description: 'Try more challenging questions to further enhance your knowledge.',
-        priority: 'low'
-      });
-    }
-    
-    recommendations.push({
-      icon: Brain,
-      title: 'Regular Practice',
-      description: 'Consistent practice will help reinforce your learning and improve retention.',
-      priority: 'medium'
-    });
-    
-    return recommendations;
-  };
+  // Data for charts
+  const questionTypePerformanceData = Object.keys(result.questionTypePerformance).map(type => {
+    const perf = result.questionTypePerformance[type];
+    return {
+      name: type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      accuracy: perf.total > 0 ? (perf.correct / perf.total) * 100 : 0,
+      correct: perf.correct,
+      total: perf.total,
+    };
+  });
 
-  const recommendations = getRecommendations();
+  const answerDistributionData = [
+    { name: 'Correct', value: stats.correctAnswers, color: '#10B981' },
+    { name: 'Incorrect', value: stats.incorrectAnswers, color: '#EF4444' },
+    { name: 'Skipped', value: stats.skippedAnswers, color: '#6B7280' },
+  ];
 
   // Format explanation text
   const formatExplanation = (text: string) => {
@@ -205,8 +178,42 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="space-y-4 sm:space-y-8 w-full max-w-7xl mx-auto px-0 sm:px-4"
+      className="space-y-4 sm:space-y-8 w-full max-w-7xl mx-auto px-4"
     >
+      {/* Action Buttons at Top */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="flex flex-col sm:flex-row sm:justify-center gap-3 sm:gap-4 p-4 sm:p-0"
+      >
+        {onNewQuiz && (
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
+            <Button
+              type="button"
+              onClick={onNewQuiz}
+              className="gradient-bg hover:opacity-90 transition-all duration-300 font-semibold px-6 sm:px-8 py-3 shadow-lg w-full sm:w-auto"
+            >
+              <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              Try Again
+            </Button>
+          </motion.div>
+        )}
+        
+        {onClose && (
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="border-2 border-gray-300 text-gray-600 hover:bg-gray-100 font-semibold px-6 sm:px-8 py-3 w-full sm:w-auto"
+            >
+              Close
+            </Button>
+          </motion.div>
+        )}
+      </motion.div>
+
       {/* Main Results Card */}
       <Card className="w-full overflow-hidden bg-gradient-to-br from-white to-purple-50 border-2 border-purple-100 shadow-2xl">
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500" />
@@ -366,48 +373,6 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200">
-                <h4 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <Activity className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-600" />
-                  Accuracy Rate
-                </h4>
-                <div className="relative">
-                  <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4 mb-2">
-                    <motion.div
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 sm:h-4 rounded-full"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${stats.accuracy}%` }}
-                      transition={{ duration: 1, delay: 0.9 }}
-                    />
-                  </div>
-                  <div className="text-xl sm:text-2xl font-bold text-blue-600">{stats.accuracy.toFixed(1)}%</div>
-                  <p className="text-xs sm:text-sm text-gray-600">
-                    {stats.correctAnswers} correct out of {stats.answeredQuestions} attempted
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200">
-                <h4 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <PieChart className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-purple-600" />
-                  Question Distribution
-                </h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-gray-600">Answered</span>
-                    <span className="font-semibold text-sm sm:text-base">{stats.answeredQuestions}/{stats.totalQuestions}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-gray-600">Completion Rate</span>
-                    <span className="font-semibold text-purple-600 text-sm sm:text-base">
-                      {((stats.answeredQuestions / stats.totalQuestions) * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <AnimatePresence>
               {showDetailedAnalysis && (
                 <motion.div
@@ -417,36 +382,155 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                   transition={{ duration: 0.3 }}
                   className="mt-4 sm:mt-6 overflow-hidden"
                 >
-                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 sm:p-6 rounded-2xl border border-purple-200">
-                    <h4 className="text-base sm:text-lg font-semibold text-purple-800 mb-4 flex items-center">
-                      <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                      Detailed Insights
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
-                      <div className="bg-white p-3 sm:p-4 rounded-lg">
-                        <div className="font-semibold text-emerald-600">Strengths</div>
-                        <div className="text-gray-600 mt-1">
-                          {stats.correctPercentage >= 70 ? 'Strong conceptual understanding' : 
-                           stats.correctPercentage >= 50 ? 'Good foundation in basics' : 
-                           'Room for improvement in fundamentals'}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200">
+                      <h4 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                        <Activity className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-600" />
+                        Accuracy Rate
+                      </h4>
+                      <div className="relative">
+                        <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4 mb-2">
+                          <motion.div
+                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 sm:h-4 rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${stats.accuracy}%` }}
+                            transition={{ duration: 1, delay: 0.9 }}
+                          />
                         </div>
+                        <div className="text-xl sm:text-2xl font-bold text-blue-600">{stats.accuracy.toFixed(1)}%</div>
+                        <p className="text-xs sm:text-sm text-gray-600">
+                          {stats.correctAnswers} correct out of {stats.answeredQuestions} attempted
+                        </p>
                       </div>
-                      <div className="bg-white p-3 sm:p-4 rounded-lg">
-                        <div className="font-semibold text-blue-600">Focus Areas</div>
-                        <div className="text-gray-600 mt-1">
-                          {stats.incorrectPercentage > 30 ? 'Review incorrect topics' :
-                           stats.skippedPercentage > 20 ? 'Time management' :
-                           'Advanced problem solving'}
+                    </div>
+
+                    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200">
+                      <h4 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                        <PieChart className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-purple-600" />
+                        Completion Rate
+                      </h4>
+                      <div className="relative">
+                        <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4 mb-2">
+                          <motion.div
+                            className="bg-gradient-to-r from-purple-500 to-purple-600 h-3 sm:h-4 rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${stats.completion}%` }}
+                            transition={{ duration: 1, delay: 0.9 }}
+                          />
                         </div>
+                        <div className="text-xl sm:text-2xl font-bold text-purple-600">{stats.completion.toFixed(1)}%</div>
+                        <p className="text-xs sm:text-sm text-gray-600">
+                          {stats.answeredQuestions} attempted out of {stats.totalQuestions} total
+                        </p>
                       </div>
-                      <div className="bg-white p-3 sm:p-4 rounded-lg">
-                        <div className="font-semibold text-purple-600">Next Steps</div>
-                        <div className="text-gray-600 mt-1">
-                          {stats.finalPercentage >= 80 ? 'Try harder questions' :
-                           stats.finalPercentage >= 60 ? 'Practice similar questions' :
-                           'Review fundamentals'}
-                        </div>
+                    </div>
+
+                    {/* Question Type Performance Chart */}
+                    <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200">
+                      <div className="flex items-center justify-between mb-4 gap-2">
+                        <h4 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
+                          <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-green-600" />
+                          Performance by Question Type
+                        </h4>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowQuestionTypePerformance(!showQuestionTypePerformance)}
+                          className="text-green-600 hover:text-green-700 hover:bg-green-50 text-sm"
+                        >
+                          {showQuestionTypePerformance ? (
+                            <>
+                              <ChevronUp className="w-4 h-4 mr-2" />
+                              Hide Chart
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-4 h-4 mr-2" />
+                              Show Chart
+                            </>
+                          )}
+                        </Button>
                       </div>
+                      <AnimatePresence>
+                        {showQuestionTypePerformance && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="mt-4 overflow-hidden"
+                          >
+                            <ResponsiveContainer width="100%" height={250}>
+                              <BarChart data={questionTypePerformanceData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" />
+                                <YAxis domain={[0, 100]} />
+                                <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+                                <Legend />
+                                <Bar dataKey="accuracy" fill="#8884d8" name="Accuracy (%)" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Answer Distribution Chart */}
+                    <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200">
+                      <div className="flex items-center justify-between mb-4 gap-2">
+                        <h4 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
+                          <PieChart className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-orange-600" />
+                          Answer Distribution
+                        </h4>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAnswerDistribution(!showAnswerDistribution)}
+                          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 text-sm"
+                        >
+                          {showAnswerDistribution ? (
+                            <>
+                              <ChevronUp className="w-4 h-4 mr-2" />
+                              Hide Chart
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-4 h-4 mr-2" />
+                              Show Chart
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <AnimatePresence>
+                        {showAnswerDistribution && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="mt-4 overflow-hidden"
+                          >
+                            <ResponsiveContainer width="100%" height={250}>
+                              <RechartsPieChart>
+                                <Pie
+                                  data={answerDistributionData}
+                                  cx="50%"
+                                  cy="50%"
+                                  outerRadius={80}
+                                  dataKey="value"
+                                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                >
+                                  {answerDistributionData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                  ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                              </RechartsPieChart>
+                            </ResponsiveContainer>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
                 </motion.div>
@@ -466,37 +550,51 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               Personalized Recommendations
             </h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-              {recommendations.map((rec, index) => (
+              {result.strengths && result.strengths.length > 0 && (
                 <motion.div
-                  key={index}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 1.1 + index * 0.1 }}
-                  className={`p-4 sm:p-6 rounded-2xl border-2 shadow-lg ${
-                    rec.priority === 'high' ? 'bg-red-50 border-red-200' :
-                    rec.priority === 'medium' ? 'bg-yellow-50 border-yellow-200' :
-                    'bg-green-50 border-green-200'
-                  }`}
+                  transition={{ delay: 1.1 }}
+                  className="p-4 sm:p-6 rounded-2xl border-2 shadow-lg bg-green-50 border-green-200"
                 >
-                  <div className="flex items-start space-x-3 sm:space-x-4">
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      rec.priority === 'high' ? 'bg-red-100' :
-                      rec.priority === 'medium' ? 'bg-yellow-100' :
-                      'bg-green-100'
-                    }`}>
-                      <rec.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${
-                        rec.priority === 'high' ? 'text-red-600' :
-                        rec.priority === 'medium' ? 'text-yellow-600' :
-                        'text-green-600'
-                      }`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-gray-800 mb-2 text-sm sm:text-base">{rec.title}</h4>
-                      <p className="text-gray-600 text-xs sm:text-sm">{rec.description}</p>
-                    </div>
-                  </div>
+                  <h4 className="font-semibold text-green-800 mb-2 text-base sm:text-lg flex items-center">
+                    <ThumbsUp className="w-5 h-5 mr-2" /> Strengths
+                  </h4>
+                  <ul className="list-disc list-inside text-gray-700 text-sm sm:text-base space-y-1">
+                    {result.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
                 </motion.div>
-              ))}
+              )}
+              {result.weaknesses && result.weaknesses.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 1.2 }}
+                  className="p-4 sm:p-6 rounded-2xl border-2 shadow-lg bg-red-50 border-red-200"
+                >
+                  <h4 className="font-semibold text-red-800 mb-2 text-base sm:text-lg flex items-center">
+                    <AlertTriangle className="w-5 h-5 mr-2" /> Weaknesses
+                  </h4>
+                  <ul className="list-disc list-inside text-gray-700 text-sm sm:text-base space-y-1">
+                    {result.weaknesses.map((w, i) => <li key={i}>{w}</li>)}
+                  </ul>
+                </motion.div>
+              )}
+              {result.recommendations && result.recommendations.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.3 }}
+                  className="lg:col-span-2 p-4 sm:p-6 rounded-2xl border-2 shadow-lg bg-blue-50 border-blue-200"
+                >
+                  <h4 className="font-semibold text-blue-800 mb-2 text-base sm:text-lg flex items-center">
+                    <Lightbulb className="w-5 h-5 mr-2" /> Recommendations
+                  </h4>
+                  <ul className="list-disc list-inside text-gray-700 text-sm sm:text-base space-y-1">
+                    {result.recommendations.map((r, i) => <li key={i}>{r}</li>)}
+                  </ul>
+                </motion.div>
+              )}
             </div>
           </motion.div>
         </CardBody>

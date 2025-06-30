@@ -159,7 +159,7 @@ const prefsData = {
   language: preferences.language || 'English',
   difficulty: preferences.difficulty || 'medium',
   // Fixed time limit handling
-  time_limit: preferences.timeLimitEnabled && preferences.timeLimit && preferences.totalTimeLimit === null 
+  time_limit: preferences.timeLimitEnabled && preferences.totalTimeLimit === null 
     ? parseInt(preferences.timeLimit) 
     : null,
   total_time_limit: preferences.timeLimitEnabled && preferences.timeLimit === null 
@@ -529,7 +529,14 @@ export const saveQuizResultToDatabase = async (
       session_id: sessionId,
       device_info: sessionMetadata || {},
       
-      completed_at: new Date().toISOString()
+      completed_at: new Date().toISOString(),
+      total_time_taken: result.totalTimeTaken, // Added
+      accuracy_rate: result.accuracyRate, // Added
+      completion_rate: result.completionRate, // Added
+      strengths: result.strengths, // Added
+      weaknesses: result.weaknesses, // Added
+      recommendations: result.recommendations, // Added
+      comparative_performance: result.comparativePerformance, // Added
     };
 
     return supabase

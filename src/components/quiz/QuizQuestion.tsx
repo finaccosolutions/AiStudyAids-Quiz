@@ -1,3 +1,5 @@
+// src/components/quiz/QuizQuestion.tsx
+ 
 import React, { useState, useEffect, useCallback, useRef } from 'react'; 
 import { Question } from '../../types';
 import { Button } from '../ui/Button';
@@ -6,11 +8,13 @@ import {
   ChevronLeft, ChevronRight, Clock, Flag, Volume2, VolumeX, 
   CheckCircle, Circle, Square, ArrowLeft, LogOut, AlertTriangle,
   Timer, Target, Brain, Zap, Star, Award, Trophy, Activity,
-  Play, Pause, RotateCcw, Eye, EyeOff, Lightbulb, HelpCircle
+  Play, Pause, RotateCcw, Eye, EyeOff, Lightbulb, HelpCircle, XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { speechService } from '../../services/speech';
- 
+import { getAnswerExplanation, evaluateTextAnswer } from '../../services/gemini'; // Import gemini service for evaluation
+import { useQuizStore } from '../../store/useQuizStore'; // Import useQuizStore to get API key
+
 interface QuizQuestionProps {
   question: Question;
   questionNumber: number;
@@ -56,6 +60,7 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   showQuitButton = true,
   displayHeader = true, // Add this with a default value
 }) => {
+  const { apiKey, preferences } = useQuizStore(); // Get apiKey and preferences from store
   const [questionTimeLeft, setQuestionTimeLeft] = useState<number | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -67,6 +72,13 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   const questionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const totalTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isComponentMountedRef = useRef(true);
+
+  // New states for practice mode feedback
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [isCorrectAnswer, setIsCorrectAnswer] = useState<boolean | null>(null);
+  const [practiceExplanation, setPracticeExplanation] = useState<string | null>(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+
 
   // Initialize timers based on preferences
 useEffect(() => {
@@ -81,6 +93,12 @@ useEffect(() => {
   } else {
     setQuestionTimeLeft(null); // Clear per-question timer if not applicable
   }
+
+  // Reset feedback states for new question
+  setShowFeedback(false);
+  setIsCorrectAnswer(null);
+  setPracticeExplanation(null);
+  setIsEvaluating(false);
 
   return () => {
     isComponentMountedRef.current = false;
@@ -141,11 +159,70 @@ useEffect(() => {
     prevQuestionId.current = question.id;
   }, [userAnswer, question.id]);
 
-  const handleAnswerSelect = useCallback((answer: string) => {
+  const handleAnswerSelect = useCallback(async (answer: string) => {
+    if (showFeedback && mode === 'practice') return; // Prevent changing answer in practice mode after feedback
+    
     setSelectedAnswer(answer);
     setIsAnswered(true);
     onAnswer(answer);
-  }, [onAnswer]);
+
+    if (mode === 'practice' && apiKey && preferences) {
+      setIsEvaluating(true);
+      let correct = false;
+      let explanationText = question.explanation || 'No explanation available.';
+
+      try {
+        switch (question.type) {
+          case 'multiple-choice':
+          case 'true-false':
+          case 'case-study':
+          case 'situation':
+            correct = answer.toLowerCase() === question.correctAnswer.toLowerCase();
+            break;
+          case 'multi-select':
+            const userOptions = answer.split(',').sort();
+            const correctOptions = question.correctOptions?.sort() || [];
+            correct = userOptions.length === correctOptions.length &&
+                      userOptions.every((opt, index) => opt === correctOptions[index]);
+            break;
+          case 'sequence':
+            try {
+              const userSequence = JSON.parse(answer);
+              correct = userSequence.length === question.correctSequence?.length &&
+                        userSequence.every((step: string, index: number) => step === question.correctSequence![index]);
+            } catch (e) {
+              correct = false;
+            }
+            break;
+          case 'short-answer':
+          case 'fill-blank':
+            const evaluation = await evaluateTextAnswer(
+              apiKey,
+              question.text,
+              answer,
+              question.correctAnswer || '',
+              question.keywords || [],
+              language
+            );
+            correct = evaluation.isCorrect;
+            explanationText = evaluation.feedback + '\n\n' + (question.explanation || '');
+            break;
+          default:
+            correct = false;
+        }
+        setIsCorrectAnswer(correct);
+        setPracticeExplanation(explanationText);
+        setShowFeedback(true);
+      } catch (err) {
+        console.error("Error evaluating answer:", err);
+        setIsCorrectAnswer(null); // Indicate evaluation failed
+        setPracticeExplanation("Failed to evaluate answer. " + (question.explanation || ''));
+        setShowFeedback(true);
+      } finally {
+        setIsEvaluating(false);
+      }
+    }
+  }, [onAnswer, mode, apiKey, preferences, question, language, showFeedback]);
 
   const handleNext = useCallback(() => {
     if (isLastQuestion) {
@@ -201,14 +278,85 @@ useEffect(() => {
       tap: { scale: 0.98 }
     };
 
+    const isOptionDisabled = (mode === 'practice' && showFeedback) || isEvaluating;
+
+    const getOptionClassNames = (option: string, index: number) => {
+      const isSelected = selectedAnswer === option;
+      let classes = `w-full p-3 sm:p-6 text-left rounded-2xl border-2 transition-all duration-300 group relative overflow-hidden `;
+    
+      if (mode === 'practice' && showFeedback) {
+        // Practice mode feedback
+        if (question.type === 'multi-select') {
+          const correctOptions = question.correctOptions || [];
+          const isCorrectOption = correctOptions.includes(option);
+          if (isCorrectOption) {
+            classes += 'border-emerald-500 bg-emerald-50 shadow-xl ring-4 ring-emerald-200 ';
+          } else if (isSelected) {
+            classes += 'border-red-500 bg-red-50 shadow-xl ring-4 ring-red-200 ';
+          } else {
+            classes += 'border-gray-200 bg-white ';
+          }
+        } else {
+          const isCorrectOption = option === question.correctAnswer;
+          if (isCorrectOption) {
+            classes += 'border-emerald-500 bg-emerald-50 shadow-xl ring-4 ring-emerald-200 ';
+          } else if (isSelected) {
+            classes += 'border-red-500 bg-red-50 shadow-xl ring-4 ring-red-200 ';
+          } else {
+            classes += 'border-gray-200 bg-white ';
+          }
+        }
+      } else {
+        // Normal selection
+        classes += isSelected
+          ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-xl ring-4 ring-purple-200 '
+          : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg ';
+      }
+    
+      return classes;
+    };
+
+    const getOptionIcon = (option: string, index: number) => {
+      const isSelected = selectedAnswer === option;
+      const optionLetter = String.fromCharCode(65 + index);
+      
+      if (mode === 'practice' && showFeedback) {
+        if (question.type === 'multi-select') {
+          const correctOptions = question.correctOptions || [];
+          const isCorrectOption = correctOptions.includes(option);
+          if (isCorrectOption) {
+            return <CheckCircle className="w-6 h-6 text-emerald-600" />;
+          } else if (isSelected) {
+            return <XCircle className="w-6 h-6 text-red-600" />;
+          }
+        } else {
+          const isCorrectOption = option === question.correctAnswer;
+          if (isCorrectOption) {
+            return <CheckCircle className="w-6 h-6 text-emerald-600" />;
+          } else if (isSelected) {
+            return <XCircle className="w-6 h-6 text-red-600" />;
+          }
+        }
+      }
+      
+      return isSelected ? (
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+        >
+          <CheckCircle className="w-6 h-6" />
+        </motion.div>
+      ) : (
+        optionLetter 
+      );
+    };
+
     switch (question.type) {
       case 'multiple-choice':
         return (
           <div className="space-y-3 sm:space-y-4">
             {question.options?.map((option, index) => {
-              const isSelected = selectedAnswer === option;
-              const optionLetter = String.fromCharCode(65 + index); // A, B, C, D
-              
               return (
                 <motion.button
                   key={index}
@@ -219,32 +367,21 @@ useEffect(() => {
                   whileHover="hover"
                   whileTap="tap"
                   onClick={() => handleAnswerSelect(option)}
-                  className={`w-full p-3 sm:p-6 text-left rounded-2xl border-2 transition-all duration-300 group relative overflow-hidden ${
-                    isSelected
-                      ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-xl ring-4 ring-purple-200'
-                      : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg'
-                  }`}
+                  className={getOptionClassNames(option, index)}
+                  disabled={isOptionDisabled}
                 >
                   <div className="flex items-center space-x-4">
                     <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center font-bold text-base sm:text-lg transition-all duration-300 flex-shrink-0 ${
-                      isSelected
-                        ? 'border-purple-600 bg-purple-600 text-white shadow-lg'
-                        : 'border-gray-300 text-gray-500 group-hover:border-purple-400 group-hover:text-purple-600'
+                      (mode === 'practice' && showFeedback) 
+                        ? (getOptionIcon(option, index) === <CheckCircle className="w-6 h-6 text-emerald-600" /> ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 text-gray-500')
+                        : (selectedAnswer === option ? 'border-purple-600 bg-purple-600 text-white shadow-lg' : 'border-gray-300 text-gray-500 group-hover:border-purple-400 group-hover:text-purple-600')
                     }`}>
-                      {isSelected ? (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                        >
-                          <CheckCircle className="w-6 h-6" />
-                        </motion.div>
-                      ) : (
-                        optionLetter 
-                      )}
+                      {getOptionIcon(option, index)}
                     </div>
                     <span className={`font-medium text-base sm:text-lg transition-colors duration-300 ${
-                      isSelected ? 'text-purple-800' : 'text-gray-800 group-hover:text-purple-700'
+                      (mode === 'practice' && showFeedback)
+                        ? (getOptionIcon(option, index) === <CheckCircle className="w-6 h-6 text-emerald-600" /> ? 'text-emerald-800' : 'text-gray-800')
+                        : (selectedAnswer === option ? 'text-purple-800' : 'text-gray-800 group-hover:text-purple-700')
                     }`}>
                       {option}
                     </span>
@@ -274,16 +411,27 @@ useEffect(() => {
                   whileTap="tap"
                   onClick={() => handleAnswerSelect(option)}
                   className={`p-6 sm:p-8 rounded-2xl font-bold text-lg sm:text-xl transition-all duration-300 relative overflow-hidden group ${
-                    isSelected
-                      ? option === 'True'
-                        ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-xl ring-4 ring-green-300'
-                        : 'bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-xl ring-4 ring-red-300'
-                      : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg'
+                    isOptionDisabled ? 'opacity-70 cursor-not-allowed' : ''
+                  } ${
+                    mode === 'practice' && showFeedback
+                      ? (option === question.correctAnswer
+                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-xl ring-4 ring-emerald-300'
+                          : (isSelected
+                              ? 'bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-xl ring-4 ring-red-300'
+                              : 'bg-white text-gray-700 border-2 border-gray-200'))
+                      : (isSelected
+                          ? (option === 'True'
+                              ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-xl ring-4 ring-green-300'
+                              : 'bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-xl ring-4 ring-red-300')
+                          : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg')
                   }`}
+                  disabled={isOptionDisabled}
                 >
                   <div className="flex flex-col items-center space-y-3">
                     <IconComponent className={`w-6 h-6 sm:w-10 sm:h-10 ${
-                      isSelected ? 'text-white' : 'text-gray-400 group-hover:text-purple-500'
+                      mode === 'practice' && showFeedback
+                        ? (option === question.correctAnswer ? 'text-white' : (isSelected ? 'text-white' : 'text-gray-400'))
+                        : (isSelected ? 'text-white' : 'text-gray-400 group-hover:text-purple-500')
                     }`} />
                     <span>{option}</span>
                   </div>
@@ -326,24 +474,38 @@ useEffect(() => {
                   whileHover="hover"
                   whileTap="tap"
                   onClick={() => {
+                    if (isOptionDisabled) return;
                     const newSelected = isSelected
                       ? selectedOptions.filter(opt => opt !== option)
                       : [...selectedOptions, option];
                     handleAnswerSelect(newSelected.join(','));
                   }}
                   className={`w-full p-3 sm:p-6 text-left rounded-2xl border-2 transition-all duration-300 group ${
-                    isSelected
-                      ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-xl'
-                      : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg'
+                    isOptionDisabled ? 'opacity-70 cursor-not-allowed' : ''
+                  } ${
+                    mode === 'practice' && showFeedback
+                      ? (question.correctOptions?.includes(option)
+                          ? 'border-emerald-500 bg-emerald-50 shadow-xl'
+                          : (isSelected
+                              ? 'border-red-500 bg-red-50 shadow-xl'
+                              : 'border-gray-200 bg-white'))
+                      : (isSelected
+                          ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-xl'
+                          : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg')
                   }`}
+                  disabled={isOptionDisabled}
                 >
                   <div className="flex items-center space-x-4">
                     <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded border-2 flex items-center justify-center transition-all duration-300 flex-shrink-0 ${
-                      isSelected
-                        ? 'border-purple-600 bg-purple-600 shadow-lg'
-                        : 'border-gray-300 group-hover:border-purple-400'
+                      mode === 'practice' && showFeedback
+                        ? (question.correctOptions?.includes(option) ? 'border-emerald-600 bg-emerald-600 shadow-lg' : (isSelected ? 'border-red-600 bg-red-600 shadow-lg' : 'border-gray-300'))
+                        : (isSelected ? 'border-purple-600 bg-purple-600 shadow-lg' : 'border-gray-300 group-hover:border-purple-400')
                     }`}>
-                      {isSelected && (
+                      {(mode === 'practice' && showFeedback && question.correctOptions?.includes(option)) ? (
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                      ) : (mode === 'practice' && showFeedback && isSelected && !question.correctOptions?.includes(option)) ? (
+                        <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                      ) : isSelected && !(mode === 'practice' && showFeedback) ? (
                         <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
@@ -351,10 +513,12 @@ useEffect(() => {
                         >
                           <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </motion.div>
-                      )}
+                      ) : null}
                     </div>
                     <span className={`font-medium text-base sm:text-lg transition-colors duration-300 ${
-                      isSelected ? 'text-purple-800' : 'text-gray-800 group-hover:text-purple-700'
+                      mode === 'practice' && showFeedback
+                        ? (question.correctOptions?.includes(option) ? 'text-emerald-800' : 'text-gray-800')
+                        : (isSelected ? 'text-purple-800' : 'text-gray-800 group-hover:text-purple-700')
                     }`}>
                       {option}
                     </span>
@@ -399,10 +563,12 @@ useEffect(() => {
                         <span className="flex-1 text-sm sm:text-base">{step}</span>
                         <button
                           onClick={() => {
+                            if (isOptionDisabled) return;
                             const newOrder = sequenceOrder.filter(s => s !== step);
                             handleAnswerSelect(JSON.stringify(newOrder)); // Stringify the array
                           }}
-                          className="text-red-500 hover:text-red-700 p-1"
+                          className={`text-red-500 hover:text-red-700 p-1 ${isOptionDisabled ? 'cursor-not-allowed' : ''}`}
+                          disabled={isOptionDisabled}
                         >
                           ×
                         </button>
@@ -427,10 +593,12 @@ useEffect(() => {
                     whileHover="hover"
                     whileTap="tap"
                     onClick={() => {
+                      if (isOptionDisabled) return;
                       const newOrder = [...sequenceOrder, step];
                       handleAnswerSelect(JSON.stringify(newOrder)); // Stringify the array
                     }}
-                    className="p-3 sm:p-4 text-left rounded-xl border-2 border-gray-200 bg-white text-gray-800 hover:border-purple-300 hover:bg-purple-50 transition-all duration-300 text-sm sm:text-base"
+                    className={`p-3 sm:p-4 text-left rounded-xl border-2 border-gray-200 bg-white text-gray-800 hover:border-purple-300 hover:bg-purple-50 transition-all duration-300 text-sm sm:text-base ${isOptionDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    disabled={isOptionDisabled}
                   >
                     {step}
                   </motion.button>
@@ -462,9 +630,6 @@ useEffect(() => {
             
             <div className="space-y-3 sm:space-y-4">
               {question.options?.map((option, index) => {
-                const isSelected = selectedAnswer === option;
-                const optionLetter = String.fromCharCode(65 + index);
-                
                 return (
                   <motion.button
                     key={index}
@@ -475,26 +640,21 @@ useEffect(() => {
                     whileHover="hover"
                     whileTap="tap"
                     onClick={() => handleAnswerSelect(option)}
-                    className={`w-full p-4 sm:p-6 text-left rounded-2xl border-2 transition-all duration-300 group ${
-                      isSelected
-                        ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-xl ring-4 ring-purple-200'
-                        : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg'
-                    }`}
+                    className={getOptionClassNames(option, index)}
+                    disabled={isOptionDisabled}
                   >
                     <div className="flex items-start space-x-4">
                       <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center font-bold text-sm sm:text-base transition-all duration-300 flex-shrink-0 ${
-                        isSelected
-                          ? 'border-purple-600 bg-purple-600 text-white shadow-lg'
-                          : 'border-gray-300 text-gray-500 group-hover:border-purple-400 group-hover:text-purple-600'
+                        (mode === 'practice' && showFeedback) 
+                          ? (getOptionIcon(option, index) === <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" /> ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 text-gray-500')
+                          : (selectedAnswer === option ? 'border-purple-600 bg-purple-600 text-white shadow-lg' : 'border-gray-300 text-gray-500 group-hover:border-purple-400 group-hover:text-purple-600')
                       }`}>
-                        {isSelected ? (
-                          <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-                        ) : (
-                          optionLetter
-                        )}
+                        {getOptionIcon(option, index)}
                       </div>
                       <span className={`font-medium text-sm sm:text-base leading-relaxed transition-colors duration-300 ${
-                        isSelected ? 'text-purple-800' : 'text-gray-800 group-hover:text-purple-700'
+                        (mode === 'practice' && showFeedback)
+                          ? (getOptionIcon(option, index) === <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" /> ? 'text-emerald-800' : 'text-gray-800')
+                          : (selectedAnswer === option ? 'text-purple-800' : 'text-gray-800 group-hover:text-purple-700')
                       }`}>
                         {option}
                       </span>
@@ -528,29 +688,44 @@ useEffect(() => {
                   : 'Type your answer here...'
                 }
                 value={selectedAnswer}
-                onChange={(e) => handleAnswerSelect(e.target.value)}
-                className="w-full p-3 sm:p-6 text-base sm:text-xl border-2 border-gray-300 rounded-2xl focus:border-purple-500 focus:ring-4 focus:ring-purple-200 focus:outline-none transition-all duration-300 bg-white shadow-sm hover:shadow-md"
+                onChange={(e) => setSelectedAnswer(e.target.value)} // Update local state immediately
+                onBlur={() => handleAnswerSelect(selectedAnswer)} // Trigger onAnswer when input loses focus
+                onKeyPress={(e) => { // Trigger onAnswer on Enter key press
+                  if (e.key === 'Enter') {
+                    handleAnswerSelect(selectedAnswer);
+                  }
+                }}
+                className={`w-full p-3 sm:p-6 text-base sm:text-xl border-2 rounded-2xl focus:ring-4 focus:ring-purple-200 focus:outline-none transition-all duration-300 bg-white shadow-sm hover:shadow-md ${
+                  isOptionDisabled ? 'opacity-70 cursor-not-allowed' : ''
+                } ${
+                  mode === 'practice' && showFeedback
+                    ? (isCorrectAnswer ? 'border-emerald-500' : 'border-red-500')
+                    : 'border-gray-300 focus:border-purple-500'
+                }`}
                 autoComplete="off"
+                disabled={isOptionDisabled}
               />
-              {selectedAnswer && (
+              {isEvaluating && (
                 <motion.div
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center"
                 >
-                  <CheckCircle className="w-5 h-5 text-white" />
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </motion.div>
+              )}
+              {(mode === 'practice' && showFeedback && isCorrectAnswer !== null && !isEvaluating) && (
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center ${
+                    isCorrectAnswer ? 'bg-emerald-500' : 'bg-red-500'
+                  }`}
+                >
+                  {isCorrectAnswer ? <CheckCircle className="w-5 h-5 text-white" /> : <XCircle className="w-5 h-5 text-white" />}
                 </motion.div>
               )}
             </div>
-            
-            {question.keywords && question.keywords.length > 0 && (
-              <div className="bg-yellow-50 p-3 sm:p-4 rounded-xl border border-yellow-200">
-                <p className="text-yellow-800 text-xs sm:text-sm">
-                  <Star className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
-                  Hint: Consider terms related to {question.keywords.slice(0, 2).join(', ')}
-                </p>
-              </div>
-            )}
           </div>
         );
 
@@ -685,14 +860,31 @@ useEffect(() => {
                   <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs sm:text-sm font-medium rounded-full capitalize">
                     {question.difficulty || 'Medium'}
                   </span>
-                  {isAnswered && (
+                  {isAnswered && (mode === 'exam' || (mode === 'practice' && !isEvaluating && isCorrectAnswer !== null)) && (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="px-3 py-1 bg-green-100 text-green-700 text-xs sm:text-sm font-medium rounded-full flex items-center"
+                      className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium flex items-center ${
+                        mode === 'practice' && isCorrectAnswer !== null
+                          ? (isCorrectAnswer ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700')
+                          : 'bg-green-100 text-green-700'
+                      }`}
                     >
-                      <CheckCircle className="w-3 h-3 sm:w-4 h-4 mr-1" />
+                      {mode === 'practice' && isCorrectAnswer !== null
+                        ? (isCorrectAnswer ? <CheckCircle className="w-3 h-3 sm:w-4 h-4 mr-1" /> : <XCircle className="w-3 h-3 sm:w-4 h-4 mr-1" />)
+                        : <CheckCircle className="w-3 h-3 sm:w-4 h-4 mr-1" />
+                      }
                       Answered
+                    </motion.span>
+                  )}
+                  {isEvaluating && mode === 'practice' && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="px-3 py-1 bg-blue-100 text-blue-700 text-xs sm:text-sm font-medium rounded-full flex items-center"
+                    >
+                      <div className="w-3 h-3 border-2 border-blue-700 border-t-transparent rounded-full animate-spin mr-1"></div>
+                      Evaluating...
                     </motion.span>
                   )}
                 </div>
@@ -707,6 +899,30 @@ useEffect(() => {
               >
                 {renderQuestionContent()}
               </motion.div>
+
+              {/* Practice Mode Explanation */}
+              <AnimatePresence>
+                {(mode === 'practice' && showFeedback && practiceExplanation) && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="mb-8 px-4 overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 sm:p-6 rounded-2xl border border-purple-200 shadow-lg">
+                      <h5 className="font-bold text-purple-800 mb-4 flex items-center text-base sm:text-lg">
+                        <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
+                        Explanation
+                      </h5>
+                      <div 
+                        className="prose prose-purple max-w-none text-gray-700 leading-relaxed text-sm sm:text-base"
+                        dangerouslySetInnerHTML={{ __html: practiceExplanation }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Navigation */}
               <motion.div
@@ -819,4 +1035,4 @@ useEffect(() => {
   );
 };
 
-export default QuizQuestion;
+export default QuizQuestion; 

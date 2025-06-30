@@ -15,6 +15,7 @@ const saveQuizStateToLocal = (state: any) => {
       currentQuestionIndex: state.currentQuestionIndex,
       answers: state.answers,
       totalTimeElapsed: state.totalTimeElapsed, // Save totalTimeElapsed
+      totalTimeRemaining: state.totalTimeRemaining, // Save totalTimeRemaining
     });
     localStorage.setItem(LOCAL_STORAGE_KEY, serializedState);
   } catch (e) {
@@ -55,6 +56,8 @@ interface QuizState {
   error: string | null;
   explanation: string | null;
   soloQuizHistory: any[]; // New state for solo quiz history
+  totalTimeElapsed: number; // Added
+  totalTimeRemaining: number | null; // Added
   
   // Preference actions
   loadApiKey: (userId: string) => Promise<void>;
@@ -77,6 +80,10 @@ interface QuizState {
   // Solo Quiz History actions
   loadSoloQuizHistory: (userId: string) => Promise<void>;
   deleteSoloQuizResult: (quizResultId: string) => Promise<void>;
+
+  // Time actions
+  setTotalTimeElapsed: (time: number) => void;
+  setTotalTimeRemaining: (time: number | null) => void;
 }
 
 export const defaultPreferences: QuizPreferences = {
@@ -107,6 +114,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   error: null,
   explanation: null,
   soloQuizHistory: [], // Initialize solo quiz history
+  totalTimeElapsed: 0, // Initialize
+  totalTimeRemaining: null, // Initialize
   
   loadApiKey: async (userId) => {
     set({ isLoading: true, error: null });
@@ -147,6 +156,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
           answers: savedState.answers,
           result: null, // Ensure result is null if loading an ongoing quiz
           totalTimeElapsed: savedState.totalTimeElapsed || 0, // Load totalTimeElapsed
+          totalTimeRemaining: savedState.totalTimeRemaining !== undefined ? savedState.totalTimeRemaining : null, // Load totalTimeRemaining
         });
       }
     } catch (error: any) {
@@ -202,7 +212,7 @@ const validatedPreferences = {
   generateQuiz: async (userId) => {
     const { preferences, apiKey } = get();
     clearQuizStateFromLocal(); // Clear previous state before generating a new quiz
-    set({ isLoading: true, error: null, questions: [], answers: {}, result: null });
+    set({ isLoading: true, error: null, questions: [], answers: {}, result: null, totalTimeElapsed: 0, totalTimeRemaining: null });
     
     if (!preferences || !apiKey) {
       set({ 
@@ -264,7 +274,7 @@ const validatedPreferences = {
   },
   
   finishQuiz: () => {
-    const { questions, answers, preferences } = get();
+    const { questions, answers, preferences, totalTimeElapsed } = get();
   
   console.log('Starting finishQuiz with:', { questionsCount: questions.length, answersCount: Object.keys(answers).length });
   
@@ -365,6 +375,43 @@ const validatedPreferences = {
   
   finalScore = Math.max(0, finalScore);
   
+  const accuracyRate = questionsAttempted > 0 ? (correctAnswers / questionsAttempted) * 100 : 0;
+  const completionRate = questions.length > 0 ? (questionsAttempted / questions.length) * 100 : 0;
+
+  // Simple rule-based recommendations for now
+  const strengths: string[] = [];
+  const weaknesses: string[] = [];
+  const recommendations: string[] = [];
+
+  if (accuracyRate >= 80) {
+    strengths.push('Strong understanding of the topics.');
+    recommendations.push('Continue challenging yourself with advanced questions.');
+  } else if (accuracyRate >= 60) {
+    strengths.push('Good foundational knowledge.');
+    recommendations.push('Review incorrect answers and focus on understanding concepts.');
+  } else {
+    weaknesses.push('Needs improvement in core concepts.');
+    recommendations.push('Revisit study materials and practice more fundamental questions.');
+  }
+
+  if (completionRate < 100) {
+    weaknesses.push('Time management or question skipping issues.');
+    recommendations.push('Practice answering questions within time limits.');
+  }
+
+  if (Object.keys(questionTypePerformance).length > 0) {
+    for (const type in questionTypePerformance) {
+      const perf = questionTypePerformance[type];
+      const typeAccuracy = perf.total > 0 ? (perf.correct / perf.total) * 100 : 0;
+      if (typeAccuracy < 50) {
+        weaknesses.push(`Struggled with ${type.replace('-', ' ')} questions.`);
+        recommendations.push(`Focus on ${type.replace('-', ' ')} question types.`);
+      } else if (typeAccuracy > 80) {
+        strengths.push(`Excellent in ${type.replace('-', ' ')} questions.`);
+      }
+    }
+  }
+
   const result: QuizResult = {
     totalQuestions: questions.length,
     correctAnswers,
@@ -376,7 +423,14 @@ const validatedPreferences = {
     finalScore,
     rawScore: correctAnswers,
     negativeMarksDeducted: preferences?.negativeMarking ? 
-      Math.abs((correctAnswers - finalScore) * (preferences.negativeMarks || 0)) : 0
+      Math.abs((correctAnswers - finalScore) * (preferences.negativeMarks || 0)) : 0,
+    totalTimeTaken: totalTimeElapsed, // Added
+    accuracyRate, // Added
+    completionRate, // Added
+    strengths, // Added
+    weaknesses, // Added
+    recommendations, // Added
+    comparativePerformance: {}, // Initialize
   };
   
   console.log('Quiz result created:', result);
@@ -386,6 +440,7 @@ const validatedPreferences = {
       result,
       currentQuestionIndex: 0, // Reset question index
       totalTimeElapsed: 0, // Reset total time elapsed
+      totalTimeRemaining: null, // Reset total time remaining
     });
     clearQuizStateFromLocal();
   
@@ -406,6 +461,7 @@ const validatedPreferences = {
       result: null,
       error: null,
       totalTimeElapsed: 0, // Reset total time elapsed
+      totalTimeRemaining: null, // Reset total time remaining
     });
     clearQuizStateFromLocal(); // Clear local storage state
   },
@@ -465,6 +521,12 @@ const validatedPreferences = {
         rawScore: parseFloat(item.raw_score || 0),
         negativeMarksDeducted: parseFloat(item.negative_marks_deducted || 0),
         totalTimeTaken: Number(item.total_time_taken || 0),
+        accuracyRate: parseFloat(item.accuracy_rate || 0), // Added
+        completionRate: parseFloat(item.completion_rate || 0), // Added
+        strengths: item.strengths || [], // Added
+        weaknesses: item.weaknesses || [], // Added
+        recommendations: item.recommendations || [], // Added
+        comparativePerformance: item.comparative_performance || {}, // Added
         questionTypePerformance: item.question_type_performance || {},
         questions: item.question_details || [], // Already mapped in supabase.ts, but ensure default
         quizDate: item.quiz_date ? new Date(item.quiz_date) : null,
@@ -492,5 +554,7 @@ const validatedPreferences = {
       set({ isLoading: false });
     }
   },
-}));
 
+  setTotalTimeElapsed: (time) => set({ totalTimeElapsed: time }),
+  setTotalTimeRemaining: (time) => set({ totalTimeRemaining: time }),
+}));
