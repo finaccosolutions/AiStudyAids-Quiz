@@ -266,7 +266,7 @@ const validatedPreferences = {
     set((state) => {
       if (state.currentQuestionIndex > 0) {
         const newIndex = state.currentQuestionIndex - 1;
-        saveQuizStateToLocal({ ...state, currentQuestionIndex: newIndex }); // Save updated state
+        saveQuizStateFromLocal({ ...state, currentQuestionIndex: newIndex }); // Save updated state
         return { currentQuestionIndex: newIndex };
       }
       return state;
@@ -413,6 +413,7 @@ const validatedPreferences = {
   }
 
   const result: QuizResult = {
+    id: '', // Temporary ID, will be updated after saving to DB
     totalQuestions: questions.length,
     correctAnswers,
     questionsAttempted,
@@ -435,20 +436,31 @@ const validatedPreferences = {
   
   console.log('Quiz result created:', result);
   
-  // Set result and clear questions to prevent re-generation
-    set({ 
-      result,
-      currentQuestionIndex: 0, // Reset question index
-      totalTimeElapsed: 0, // Reset total time elapsed
-      totalTimeRemaining: null, // Reset total time remaining
-    });
-    clearQuizStateFromLocal();
-  
   // Save to database
   const { user } = useAuthStore.getState();
   if (user && preferences) {
-    saveQuizResultToDatabase(user.id, result, preferences).catch(console.error);
+    saveQuizResultToDatabase(user.id, result, preferences)
+      .then(data => {
+        if (data?.id) {
+          set({ result: { ...result, id: data.id } }); // Update result with ID from DB
+        } else {
+          set({ result }); // Set result without ID if save failed
+        }
+      })
+      .catch(console.error);
+  } else {
+    set({ result }); // Set result without ID if user or preferences are missing
   }
+
+  // Clear questions to prevent re-generation and reset state
+  set({ 
+    currentQuestionIndex: 0, // Reset question index
+    totalTimeElapsed: 0, // Reset total time elapsed
+    totalTimeRemaining: null, // Reset total time remaining
+    questions: [], // Clear questions
+    answers: {}, // Clear answers
+  });
+  clearQuizStateFromLocal();
 },
 
 
@@ -512,6 +524,7 @@ const validatedPreferences = {
       const history = await getQuizResultsWithAnalytics(userId);
       set({ soloQuizHistory: history.map((item: any) => ({
         ...item,
+       id: item.id, // Ensure ID is mapped
        totalQuestions: Number(item.total_questions || 0),
         correctAnswers: Number(item.questions_correct || 0),
         questionsAttempted: Number(item.questions_attempted || 0),
@@ -535,7 +548,7 @@ const validatedPreferences = {
         topic: item.topic,
       })) });
     } catch (error: any) {
-      set({ error: error.message || 'Failed to load solo quiz history' });
+      set({ error: error.message || 'Failed to load solo quiz result' });
     } finally {
       set({ isLoading: false });
     }

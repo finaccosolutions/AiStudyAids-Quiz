@@ -18,7 +18,8 @@ import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 import CompetitionPage from './pages/CompetitionPage';
 import AiTutorialPage from './pages/AiTutorialPage';
-import AuthRedirectPage from './pages/AuthRedirectPage'; // Updated import
+import AuthRedirectPage from './pages/AuthRedirectPage';
+import SharedQuizResultPage from './pages/SharedQuizResultPage'; // New import
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isLoggedIn, isLoading } = useAuthStore();
@@ -69,7 +70,7 @@ const App: React.FC = () => {
       <Route path="/" element={<MainLayout />}>
         <Route index element={<HomePage />} />
         <Route path="auth" element={<AuthPage />} />
-        <Route path="auth-redirect" element={<AuthRedirectPage />} /> {/* Updated route path */}
+        <Route path="auth-redirect" element={<AuthRedirectPage />} />
         <Route path="quiz" element={<ProtectedRoute><QuizRoute /></ProtectedRoute>} />
         <Route path="api-settings" element={<ProtectedRoute><ApiSettingsPage /></ProtectedRoute>} />
         <Route path="question-bank" element={<ProtectedRoute><QuestionBankPage /></ProtectedRoute>} />
@@ -81,6 +82,8 @@ const App: React.FC = () => {
         <Route path="profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="competitions" element={<ProtectedRoute><CompetitionPage /></ProtectedRoute>} />
         <Route path="ai-tutorial" element={<ProtectedRoute><AiTutorialPage /></ProtectedRoute>} />
+        {/* New route for shared quiz results - accessible without authentication */}
+        <Route path="/shared-quiz-result/:resultId" element={<SharedQuizResultPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

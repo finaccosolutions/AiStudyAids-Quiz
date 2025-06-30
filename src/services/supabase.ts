@@ -1,6 +1,6 @@
 // src/services/supabase.ts
 import { createClient } from '@supabase/supabase-js';
-import { ApiKeyData, QuizPreferences, UserProfile, QuizResultData, FavoriteQuestion } from '../types';
+import { ApiKeyData, QuizPreferences, UserProfile, QuizResultData, FavoriteQuestion, QuizResult } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -279,7 +279,7 @@ export const signIn = async (email: string, password: string) => {
 
     // Check if email is confirmed
     if (!data.user.email_confirmed_at) {
-      throw new Error('Please confirm your email address before signing in');
+      throw new Error('Please confirm your email before signing in');
     }
 
     return { data, error };
@@ -493,7 +493,7 @@ export const saveQuizResultToDatabase = async (
   result: QuizResult, 
   preferences: QuizPreferences,
   sessionMetadata?: any
-) => {
+): Promise<{ id: string } | null> => { // Modified return type
   try {
     const sessionId = `quiz_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
     
@@ -539,15 +539,68 @@ export const saveQuizResultToDatabase = async (
       comparative_performance: result.comparativePerformance, // Added
     };
 
-    return supabase
+    const { data, error } = await supabase
       .from('quiz_results')
-      .insert(quizResultData);
+      .insert(quizResultData)
+      .select('id') // Select the ID of the newly inserted row
+      .single();
+
+    if (error) {
+      console.error('saveQuizResultToDatabase error:', error);
+      throw error;
+    }
+    return data; // Return the ID
   } catch (error) {
     console.error('saveQuizResultToDatabase error:', error);
     throw error;
   }
 };
 
+// New function to get a single quiz result by ID
+export const getQuizResultById = async (resultId: string): Promise<QuizResult | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('quiz_results')
+      .select('*')
+      .eq('id', resultId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching quiz result by ID:', error);
+      throw error;
+    }
+
+    if (!data) return null;
+
+    // Map the database data to the QuizResult type
+    return {
+      id: data.id,
+      totalQuestions: data.total_questions,
+      correctAnswers: data.questions_correct,
+      questionsAttempted: data.questions_attempted,
+      questionsSkipped: data.questions_skipped,
+      percentage: data.percentage_score,
+      questions: data.question_details || [],
+      questionTypePerformance: data.question_type_performance || {},
+      finalScore: data.final_score,
+      rawScore: data.raw_score,
+      negativeMarksDeducted: data.negative_marks_deducted,
+      totalTimeTaken: data.total_time_taken,
+      accuracyRate: data.accuracy_rate,
+      completionRate: data.completion_rate,
+      strengths: data.strengths || [],
+      weaknesses: data.weaknesses || [],
+      recommendations: data.recommendations || [],
+      comparativePerformance: data.comparative_performance || {},
+      // Add any other fields from QuizResult that are stored in the database
+    };
+  } catch (error) {
+    console.error('getQuizResultById error:', error);
+    throw error;
+  }
+};
+
+// Re-added function to get quiz results with analytics for history
 export const getQuizResultsWithAnalytics = async (userId: string, limit = 50) => {
   try {
     const { data, error } = await supabase
@@ -570,6 +623,7 @@ export const getQuizResultsWithAnalytics = async (userId: string, limit = 50) =>
     throw error;
   }
 };
+
 
 export const getQuizAnalytics = async (userId: string) => {
   try {

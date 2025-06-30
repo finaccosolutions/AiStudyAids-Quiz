@@ -10,6 +10,7 @@ import {
   Lightbulb, ThumbsUp, AlertTriangle, Sparkles, Share2, Copy, User, Calendar
 } from 'lucide-react';
 import { useQuizStore } from '../../store/useQuizStore'; // Keep for explanation logic
+import { useAuthStore } from '../../store/useAuthStore'; // Import useAuthStore
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -31,6 +32,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   onChangePreferences,
   onClose
 }) => {
+  const { user } = useAuthStore(); // Get user from auth store
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
   const [showQuestionTypePerformance, setShowQuestionTypePerformance] = useState(false);
@@ -40,7 +42,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   const [shareLink, setShareLink] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const { getExplanation, explanation, isLoading, resetExplanation } = useQuizStore(); // Use store for explanation
+  const { getExplanation, explanation, isLoading, resetExplanation, soloQuizHistory } = useQuizStore(); // Use store for explanation
   
   const handleGetExplanation = async (questionId: number) => {
     if (selectedQuestionId === questionId) {
@@ -165,14 +167,20 @@ const QuizResults: React.FC<QuizResultsProps> = ({
     { name: 'Skipped', value: stats.skippedAnswers, color: '#6B7280' },
   ];
 
-  // Mock data for score progression over time (replace with real data if available in result)
-  const scoreProgressionData = [
-    { name: 'Quiz 1', score: 65 },
-    { name: 'Quiz 2', score: 70 },
-    { name: 'Quiz 3', score: 72 },
-    { name: 'Quiz 4', score: 78 },
-    { name: 'Current', score: stats.finalPercentage },
-  ];
+  // Dynamic data for score progression over time from soloQuizHistory
+  const scoreProgressionData = soloQuizHistory
+    .filter(quiz => quiz.quizDate) // Filter out entries without a valid date
+    .sort((a, b) => (a.quizDate?.getTime() || 0) - (b.quizDate?.getTime() || 0)) // Sort by date
+    .map((quiz, index) => ({
+      name: `Quiz ${index + 1}`,
+      score: quiz.percentage || 0,
+    }));
+
+  // Add the current quiz result to the progression data if it's not already there
+  if (scoreProgressionData.length === 0 || scoreProgressionData[scoreProgressionData.length - 1].score !== stats.finalPercentage) {
+    scoreProgressionData.push({ name: `Current`, score: stats.finalPercentage });
+  }
+
 
   // Format explanation text
   const formatExplanation = (text: string) => {
@@ -188,10 +196,9 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   };
 
   const handleShareResult = () => {
-    // In a real application, you would generate a unique URL for this specific result
-    // and store it in your database. For now, we'll use a mock URL.
-    const mockShareUrl = `${window.location.origin}/shared-quiz-result/${result.id}`;
-    setShareLink(mockShareUrl);
+    // Construct the shareable URL using the new route
+    const shareUrl = `https://aistudyaids.com/shared-quiz-result/${result.id}`;
+    setShareLink(shareUrl);
     setShowShareModal(true);
   };
 
@@ -206,7 +213,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="space-y-4 sm:space-y-8 w-full max-w-full mx-auto px-4 sm:px-6 lg:px-8" // Adjusted width and padding
+      className="space-y-4 sm:space-y-8 w-full max-w-full mx-auto px-0 sm:px-6 lg:px-8" // Adjusted width and padding
     >
       {/* Action Buttons at Top */}
       <motion.div
@@ -270,7 +277,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       </motion.div>
 
       {/* Main Results Card */}
-      <Card className="w-full overflow-hidden bg-gradient-to-br from-white to-purple-50 border-2 border-purple-100 shadow-2xl">
+      <Card className="w-full mx-auto overflow-hidden bg-gradient-to-br from-white to-purple-50 border-2 border-purple-100 shadow-2xl">
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500" />
         
         <CardHeader className="text-center py-4 sm:py-8 bg-gradient-to-r from-purple-50 to-indigo-50">
@@ -301,13 +308,13 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                 <User className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
               </div>
               <div>
-                <h4 className="text-lg sm:text-xl font-bold text-gray-800">User: John Doe</h4>
+                <h4 className="text-lg sm:text-xl font-bold text-gray-800">User: {user?.profile?.fullName || 'Guest'}</h4>
                 <p className="text-sm sm:text-base text-gray-600">Quiz on: {preferences?.course || 'N/A'} - {preferences?.topic || 'N/A'}</p>
               </div>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
               className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 flex items-center space-x-4"
             >
@@ -332,13 +339,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               <div className="text-4xl sm:text-8xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-4">
                 {stats.finalPercentage.toFixed(1)}%
               </div>
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="absolute -top-2 -right-2 sm:-top-4 sm:-right-4 w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full flex items-center justify-center"
-              >
-                <Sparkles className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-              </motion.div>
+              {/* Removed the Sparkles icon as requested */}
             </motion.div>
             
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8">
@@ -357,7 +358,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                   <div className="text-2xl sm:text-3xl font-bold text-emerald-600">{stats.correctAnswers}</div>
                   <div className="text-xs sm:text-sm text-gray-600">Correct ({stats.correctPercentage.toFixed(1)}%)</div>
                   <div className="text-sm sm:text-lg font-semibold text-emerald-600">
-                    {stats.correctAnswers} {stats.correctAnswers === 1 ? 'mark' : 'marks'}
+                    {stats.correctAnswers}/{stats.totalQuestions} marks
                   </div>
                 </div>
               </motion.div>
@@ -816,7 +817,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                           </div>
                         </div>
                         
-                        <div className="ml-0 sm:ml-16 space-y-4">
+                        <div className="ml-0 sm:ml-0 space-y-4"> {/* Adjusted margin for mobile */}
                           {question.userAnswer && (
                             <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-sm">
                               <div className="flex items-center mb-2">
@@ -870,7 +871,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                           animate={{ opacity: 1, height: 'auto' }}
                           exit={{ opacity: 0, height: 0 }}
                           transition={{ duration: 0.3 }}
-                          className="ml-0 sm:ml-16 mt-4 sm:mt-6 overflow-hidden"
+                          className="ml-0 sm:ml-0 mt-4 sm:mt-6 overflow-hidden" // Adjusted margin for mobile
                         >
                           {isLoading ? (
                             <div className="flex items-center justify-center py-6 sm:py-8">
@@ -934,7 +935,11 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                     size="sm"
                     className="text-gray-600 hover:text-blue-600"
                   >
-                    {copied ? <CheckCircle className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                    {copied ? (
+                      <CheckCircle className="w-5 h-5" />
+                    ) : (
+                      <Copy className="w-5 h-5" />
+                    )}
                   </Button>
                 </div>
                 <Button

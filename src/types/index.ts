@@ -1,3 +1,5 @@
+// src/types/index.ts
+// src/types/index.ts
 import { QuizLanguage } from './languages';
 
 export type UserData = {
@@ -146,6 +148,7 @@ export type Question =
   | MultiSelectQuestion;
 
   export type QuizResult = {
+  id: string; // Added for tracking quiz result ID
   totalQuestions: number;
   correctAnswers: number;
   questionsAttempted: number;
