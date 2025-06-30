@@ -23,6 +23,7 @@ interface QuizResultsProps {
   onNewQuiz?: () => void; // Optional for solo quiz flow
   onChangePreferences?: () => void; // Optional for solo quiz flow
   onClose?: () => void; // Optional for history view
+  isSharedPage?: boolean; // New prop for shared page
 }
 
 const QuizResults: React.FC<QuizResultsProps> = ({
@@ -30,7 +31,8 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   preferences,
   onNewQuiz,
   onChangePreferences,
-  onClose
+  onClose,
+  isSharedPage = false // Default to false
 }) => {
   const { user } = useAuthStore(); // Get user from auth store
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
@@ -213,7 +215,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="space-y-4 sm:space-y-8 w-full max-w-full mx-auto px-0 sm:px-6 lg:px-8" // Adjusted width and padding
+      className={`space-y-4 sm:space-y-8 w-full max-w-full mx-auto ${isSharedPage ? 'px-0' : 'px-0 sm:px-6 lg:px-8'}`} // Adjusted padding for mobile
     >
       {/* Action Buttons at Top */}
       <motion.div
@@ -222,7 +224,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
         transition={{ delay: 0.2 }}
         className="flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-4 p-4 sm:p-0" // Aligned to end
       >
-        {onNewQuiz && (
+        {!isSharedPage && onNewQuiz && (
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
             <Button
               type="button"
@@ -235,7 +237,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
           </motion.div>
         )}
         
-        {onChangePreferences && (
+        {!isSharedPage && onChangePreferences && (
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
               <Button
                 type="button"
@@ -277,10 +279,10 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       </motion.div>
 
       {/* Main Results Card */}
-      <Card className="w-full mx-auto overflow-hidden bg-gradient-to-br from-white to-purple-50 border-2 border-purple-100 shadow-2xl">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500" />
+      <Card className={`w-full mx-auto overflow-hidden ${isSharedPage ? 'bg-gradient-to-br from-blue-50 to-indigo-50' : 'bg-gradient-to-br from-white to-purple-50'} border-2 ${isSharedPage ? 'border-blue-100' : 'border-purple-100'} shadow-2xl`}>
+        <div className={`absolute top-0 left-0 w-full h-2 ${isSharedPage ? 'bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500' : 'bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500'}`} />
         
-        <CardHeader className="text-center py-4 sm:py-8 bg-gradient-to-r from-purple-50 to-indigo-50">
+        <CardHeader className={`text-center py-4 sm:py-8 ${isSharedPage ? 'bg-gradient-to-r from-blue-50 to-cyan-50' : 'bg-gradient-to-r from-purple-50 to-indigo-50'}`}>
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -296,35 +298,52 @@ const QuizResults: React.FC<QuizResultsProps> = ({
         </CardHeader>
         
         <CardBody className="py-4 sm:py-8 px-4 sm:px-6">
-          {/* User and Quiz Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          {/* User and Quiz Details - Three Panels */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            {/* Panel 1: User & Quiz Info */}
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 flex items-center space-x-4"
+              whileHover={{ scale: 1.02, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
+              className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 flex flex-col items-center text-center"
             >
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-purple-100 rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-purple-100 rounded-full flex items-center justify-center mb-3">
                 <User className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
               </div>
-              <div>
-                <h4 className="text-lg sm:text-xl font-bold text-gray-800">User: {user?.profile?.fullName || 'Guest'}</h4>
-                <p className="text-sm sm:text-base text-gray-600">Quiz on: {preferences?.course || 'N/A'} - {preferences?.topic || 'N/A'}</p>
-              </div>
+              <h4 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">{user?.profile?.fullName || 'Guest'}</h4>
+              <p className="text-sm sm:text-base text-gray-600">Quiz on: {preferences?.course || 'N/A'} - {preferences?.topic || 'N/A'}</p>
             </motion.div>
+
+            {/* Panel 2: Total Marks */}
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 flex items-center space-x-4"
+              whileHover={{ scale: 1.02, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
+              className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 flex flex-col items-center text-center"
             >
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-3">
+                <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-600" />
+              </div>
+              <h4 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Total Score</h4>
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-600">{stats.finalScore.toFixed(1)} / {stats.totalQuestions}</p>
+            </motion.div>
+
+            {/* Panel 3: Date & Time Taken */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              whileHover={{ scale: 1.02, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
+              className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 flex flex-col items-center text-center"
+            >
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                 <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
               </div>
-              <div>
-                <h4 className="text-lg sm:text-xl font-bold text-gray-800">Date: {new Date().toLocaleDateString()}</h4>
-                <p className="text-sm sm:text-base text-gray-600">Time Taken: {Math.floor(result.totalTimeTaken / 60)}m {result.totalTimeTaken % 60}s</p>
-              </div>
+              <h4 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Date & Time</h4>
+              <p className="text-sm sm:text-base text-gray-600">{new Date(result.quizDate || new Date()).toLocaleDateString('en-GB')}</p> {/* DD-MM-YYYY */}
+              <p className="text-sm sm:text-base text-gray-600">Time Taken: {Math.floor(result.totalTimeTaken / 60)}m {result.totalTimeTaken % 60}s</p>
             </motion.div>
           </div>
 
@@ -434,7 +453,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.0 }}
-            className="mb-6 sm:mb-8"
+            className="mb-6 sm:mb-8 px-0 sm:px-0" // Adjusted padding for mobile
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
               <h3 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center">
@@ -681,7 +700,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.0 }}
-            className="mb-6 sm:mb-8"
+            className="mb-6 sm:mb-8 px-0 sm:px-0" // Adjusted padding for mobile
           >
             <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6 flex items-center">
               <Star className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-yellow-500" />
@@ -743,7 +762,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.2 }}
-        className="space-y-4 sm:space-y-6"
+        className="space-y-4 sm:space-y-6 px-0 sm:px-0" // Adjusted padding for mobile
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <h3 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center">
@@ -774,83 +793,44 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                   'border-red-200 bg-red-50'
                 }`}>
                   <CardBody className="space-y-4 p-4 sm:p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center mb-4">
-                          <motion.div
-                            whileHover={{ scale: 1.1 }}
-                            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mr-3 sm:mr-4 flex-shrink-0 ${
-                              isCorrect ? 'bg-emerald-500' :
-                              isSkipped ? 'bg-gray-400' :
-                              'bg-red-500'
-                            }`}
-                          >
-                            {isCorrect ? (
-                              <CheckCircle className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
-                            ) : isSkipped ? (
-                              <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
-                            ) : (
-                              <XCircle className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
-                            )}
-                          </motion.div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                              <span className="text-base sm:text-lg font-bold text-gray-700">
-                                Question {index + 1}
-                              </span>
-                              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
-                                isCorrect ? 'bg-emerald-100 text-emerald-700' :
-                                isSkipped ? 'bg-gray-100 text-gray-700' :
-                                'bg-red-100 text-red-700'
-                              }`}>
-                                {isCorrect ? 'Correct (+1 mark)' :
-                                 isSkipped ? 'Skipped (0 marks)' :
-                                 preferences?.negativeMarking ? 
-                                   `Incorrect (${preferences.negativeMarks} marks)` :
-                                   'Incorrect (0 marks)'
-                                }
-                              </span>
-                            </div>
-                            <h4 className="text-sm sm:text-lg font-medium text-gray-800 leading-relaxed break-words">
-                              {question.text}
-                            </h4>
-                          </div>
-                        </div>
-                        
-                        <div className="ml-0 sm:ml-0 space-y-4"> {/* Adjusted margin for mobile */}
-                          {question.userAnswer && (
-                            <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-sm">
-                              <div className="flex items-center mb-2">
-                                <span className="text-xs sm:text-sm font-medium text-gray-600">Your answer:</span>
-                              </div>
-                              <span className={`text-sm sm:text-lg font-medium break-words ${
-                                isCorrect ? 'text-emerald-600' : 'text-red-600'
-                              }`}>
-                                {question.userAnswer}
-                              </span>
-                            </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-4">
+                      <div className="flex items-center flex-grow min-w-0">
+                        <motion.div
+                          whileHover={{ scale: 1.1 }}
+                          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mr-3 sm:mr-4 flex-shrink-0 ${
+                            isCorrect ? 'bg-emerald-500' :
+                            isSkipped ? 'bg-gray-400' :
+                            'bg-red-500'
+                          }`}
+                        >
+                          {isCorrect ? (
+                            <CheckCircle className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
+                          ) : isSkipped ? (
+                            <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
+                          ) : (
+                            <XCircle className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
                           )}
-                          
-                          {isSkipped && (
-                            <div className="bg-gray-100 p-3 sm:p-4 rounded-xl border border-gray-200">
-                              <span className="text-gray-600 italic text-sm sm:text-base">Question was skipped</span>
-                            </div>
-                          )}
-                          
-                          <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-sm">
-                            <div className="flex items-center mb-2">
-                              <span className="text-xs sm:text-sm font-medium text-gray-600">Correct answer:</span>
-                              </div>
-                            <span className="text-sm sm:text-lg font-medium text-emerald-600 break-words">
-                               {question.correctAnswer || 
-                               (question.correctOptions ? question.correctOptions.join(', ') : '') ||
-                               (question.correctSequence ? question.correctSequence.join(' → ') : '') ||
-                               'N/A'}
+                        </motion.div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-base sm:text-lg font-bold text-gray-700">
+                              Question {index + 1}
+                            </span>
+                            <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
+                              isCorrect ? 'bg-emerald-100 text-emerald-700' :
+                              isSkipped ? 'bg-gray-100 text-gray-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {isCorrect ? 'Correct (+1 mark)' :
+                               isSkipped ? 'Skipped (0 marks)' :
+                               preferences?.negativeMarking ? 
+                                 `Incorrect (${preferences.negativeMarks} marks)` :
+                                 'Incorrect (0 marks)'
+                              }
                             </span>
                           </div>
                         </div>
                       </div>
-                      
                       <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex-shrink-0">
                         <Button
                           type="button"
@@ -862,6 +842,43 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                           {selectedQuestionId === question.id ? 'Hide' : 'Explain'}
                         </Button>
                       </motion.div>
+                    </div>
+                    
+                    {/* Question Text and Answers */}
+                    <div className="space-y-4 pl-0 sm:pl-0"> {/* Removed left padding */}
+                      <h4 className="text-sm sm:text-lg font-medium text-gray-800 leading-relaxed break-words">
+                        {question.text}
+                      </h4>
+                      {question.userAnswer && (
+                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-sm">
+                          <div className="flex items-center mb-2">
+                            <span className="text-xs sm:text-sm font-medium text-gray-600">Your answer:</span>
+                          </div>
+                          <span className={`text-sm sm:text-lg font-medium break-words ${
+                            isCorrect ? 'text-emerald-600' : 'text-red-600'
+                          }`}>
+                            {question.userAnswer}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {isSkipped && (
+                        <div className="bg-gray-100 p-3 sm:p-4 rounded-xl border border-gray-200">
+                          <span className="text-gray-600 italic text-sm sm:text-base">Question was skipped</span>
+                        </div>
+                      )}
+                      
+                      <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-sm">
+                        <div className="flex items-center mb-2">
+                          <span className="text-xs sm:text-sm font-medium text-gray-600">Correct answer:</span>
+                          </div>
+                        <span className="text-sm sm:text-lg font-medium text-emerald-600 break-words">
+                           {question.correctAnswer || 
+                           (question.correctOptions ? question.correctOptions.join(', ') : '') ||
+                           (question.correctSequence ? question.correctSequence.join(' → ') : '') ||
+                           'N/A'}
+                        </span>
+                      </div>
                     </div>
                     
                     <AnimatePresence>

@@ -125,6 +125,8 @@ useEffect(() => {
         if (prev === null || prev <= 1) {
           clearInterval(questionTimerRef.current!); // Clear interval immediately
           if (isComponentMountedRef.current) {
+            // CRITICAL FIX: Ensure answer is recorded before moving on
+            onAnswer(selectedAnswer); // Record the current selected answer
             setTimeout(() => {
               if (isLastQuestion) {
                 onFinish();
@@ -145,7 +147,7 @@ useEffect(() => {
       clearInterval(questionTimerRef.current);
     }
   };
-}, [questionTimeLeft, timeLimitEnabled, timeLimit, totalTimeLimit, isLastQuestion, onNext, onFinish]); // Add all relevant dependencies
+}, [questionTimeLeft, timeLimitEnabled, timeLimit, totalTimeLimit, isLastQuestion, onNext, onFinish, onAnswer, selectedAnswer]); // Add all relevant dependencies
 
   // Update selected answer when userAnswer prop changes
   useEffect(() => {
@@ -184,21 +186,27 @@ useEffect(() => {
           case 'true-false':
           case 'case-study':
           case 'situation':
-            correct = selectedAnswer.toLowerCase() === question.correctAnswer.toLowerCase();
+            correct = selectedAnswer && question.correctAnswer && 
+                   selectedAnswer.toLowerCase() === question.correctAnswer.toLowerCase();
             break;
           case 'multi-select':
-            const userOptions = selectedAnswer.split(',').sort();
-            const correctOptions = question.correctOptions?.sort() || [];
-            correct = userOptions.length === correctOptions.length &&
-                      userOptions.every((opt, index) => opt === correctOptions[index]);
+            if (selectedAnswer && question.correctOptions) {
+              const userOptions = selectedAnswer.split(',').sort();
+              const correctOptions = question.correctOptions.sort();
+              correct = userOptions.length === correctOptions.length &&
+                        userOptions.every((opt, index) => opt === correctOptions[index]);
+            }
             break;
           case 'sequence':
-            try {
-              const userSequence = JSON.parse(selectedAnswer);
-              correct = userSequence.length === question.correctSequence?.length &&
-                        userSequence.every((step: string, index: number) => step === question.correctSequence![index]);
-            } catch (e) {
-              correct = false;
+            if (selectedAnswer && question.correctSequence) {
+              try {
+                const userSequence = JSON.parse(selectedAnswer); // Parse the JSON string
+                correct = userSequence.length === question.correctSequence.length &&
+                          userSequence.every((step: string, index: number) => step === question.correctSequence![index]);
+              } catch (e) {
+                console.error("Failed to parse sequence answer:", e);
+                correct = false;
+              }
             }
             break;
           case 'short-answer':
@@ -232,12 +240,14 @@ useEffect(() => {
   }, [onAnswer, mode, apiKey, preferences, question, language, selectedAnswer, isAnswerSubmitted, isEvaluating]);
 
   const handleNextQuestion = useCallback(() => {
+    // CRITICAL FIX: Ensure answer is recorded before moving on
+    onAnswer(selectedAnswer); 
     if (isLastQuestion) {
       onFinish();
     } else {
       onNext();
     }
-  }, [isLastQuestion, onNext, onFinish]);
+  }, [isLastQuestion, onNext, onFinish, onAnswer, selectedAnswer]);
 
   const handleSpeech = useCallback(() => {
     if (isSpeaking) {
@@ -681,8 +691,8 @@ useEffect(() => {
               <p className="text-green-800 font-medium text-sm sm:text-base">
                 <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
                 {question.type === 'fill-blank' 
-                  ? 'Fill in the blank with the most appropriate word or phrase'
-                  : 'Provide a short, concise answer'
+                  ? 'Fill in the blank with the most appropriate word or phrase...'
+                  : 'Provide a short, concise answer...'
                 }
               </p>
             </div>

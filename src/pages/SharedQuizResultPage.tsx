@@ -126,9 +126,10 @@ const SharedQuizResultPage: React.FC = () => {
     <QuizResults
       result={result}
       preferences={preferences}
+      isSharedPage={true} // Pass the new prop here
       // No onNewQuiz, onChangePreferences, or onClose for shared page
     />
   );
 };
 
-export default SharedQuizResultPage;
+export default SharedQuizResultPage; 
