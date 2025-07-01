@@ -64,7 +64,7 @@ ADVANCED QUESTION DIVERSIFICATION:
 UNIQUENESS MECHANISMS:
 1. Question Angles: Approach each concept from unexpected angles
 2. Scenario Variety: Use diverse real-world scenarios and case studies
-3. Temporal Diversity: Include past, present, and future perspectives
+3. Temporal Diversity: Include past, present, and future implications
 4. Scale Variation: Mix micro and macro level questions
 5. Application Contexts: Use different industries, situations, and environments
 6. Cognitive Complexity: Vary the thinking processes required
@@ -274,6 +274,11 @@ CRITICAL REQUIREMENTS:
     });
 
     if (!response.ok) {
+      // --- START MODIFICATION ---
+      if (response.status === 503 || response.status === 429) {
+        throw new Error('Gemini API limit reached or service unavailable. Please try again after some time.');
+      }
+      // --- END MODIFICATION ---
       // Try to get detailed error message from response
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
       try {
@@ -458,7 +463,13 @@ CRITICAL REQUIREMENTS:
       throw new Error('API rate limit exceeded. Please wait a moment and try again.');
     } else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
       throw new Error('Gemini API is temporarily unavailable. Please try again later.');
-    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+    }
+    // --- START MODIFICATION (Adjust existing 429/503 check if it exists) ---
+    else if (error.message.includes('503')) {
+      throw new Error('Gemini API service unavailable. Please try again after some time.');
+    }
+    // --- END MODIFICATION ---
+    else if (error.message.includes('network') || error.message.includes('fetch')) {
       throw new Error('Network error. Please check your internet connection and try again.');
     }
     throw new Error(`Quiz generation failed: ${error.message}`);

@@ -19,7 +19,8 @@ import ProfilePage from './pages/ProfilePage';
 import CompetitionPage from './pages/CompetitionPage';
 import AiTutorialPage from './pages/AiTutorialPage';
 import AuthRedirectPage from './pages/AuthRedirectPage';
-import SharedQuizResultPage from './pages/SharedQuizResultPage'; // New import
+import SharedQuizResultPage from './pages/SharedQuizResultPage';
+import SharedCompetitionResultPage from './pages/SharedCompetitionResultPage'; // New import
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isLoggedIn, isLoading } = useAuthStore();
@@ -84,10 +85,12 @@ const App: React.FC = () => {
         <Route path="ai-tutorial" element={<ProtectedRoute><AiTutorialPage /></ProtectedRoute>} />
         {/* New route for shared quiz results - accessible without authentication */}
         <Route path="/shared-quiz-result/:resultId" element={<SharedQuizResultPage />} />
+        {/* New route for shared competition results - accessible without authentication */}
+        <Route path="/shared-competition-result/:resultId" element={<SharedCompetitionResultPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );
 };
 
-export default App; 
+export default App;

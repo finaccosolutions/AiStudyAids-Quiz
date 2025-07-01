@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import QuizResults from '../quiz/QuizResults'; // Reusable QuizResults component
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface QuizHistoryProps {
   userId: string;
@@ -26,6 +27,7 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId, filter = 'all' }) => 
   const [searchTerm, setSearchTerm] = useState('');
   const [showSoloQuizDetails, setShowSoloQuizDetails] = useState<any | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ id: string; type: 'solo' | 'competition' } | null>(null);
+  const navigate = useNavigate(); // Initialize useNavigate
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -242,7 +244,7 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId, filter = 'all' }) => 
                       )}
                       {(item.type === 'competition' || item.type === 'random') && (
                         <Button
-                          onClick={() => console.log('View competition results for:', item.id)} // Implement competition results view
+                          onClick={() => navigate(`/shared-competition-result/${item.id}`)} // Navigate to shared competition result page
                           className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 px-4 py-2"
                         >
                           <Eye className="w-4 h-4 mr-2" />
@@ -310,4 +312,4 @@ const QuizHistory: React.FC<QuizHistoryProps> = ({ userId, filter = 'all' }) => 
   );
 };
 
-export default QuizHistory; 
+export default QuizHistory;

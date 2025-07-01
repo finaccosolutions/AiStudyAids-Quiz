@@ -1,14 +1,15 @@
+// src/components/competition/CompetitionResults.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
-import { 
-  Trophy, Crown, Medal, Star, Clock, Target, 
+import {
+  Trophy, Crown, Medal, Star, Clock, Target,
   TrendingUp, Award, Zap, Users, Home, RefreshCw,
   ChevronDown, ChevronUp, BarChart3, PieChart, Activity,
   Lightbulb, ThumbsUp, AlertTriangle, Sparkles,
-  LogOut, ArrowLeft, Eye, EyeOff, Loader
+  LogOut, ArrowLeft, Eye, EyeOff, Loader, Share2, Copy, CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Competition } from '../../types/competition';
@@ -30,17 +31,17 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
 }) => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const { 
-    participants, 
-    userStats, 
-    loadUserStats, 
+  const {
+    participants,
+    userStats,
+    loadUserStats,
     leaveCompetition,
     loadParticipants,
     subscribeToCompetition,
     cleanupSubscriptions,
     setCleanupFlag
   } = useCompetitionStore();
-  
+
   const [copied, setCopied] = useState(false);
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
   const [confettiVisible, setConfettiVisible] = useState(true);
@@ -50,7 +51,9 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   const [competitionResults, setCompetitionResults] = useState<any[]>([]);
   const [showResultsTimer, setShowResultsTimer] = useState<number | null>(null);
   const [showTimerWarning, setShowTimerWarning] = useState(false);
-  
+  const [showShareModal, setShowShareModal] = useState(false); // New state for share modal
+  const [shareLink, setShareLink] = useState(''); // New state for share link
+
   // Refs for cleanup management
   const isComponentMountedRef = useRef(true);
   const subscriptionCleanupRef = useRef<(() => void) | null>(null);
@@ -58,7 +61,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get all participants (completed and still playing)
-  const allParticipants = participants.filter(p => 
+  const allParticipants = participants.filter(p =>
     p.status === 'completed' || p.status === 'joined'
   );
 
@@ -67,24 +70,24 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     // Completed participants first, then by rank
     if (a.status === 'completed' && b.status !== 'completed') return -1;
     if (b.status === 'completed' && a.status !== 'completed') return 1;
-    
+
     // Among completed participants, sort by rank (ascending: 1, 2, 3...)
     if (a.status === 'completed' && b.status === 'completed') {
       const rankA = a.rank || a.final_rank || 999;
       const rankB = b.rank || b.final_rank || 999;
       return rankA - rankB;
     }
-    
+
     // Among active participants, sort by current progress
     const aProgress = (a.questions_answered || 0) / (competition.questions?.length || 1);
     const bProgress = (b.questions_answered || 0) / (competition.questions?.length || 1);
     if (bProgress !== aProgress) return bProgress - aProgress;
-    
+
     return (b.score || 0) - (a.score || 0);
   });
 
   const userParticipant = sortedParticipants.find(p => p.user_id === user?.id);
-  const userRank = userParticipant?.rank || userParticipant?.final_rank || 
+  const userRank = userParticipant?.rank || userParticipant?.final_rank ||
     sortedParticipants.findIndex(p => p.user_id === user?.id) + 1;
   const completedCount = sortedParticipants.filter(p => p.status === 'completed').length;
   const totalParticipants = sortedParticipants.length;
@@ -93,11 +96,11 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   // Component lifecycle management
   useEffect(() => {
     isComponentMountedRef.current = true;
-    
+
     return () => {
       console.log('CompetitionResults component unmounting, cleaning up...');
       isComponentMountedRef.current = false;
-      
+
       // Clear all timers
       if (resultsTimerRef.current) {
         clearTimeout(resultsTimerRef.current);
@@ -105,12 +108,12 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
       if (statusCheckIntervalRef.current) {
         clearInterval(statusCheckIntervalRef.current);
       }
-      
+
       // Cleanup subscriptions
       if (subscriptionCleanupRef.current) {
         subscriptionCleanupRef.current();
       }
-      
+
       // Mark store as cleaned up
       setCleanupFlag(true);
     };
@@ -120,11 +123,11 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   useEffect(() => {
     const loadCompetitionResults = async () => {
       if (!isComponentMountedRef.current) return;
-      
+
       if (isCompetitionFullyComplete) {
         try {
           console.log('Loading competition results for completed competition...');
-          
+
           // Get competition results with user profiles, ordered by rank
           const { data: resultsData, error: resultsError } = await supabase
             .from('competition_results')
@@ -142,7 +145,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
           if (resultsData && resultsData.length > 0) {
             // Get user profiles for the results
             const userIds = resultsData.map(result => result.user_id).filter(Boolean);
-            
+
             if (userIds.length > 0) {
               const { data: profilesData, error: profilesError } = await supabase
                 .from('profiles')
@@ -157,7 +160,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                     profile: profilesData.find(profile => profile.user_id === result.user_id)
                   }))
                   .sort((a, b) => (a.final_rank || 999) - (b.final_rank || 999));
-                
+
                 if (isComponentMountedRef.current) {
                   console.log('Successfully loaded competition results with profiles:', resultsWithProfiles);
                   setCompetitionResults(resultsWithProfiles);
@@ -186,7 +189,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
           }
         }
       }
-      
+
       if (isComponentMountedRef.current) {
         setIsLoading(false);
       }
@@ -199,14 +202,14 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     if (user && isComponentMountedRef.current) {
       loadUserStats(user.id);
     }
-    
+
     // Hide confetti after 5 seconds
     const timer = setTimeout(() => {
       if (isComponentMountedRef.current) {
         setConfettiVisible(false);
       }
     }, 5000);
-    
+
     return () => clearTimeout(timer);
   }, [user, loadUserStats]);
 
@@ -223,22 +226,22 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     if (!competition.id || !isComponentMountedRef.current) return;
 
     console.log('Setting up real-time subscriptions for results page');
-    
+
     // Subscribe to competition and participant updates
     const unsubscribe = subscribeToCompetition(competition.id);
     subscriptionCleanupRef.current = unsubscribe;
-    
+
     // Check competition status periodically
     statusCheckIntervalRef.current = setInterval(async () => {
       if (!isComponentMountedRef.current) return;
-      
+
       try {
         const { data } = await supabase
           .from('competitions')
           .select('status')
           .eq('id', competition.id)
           .single();
-        
+
         if (data && data.status !== competitionStatus && isComponentMountedRef.current) {
           setCompetitionStatus(data.status);
           console.log('Competition status updated to:', data.status);
@@ -275,15 +278,15 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   useEffect(() => {
     setShowLiveUpdates(!isCompetitionFullyComplete);
   }, [isCompetitionFullyComplete]);
-  
+
   const handleLeaveCompetition = async () => {
     try {
       // Cleanup first
       setCleanupFlag(true);
       cleanupSubscriptions();
-      
+
       await leaveCompetition(competition.id);
-      
+
       if (onLeave) {
         onLeave();
       } else {
@@ -302,10 +305,10 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
 
   const getPerformanceMessage = () => {
     if (!userParticipant || userParticipant.status !== 'completed') {
-      return { 
-        message: isCompetitionFullyComplete 
-          ? 'Competition completed! Check your final results below.' 
-          : 'Quiz completed! Waiting for other participants to finish...', 
+      return {
+        message: isCompetitionFullyComplete
+          ? 'Competition completed! Check your final results below.'
+          : 'Quiz completed! Waiting for other participants to finish...',
         color: 'text-blue-600',
         bgColor: 'bg-blue-50',
         borderColor: 'border-blue-200',
@@ -313,10 +316,10 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
         emoji: '⏳'
       };
     }
-    
+
     if (!isCompetitionFullyComplete) {
-      return { 
-        message: `Currently ranked #${userRank}. Final results will be available when all participants finish.`, 
+      return {
+        message: `Currently ranked #${userRank}. Final results will be available when all participants finish.`,
         color: 'text-orange-600',
         bgColor: 'bg-orange-50',
         borderColor: 'border-orange-200',
@@ -326,32 +329,32 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     }
 
     // Final results messages
-    if (userRank === 1) return { 
-      message: '🎉 Congratulations! You won the competition!', 
+    if (userRank === 1) return {
+      message: '🎉 Congratulations! You won the competition!',
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
       borderColor: 'border-yellow-200',
       icon: Trophy,
       emoji: '🏆'
     };
-    if (userRank <= 3) return { 
-      message: '🏆 Excellent! You finished in the top 3!', 
+    if (userRank <= 3) return {
+      message: '🏆 Excellent! You finished in the top 3!',
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
       borderColor: 'border-blue-200',
       icon: Award,
       emoji: '🥉'
     };
-    if (userRank <= totalParticipants / 2) return { 
-      message: '👏 Great performance! You finished in the top half!', 
+    if (userRank <= totalParticipants / 2) return {
+      message: '👏 Great performance! You finished in the top half!',
       color: 'text-green-600',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
       icon: TrendingUp,
       emoji: '👏'
     };
-    return { 
-      message: '💪 Good effort! Keep practicing for even better results!', 
+    return {
+      message: '💪 Good effort! Keep practicing for even better results!',
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
       borderColor: 'border-purple-200',
@@ -387,15 +390,14 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
 
   const getRankIcon = (rank: number, isCompleted: boolean) => {
     if (!isCompleted && !isCompetitionFullyComplete) return <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />;
-    
+
     if (rank === 1) return <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500" />;
     if (rank === 2) return <Medal className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />;
     if (rank === 3) return <Medal className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />;
     return <span className="text-base sm:text-lg font-bold text-gray-600">#{rank}</span>;
   };
 
-  const getRankColor = (rank: number, isCompleted: boolean) => {
-    if (!isCompleted && !isCompetitionFullyComplete) return 'from-orange-400 to-yellow-400';
+  const getRankColor = (rank: number) => {
     if (rank === 1) return 'from-yellow-400 to-yellow-500';
     if (rank === 2) return 'from-gray-300 to-gray-400';
     if (rank === 3) return 'from-orange-400 to-orange-500';
@@ -406,6 +408,24 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   const getProgressPercentage = (participant: any) => {
     const totalQuestions = competition.questions?.length || 1;
     return ((participant.questions_answered || 0) / totalQuestions) * 100;
+  };
+
+  const handleShareResult = () => {
+    // Assuming userParticipant.id is the competition_results ID for the current user
+    if (userParticipant?.id) {
+      const shareUrl = `https://aistudyaids.com/shared-competition-result/${userParticipant.id}`;
+      setShareLink(shareUrl);
+      setShowShareModal(true);
+    } else {
+      // Fallback if userParticipant.id is not available (e.g., not yet saved to competition_results)
+      alert('Result not yet available for sharing. Please wait for the competition to finalize.');
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   if (isLoading) {
@@ -462,8 +482,8 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
           className="text-center mb-6 sm:mb-8"
         >
           <div className="flex flex-col sm:flex-row items-center justify-center mb-4 sm:mb-6">
-            <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full flex items-center justify-center mb-4 sm:mb-0 sm:mr-6 shadow-2xl">
-              <Trophy className="w-8 h-8 sm:w-12 sm:h-12 text-white" />
+            <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-6 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full flex items-center justify-center">
+              <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
             </div>
             <div className="text-center sm:text-left">
               <h1 className="text-3xl sm:text-5xl font-bold text-gray-800">
@@ -477,7 +497,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
               )}
             </div>
           </div>
-          
+
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -651,13 +671,13 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
               <div className="space-y-3 sm:space-y-4">
                 {(isCompetitionFullyComplete && competitionResults.length > 0 ? competitionResults : sortedParticipants).map((participant, index) => {
                   // Use the correct rank from the database or calculated rank
-                  const rank = isCompetitionFullyComplete && competitionResults.length > 0 
-                    ? participant.final_rank 
+                  const rank = isCompetitionFullyComplete && competitionResults.length > 0
+                    ? participant.final_rank
                     : participant.rank || participant.final_rank || (index + 1);
                   const isCompleted = isCompetitionFullyComplete || participant.status === 'completed';
                   const isCurrentUser = participant.user_id === user?.id;
                   const progressPercentage = getProgressPercentage(participant);
-                  
+
                   // Handle different data structures for participant names
                   let participantName = 'Anonymous';
                   if (participant.profile?.full_name) {
@@ -665,7 +685,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                   } else if (participant.profiles?.full_name) {
                     participantName = participant.profiles.full_name;
                   }
-                  
+
                   return (
                     <motion.div
                       key={participant.id || participant.user_id}
@@ -700,15 +720,15 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                                 <Crown className="w-4 h-4 sm:w-6 sm:h-6 text-yellow-500" />
                               )}
                               <span className={`px-2 sm:px-3 py-1 text-xs font-bold rounded-full ${
-                                isCompleted 
-                                  ? 'bg-green-100 text-green-700' 
+                                isCompleted
+                                  ? 'bg-green-100 text-green-700'
                                   : 'bg-orange-100 text-orange-700'
                               }`}>
                                 {isCompleted ? 'FINISHED' : 'IN PROGRESS'}
                               </span>
                             </div>
                           </div>
-                          
+
                           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4 text-xs sm:text-sm">
                             <div className="flex items-center space-x-1 sm:space-x-2">
                               <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" />
@@ -797,8 +817,69 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
             <Home className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
             Back to Home
           </Button>
+          <Button
+            onClick={handleShareResult}
+            variant="outline"
+            className="border-2 border-blue-200 text-blue-600 hover:bg-blue-50 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold w-full sm:w-auto"
+          >
+            <Share2 className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
+            Share Result
+          </Button>
         </motion.div>
       </div>
+
+      {/* Share Modal */}
+      <AnimatePresence>
+        {showShareModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 sm:p-8 max-w-md mx-4 shadow-2xl w-full"
+            >
+              <div className="text-center">
+                <Share2 className="w-12 h-12 sm:w-16 sm:h-16 text-blue-500 mx-auto mb-4" />
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Share Your Result!</h3>
+                <p className="text-gray-600 mb-6 text-base sm:text-lg leading-relaxed">
+                  Copy the link below to share your competition performance with others.
+                </p>
+                <div className="flex items-center space-x-2 bg-gray-100 p-3 rounded-lg mb-6">
+                  <input
+                    type="text"
+                    readOnly
+                    value={shareLink}
+                    className="flex-1 bg-transparent outline-none text-gray-800 text-sm sm:text-base font-mono"
+                  />
+                  <Button
+                    onClick={copyToClipboard}
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-600 hover:text-blue-600"
+                  >
+                    {copied ? (
+                      <CheckCircle className="w-5 h-5" />
+                    ) : (
+                      <Copy className="w-5 h-5" />
+                    )}
+                  </Button>
+                </div>
+                <Button
+                  onClick={() => setShowShareModal(false)}
+                  className="w-full bg-blue-500 hover:bg-blue-600"
+                >
+                  Done
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

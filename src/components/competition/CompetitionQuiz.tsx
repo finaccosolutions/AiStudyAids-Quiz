@@ -374,20 +374,28 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     if (isSubmitting) return;
     
     setIsSubmitting(true);
+    console.log('Attempting to leave competition...'); // Debug log
+    console.log('User:', user); // Debug log
+    console.log('Is creator:', isCreator); // Debug log
+
     try {
         if (isCreator) {
+          console.log('User is creator, canceling competition...'); // Debug log
           await cancelCompetition(competition.id); // Creator cancels the competition
         }
         // All participants (including creator if not cancelled) leave
+      console.log('Leaving competition for participant...'); // Debug log
       await leaveCompetition(competition.id);
       if (onLeave) {
+        console.log('Calling onLeave callback...'); // Debug log
         onLeave();
       }
     } catch (error) {
-      console.error('Error leaving competition:', error);
+      console.error('Error leaving competition:', error); // Debug log
     } finally {
       setIsSubmitting(false);
       setShowLeaveConfirm(false);
+      console.log('Leave process finished.'); // Debug log
     }
   };
 
