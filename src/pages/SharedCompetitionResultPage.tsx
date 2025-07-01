@@ -503,7 +503,7 @@ const SharedCompetitionResultPage: React.FC = () => {
                           </Pie>
                           <Tooltip />
                           <Legend />
-                        </RechartsPiechart>
+                        </RechartsPieChart> 
                       </ResponsiveContainer>
                     </div>
                   </div>
