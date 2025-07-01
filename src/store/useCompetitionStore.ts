@@ -38,7 +38,19 @@ interface CompetitionStoreState {
   cancelCompetition: (competitionId: string) => Promise<void>;
   startCompetition: (competitionId: string, apiKey: string) => Promise<void>;
   loadParticipants: (competitionId: string) => Promise<void>;
-  updateParticipantProgress: (userId: string, competitionId: string, answers: Record<number, string>, score: number, correctAnswers: number, timeTaken: number,   currentQuestionIndex: number) => Promise<void>;
+  // Modified signature to include new counts
+  updateParticipantProgress: (
+    userId: string, 
+    competitionId: string, 
+    answers: Record<number, string>, 
+    score: number, 
+    correctAnswers: number, 
+    incorrectAnswers: number, // New parameter
+    skippedAnswers: number, // New parameter
+    questionsAnswered: number, // New parameter
+    timeTaken: number,   
+    currentQuestionIndex: number
+  ) => Promise<void>;
   completeCompetition: (competitionId: string) => Promise<void>;
   subscribeToCompetition: (competitionId: string) => () => void;
   getLiveLeaderboard: (competitionId: string) => CompetitionParticipant[];
@@ -350,7 +362,19 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
     }
   },
 
-  updateParticipantProgress: async (userId, competitionId, answers, score, correctAnswers, timeTaken, currentQuestionIndex) => {
+  // Modified updateParticipantProgress to accept new counts
+  updateParticipantProgress: async (
+    userId, 
+    competitionId, 
+    answers, 
+    score, 
+    correctAnswers, 
+    incorrectAnswers, 
+    skippedAnswers, 
+    questionsAnswered, 
+    timeTaken, 
+    currentQuestionIndex
+  ) => {
     try {
       const { error } = await supabase
         .from('competition_participants')
@@ -358,6 +382,9 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
           answers,
           score,
           correct_answers: correctAnswers,
+          incorrect_answers: incorrectAnswers, // New field
+          skipped_answers: skippedAnswers,     // New field
+          questions_answered: questionsAnswered, // New field
           time_taken: timeTaken,
           current_question: currentQuestionIndex,
           last_activity: new Date().toISOString(),

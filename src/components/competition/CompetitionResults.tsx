@@ -1296,5 +1296,5 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     </div>
   );
 };
-
+ 
 export default CompetitionResults;
