@@ -274,15 +274,16 @@ const validatedPreferences = {
   },
   
   prevQuestion: () => {
-    set((state) => {
-      if (state.currentQuestionIndex > 0) {
-        const newIndex = state.currentQuestionIndex - 1;
-        saveQuizStateFromLocal({ ...state, currentQuestionIndex: newIndex }); // Save updated state
-        return { currentQuestionIndex: newIndex };
-      }
-      return state;
-    });
-  },
+  set((state) => {
+    if (state.currentQuestionIndex > 0) {
+      const newIndex = state.currentQuestionIndex - 1;
+      saveQuizStateToLocal({ ...state, currentQuestionIndex: newIndex }); // Corrected typo here
+      return { currentQuestionIndex: newIndex };
+    }
+    return state;
+  });
+},
+
   
   finishQuiz: async () => {
     const { questions, answers, preferences, totalTimeElapsed, apiKey } = get();

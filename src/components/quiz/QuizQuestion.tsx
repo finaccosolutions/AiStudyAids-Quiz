@@ -36,6 +36,7 @@ interface QuizQuestionProps {
   totalTimeElapsed?: number;
   showQuitButton?: boolean;
   displayHeader?: boolean; // Add this line
+  showPreviousButton: boolean;
 }
 
 const QuizQuestion: React.FC<QuizQuestionProps> = ({
@@ -266,11 +267,15 @@ useEffect(() => {
     }
   }, [isSpeaking, question.text, language]);
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
+  const formatTime = (seconds: number | null | undefined) => {
+  if (seconds === null || seconds === undefined || isNaN(seconds)) {
+    return '00:00'; // Default display for invalid time
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
 
   const getProgressPercentage = () => {
     return (questionNumber / totalQuestions) * 100;
@@ -979,14 +984,13 @@ useEffect(() => {
                 <div className="flex items-left space-x-3">
                   <Button
                     onClick={onPrevious}
-                    disabled={questionNumber === 1 || (timeLimitEnabled && timeLimit !== null)} 
+                    disabled={questionNumber === 1}
                     variant="outline"
-                    className="flex items-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 text-sm"
                   >
-                    <ChevronLeft className="w-4 h-4 sm:w-5 h-5" />
-                    <span className="hidden sm:inline">Previous</span>
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Previous
                   </Button>
-                  
                   <span className="text-sm text-gray-500 px-2">
                     {questionNumber} / {totalQuestions}
                   </span>

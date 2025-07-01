@@ -874,6 +874,7 @@ const handleCreateCompetitionSuccess = useCallback(async (preferences, title, de
                 totalTimeElapsed={totalTimeElapsed}
                 showQuitButton={true}
                 displayHeader={true} // Changed from showHeader to displayHeader
+                showPreviousButton={!(preferences.timeLimitEnabled && preferences.timeLimit)}
               />
 
           </div>

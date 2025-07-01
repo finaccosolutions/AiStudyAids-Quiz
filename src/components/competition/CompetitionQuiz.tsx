@@ -292,19 +292,19 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
         setTimeLeft(null);
         return;
       }
-
+    
       // Reset timer for new question
       if (currentQuestion && currentQuestion.id !== (questions[currentQuestionIndex - 1]?.id || null)) {
         setTimeLeft(perQuestionLimit);
       }
-
+    
       if (timeLeft !== null && timeLeft > 0) {
-        timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000);
+        timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000); // Changed to setTimeout
       } else if (timeLeft === 0) {
         handleNextQuestion();
       }
-    } 
-    // If total time limit is enabled
+    }
+        // If total time limit is enabled
     else if (quizPrefs.timeLimitEnabled && quizPrefs.totalTimeLimit) {
       const totalLimit = parseInt(quizPrefs.totalTimeLimit);
       if (isNaN(totalLimit) || totalLimit <= 0) {
@@ -417,11 +417,15 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
+  const formatTime = (seconds: number | null | undefined) => {
+  if (seconds === null || seconds === undefined || isNaN(seconds)) {
+    return '00:00'; // Default display for invalid time
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
 
   const getProgressPercentage = (participant: any) => {
     const questionsAnswered = participant.questions_answered || 0;
