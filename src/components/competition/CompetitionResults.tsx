@@ -371,9 +371,9 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
     const completedParticipants = sortedParticipants.filter(p => p.status === 'completed');
     const totalQuestions = competition.questions?.length || 0;
     const averageScore = completedParticipants.reduce((sum, p) => sum + p.score, 0) / completedParticipants.length;
-    const averageTime = completedParticipants.reduce((sum, p) => sum + p.time_taken, 0) / completedParticipants.length;
+    const averageTime = completedParticipants.reduce((sum, p) => sum + (p.time_taken || 0), 0) / completedParticipants.length;
     const highestScore = Math.max(...completedParticipants.map(p => p.score));
-    const fastestTime = Math.min(...completedParticipants.map(p => p.time_taken));
+    const fastestTime = Math.min(...completedParticipants.map(p => p.time_taken || Infinity));
 
     return {
       averageScore: averageScore.toFixed(1),
@@ -700,7 +700,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                     >
                       <div className="flex items-center space-x-3 sm:space-x-6">
                         {/* Rank Badge with Medal/Crown Icons */}
-                        <div className={`w-12 h-12 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-2xl shadow-lg bg-gradient-to-r ${getRankColor(rank, isCompleted)}`}>
+                        <div className={`w-12 h-12 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-2xl shadow-lg bg-gradient-to-r ${getRankColor(rank)}`}>
                           {getRankIcon(rank, isCompleted)}
                         </div>
 
@@ -794,6 +794,85 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
             </CardBody>
           </Card>
         </motion.div>
+
+        {/* Recommendations */}
+        {result?.strengths && result?.strengths.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.0 }}
+            className="mb-6 sm:mb-8 px-0 sm:px-0"
+          >
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6 flex items-center">
+              <Star className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-yellow-500" />
+              Personalized Recommendations
+            </h3>
+            {result?.comparativePerformance && Object.keys(result?.comparativePerformance).length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.0 }}
+                className="p-4 sm:p-6 rounded-2xl border-2 shadow-lg bg-blue-50 border-blue-200 mb-4"
+              >
+                <h4 className="font-semibold text-blue-800 mb-2 text-base sm:text-lg flex items-center">
+                  <BarChart3 className="w-5 h-5 mr-2" /> Comparative Performance
+                </h4>
+                <ul className="list-disc list-inside text-gray-700 text-sm sm:text-base space-y-1">
+                  {result.comparativePerformance.overall && <li>{result.comparativePerformance.overall}</li>}
+                  {result.comparativePerformance.topicSpecific && <li>{result.comparativePerformance.topicSpecific}</li>}
+                  {result.comparativePerformance.difficultySpecific && <li>{result.comparativePerformance.difficultySpecific}</li>}
+                </ul>
+              </motion.div>
+            )}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+              {result?.strengths && result?.strengths.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 1.1 }}
+                  className="p-4 sm:p-6 rounded-2xl border-2 shadow-lg bg-green-50 border-green-200"
+                >
+                  <h4 className="font-semibold text-green-800 mb-2 text-base sm:text-lg flex items-center">
+                    <ThumbsUp className="w-5 h-5 mr-2" /> Strengths
+                  </h4>
+                  <ul className="list-disc list-inside text-gray-700 text-sm sm:text-base space-y-1">
+                    {result.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}
+                  </ul>
+                </motion.div>
+              )}
+              {result?.areasForImprovement && result?.areasForImprovement.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.2 }}
+                  className="p-4 sm:p-6 rounded-2xl border-2 shadow-lg bg-red-50 border-red-200"
+                >
+                  <h4 className="font-semibold text-red-800 mb-2 text-base sm:text-lg flex items-center">
+                    <AlertTriangle className="w-5 h-5 mr-2" /> Areas for Improvement
+                  </h4>
+                  <ul className="list-disc list-inside text-gray-700 text-sm sm:text-base space-y-1">
+                    {result.areasForImprovement.map((w: string, i: number) => <li key={i}>{w}</li>)}
+                  </ul>
+                </motion.div>
+              )}
+              {result?.recommendations && result?.recommendations.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.3 }}
+                  className="lg:col-span-2 p-4 sm:p-6 rounded-2xl border-2 shadow-lg bg-blue-50 border-blue-200"
+                >
+                  <h4 className="font-semibold text-blue-800 mb-2 text-base sm:text-lg flex items-center">
+                    <Lightbulb className="w-5 h-5 mr-2" /> Recommendations
+                  </h4>
+                  <ul className="list-disc list-inside text-gray-700 text-sm sm:text-base space-y-1">
+                    {result.recommendations.map((r: string, i: number) => <li key={i}>{r}</li>)}
+                  </ul>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        )}
 
         {/* Action Buttons */}
         <motion.div

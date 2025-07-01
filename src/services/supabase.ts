@@ -105,10 +105,7 @@ export const getCompetitionResultById = async (resultId: string): Promise<any | 
   try {
     const { data, error } = await supabase
       .from('competition_results')
-      .select(`
-        *,
-        profiles(full_name) // Join with profiles to get user's full name
-      `)
+      .select(`*`)
       .eq('id', resultId)
       .maybeSingle();
 
@@ -118,6 +115,23 @@ export const getCompetitionResultById = async (resultId: string): Promise<any | 
     }
 
     if (!data) return null;
+
+    // Fetch the profile separately using the user_id from the result
+    let profileData = null;
+    if (data.user_id) {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', data.user_id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.warn('Error fetching profile for competition result:', profileError);
+        // Continue without profile data if there's an error
+      } else {
+        profileData = profile;
+      }
+    }
 
     // Map the database data to a more usable format
     return {
@@ -153,7 +167,7 @@ export const getCompetitionResultById = async (resultId: string): Promise<any | 
       accuracyRate: data.accuracy_rate,
       rankPercentile: data.rank_percentile,
       // Include profile data
-      profile: data.profiles || null // This will contain full_name
+      profile: profileData || null // This will contain full_name if fetched
     };
   } catch (error) {
     console.error('getCompetitionResultById error:', error);
@@ -320,7 +334,7 @@ export const signUp = async (
         throw new Error(fetchError.message || 'Failed to create profile');
       }
     } else {
-      throw new Error('User registration failed - no user data returned');
+      throw new Error('Registration failed - no user data returned');
     }
 
     return data;
