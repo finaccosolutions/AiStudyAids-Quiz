@@ -474,7 +474,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
 
   const handleShareResult = () => {
     if (competitionResults?.id) {
-      const shareUrl = `${window.location.origin}/shared-competition-result/${competitionResults.id}`;
+      const shareUrl = `https://aistudyaids.com/shared-competition-result/${competitionResults.id}`;
       setShareLink(shareUrl);
       setShowShareModal(true);
     } else {

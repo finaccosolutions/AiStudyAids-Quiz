@@ -100,6 +100,68 @@ export const saveApiKey = async (userId: string, apiKey: string) => {
   }
 };
 
+// New function to get a single competition result by competition_id and user_id
+export const getCompetitionResultByCompetitionAndUser = async (competitionId: string, userId: string): Promise<any | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('competition_results')
+      .select(`
+        *,
+        profile:profiles(full_name)
+      `)
+      .eq('competition_id', competitionId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching competition result by competitionId and userId:', error);
+      throw error;
+    }
+
+    if (!data) return null;
+
+    // Map the database data to a more usable format (camelCase)
+    return {
+      id: data.id,
+      competitionId: data.competition_id,
+      userId: data.user_id,
+      competitionTitle: data.competition_title,
+      competitionType: data.competition_type,
+      competitionCode: data.competition_code,
+      finalRank: data.final_rank,
+      totalParticipants: data.total_participants,
+      score: data.score,
+      correctAnswers: data.correct_answers,
+      incorrectAnswers: data.incorrect_answers,
+      skippedAnswers: data.skipped_answers,
+      totalQuestions: data.total_questions,
+      timeTaken: data.time_taken,
+      averageTimePerQuestion: data.average_time_per_question,
+      pointsEarned: data.points_earned,
+      questionTypePerformance: data.question_type_performance,
+      answers: data.answers,
+      questionDetails: data.question_details,
+      quizPreferences: data.quiz_preferences,
+      strengths: data.strengths,
+      areasForImprovement: data.areas_for_improvement,
+      comparativePerformance: data.comparative_performance,
+      competitionDate: data.competition_date ? new Date(data.competition_date) : null,
+      joinedAt: data.joined_at ? new Date(data.joined_at) : null,
+      startedAt: data.started_at ? new Date(data.started_at) : null,
+      completedAt: data.completed_at ? new Date(data.completed_at) : null,
+      createdAt: data.created_at ? new Date(data.created_at) : null,
+      percentageScore: data.percentage_score,
+      accuracyRate: data.accuracy_rate,
+      rankPercentile: data.rank_percentile,
+      profile: data.profile || null
+    };
+  } catch (error) {
+    console.error('getCompetitionResultByCompetitionAndUser error:', error);
+    throw error;
+  }
+};
+
+
 // New function to get a single competition result by ID
 export const getCompetitionResultById = async (resultId: string): Promise<any | null> => {
   try {
@@ -115,23 +177,6 @@ export const getCompetitionResultById = async (resultId: string): Promise<any | 
     }
 
     if (!data) return null;
-
-    // Fetch the profile separately using the user_id from the result
-    let profileData = null;
-    if (data.user_id) {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('user_id', data.user_id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.warn('Error fetching profile for competition result:', profileError);
-        // Continue without profile data if there's an error
-      } else {
-        profileData = profile;
-      }
-    }
 
     // Map the database data to a more usable format
     return {
@@ -166,15 +211,13 @@ export const getCompetitionResultById = async (resultId: string): Promise<any | 
       percentageScore: data.percentage_score,
       accuracyRate: data.accuracy_rate,
       rankPercentile: data.rank_percentile,
-      // Include profile data
-      profile: profileData || null // This will contain full_name if fetched
+      profile: data.profile || null
     };
   } catch (error) {
     console.error('getCompetitionResultById error:', error);
     throw error;
   }
 };
-
 
 // Quiz preferences functions
 export const getQuizPreferences = async (userId: string): Promise<QuizPreferences | null> => {
@@ -793,3 +836,4 @@ export const deleteQuizResult = async (quizResultId: string) => {
     throw error;
   }
 };
+

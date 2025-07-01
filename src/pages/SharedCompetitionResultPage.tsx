@@ -7,7 +7,7 @@ import {
   TrendingUp, Award, Zap, Users, Home, RefreshCw,
   ChevronDown, ChevronUp, BarChart3, PieChart, Activity,
   Lightbulb, ThumbsUp, AlertTriangle, Sparkles,
-  LogOut, ArrowLeft, Eye, EyeOff, Loader, Share2, Copy, User, Calendar
+  LogOut, ArrowLeft, Eye, EyeOff, Loader, Share2, Copy, User,CheckCircle,XCircle, Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
