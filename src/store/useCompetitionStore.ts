@@ -149,7 +149,7 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
           type,
           quiz_preferences: preferences,
           status: 'waiting',
-          max_participants: 10, // Default max participants
+          max_participants: 100, // Default max participants
         })
         .select()
         .single();

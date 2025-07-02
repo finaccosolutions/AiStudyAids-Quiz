@@ -194,10 +194,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     }
   }, [competition.id, user?.id, completeCompetition]);
 
-  const handleNextQuestion = useCallback(async (submittedAnswer: string) => { // Modified to accept submittedAnswer
+  const handleNextQuestion = useCallback(async () => {
     if (!currentQuestion) {
       console.error('handleNextQuestion: currentQuestion is undefined. Cannot proceed.');
-      setIsSubmitting(false);
       return;
     }
 
@@ -205,11 +204,11 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
     setIsSubmitting(true);
 
-    console.log('handleNextQuestion: currentQuestion.id:', currentQuestion.id);
-    console.log('handleNextQuestion: submittedAnswer:', submittedAnswer); // Log the received answer
+   // --- START MODIFICATION ---
+    const userAnswer = selectedAnswer; // Use the selectedAnswer state directly
+    // --- END MODIFICATION --
 
     try {
-      const userAnswer = submittedAnswer; // Use the received answer
       const isSkipped = !userAnswer || userAnswer.trim() === '';
 
       const questionId = currentQuestion.id;
@@ -321,7 +320,8 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     answers,
     totalTimeElapsed,
     handleCompetitionCompletion,
-    user?.id
+    user?.id,
+    selectedAnswer // Add selectedAnswer to dependencies
   ]);
 
   useEffect(() => {
@@ -373,7 +373,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       if (timeLeft !== null && timeLeft > 0) {
         timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000);
       } else if (timeLeft === 0) {
-        handleNextQuestion(selectedAnswer); // Pass selectedAnswer here
+        handleNextQuestion();
       }
     }
     else if (quizPrefs.timeLimitEnabled && quizPrefs.totalTimeLimit) {
@@ -417,7 +417,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     incorrectAnswersCount,
     skippedAnswersCount,
     answers,
-    selectedAnswer // Add selectedAnswer to dependencies for timer-triggered next question
+    selectedAnswer // Keep selectedAnswer in dependencies for timer-triggered next question
   ]);
 
 
