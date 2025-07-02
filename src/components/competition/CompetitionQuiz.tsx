@@ -80,9 +80,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   console.log('CompetitionQuiz: currentQuestionIndex:', currentQuestionIndex);
   const currentQuestion = questions[currentQuestionIndex];
   console.log('CompetitionQuiz: currentQuestion:', currentQuestion);
-  // --- START MODIFICATION ---
   console.log('CompetitionQuiz: currentQuestion.id:', currentQuestion?.id);
-  // --- END MODIFICATION ---
 
   const calculateScore = useCallback((questionId: number, userAnswer: string) => {
     const question = questions.find(q => q.id === questionId);
@@ -143,7 +141,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const handleCompetitionCompletion = useCallback(async (finalScore: number, correctAnswers: number, incorrectAnswers: number, skippedAnswers: number, timeTaken: number, answers: Record<number, string>) => {
     try {
       console.log('Attempting to complete competition with:', {
-        competitionId: competition.id, // Ensure competition.id is used here
+        competitionId: competition.id,
         userId: user?.id,
         finalScore,
         correctAnswers,
@@ -160,7 +158,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({
-          competitionId: competition.id, // Ensure competition.id is used here
+          competitionId: competition.id,
           userId: user?.id,
           finalScore,
           correctAnswers,
@@ -188,15 +186,15 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     } catch (error) {
       console.error('Detailed competition completion error:', error);
       try {
-        await completeCompetition(competition.id); // Ensure competition.id is used here
+        await completeCompetition(competition.id);
       } catch (fallbackError) {
         console.error('Fallback method also failed:', fallbackError);
         throw fallbackError;
       }
     }
   }, [competition.id, user?.id, completeCompetition]);
-  
-  const handleNextQuestion = useCallback(async () => {
+
+  const handleNextQuestion = useCallback(async (submittedAnswer: string) => { // Modified to accept submittedAnswer
     if (!currentQuestion) {
       console.error('handleNextQuestion: currentQuestion is undefined. Cannot proceed.');
       setIsSubmitting(false);
@@ -208,23 +206,20 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     setIsSubmitting(true);
 
     console.log('handleNextQuestion: currentQuestion.id:', currentQuestion.id);
-    console.log('handleNextQuestion: selectedAnswer:', selectedAnswer);
+    console.log('handleNextQuestion: submittedAnswer:', submittedAnswer); // Log the received answer
 
     try {
-      const userAnswer = selectedAnswer;
+      const userAnswer = submittedAnswer; // Use the received answer
       const isSkipped = !userAnswer || userAnswer.trim() === '';
-      
-      // --- START MODIFICATION ---
-      // Ensure currentQuestion.id is valid before using it as a key
+
       const questionId = currentQuestion.id;
       if (questionId === undefined || questionId === null) {
         console.error('handleNextQuestion: currentQuestion.id is undefined or null. Cannot process answer.');
         setIsSubmitting(false);
         return;
       }
-      // --- END MODIFICATION ---
 
-      const isCorrect = isSkipped ? false : calculateScore(questionId, userAnswer); // Use questionId here
+      const isCorrect = isSkipped ? false : calculateScore(questionId, userAnswer);
 
       let newScore = score;
       let newCorrectAnswersCount = correctAnswersCount;
@@ -255,9 +250,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
       const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000);
 
-      // --- START MODIFICATION ---
-      const updatedAnswers = { ...answers, [questionId]: userAnswer }; // Use questionId here
-      // --- END MODIFICATION ---
+      const updatedAnswers = { ...answers, [questionId]: userAnswer };
 
       setAnswers(updatedAnswers);
 
@@ -310,7 +303,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     }
   }, [
     currentQuestion,
-    selectedAnswer,
     score,
     correctAnswersCount,
     incorrectAnswersCount,
@@ -381,7 +373,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       if (timeLeft !== null && timeLeft > 0) {
         timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000);
       } else if (timeLeft === 0) {
-        handleNextQuestion();
+        handleNextQuestion(selectedAnswer); // Pass selectedAnswer here
       }
     }
     else if (quizPrefs.timeLimitEnabled && quizPrefs.totalTimeLimit) {
@@ -424,7 +416,8 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     correctAnswersCount,
     incorrectAnswersCount,
     skippedAnswersCount,
-    answers
+    answers,
+    selectedAnswer // Add selectedAnswer to dependencies for timer-triggered next question
   ]);
 
 
@@ -903,4 +896,4 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   );
 };
 
-export default CompetitionQuiz; 
+export default CompetitionQuiz;
