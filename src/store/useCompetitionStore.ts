@@ -353,12 +353,16 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
         .in('status', ['joined', 'completed']); // Only show joined or completed participants
 
       if (error) throw error;
+      // --- START MODIFICATION ---
+      console.log('Loaded participants data:', data);
+      // --- END MODIFICATION ---
       set({ participants: data || [] });
     } catch (error: any) {
       console.error('Error loading participants:', error.message);
       set({ error: error.message || 'Failed to load participants' });
     }
   },
+
 
   // Modified updateParticipantProgress to accept new counts
   updateParticipantProgress: async (
@@ -367,19 +371,29 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
     answers,
     score,
     correctAnswers,
-    // Removed incorrectAnswers, skippedAnswers from here
     questionsAnswered,
     timeTaken,
     currentQuestionIndex
   ) => {
     try {
+      // --- START MODIFICATION ---
+      console.log('Updating participant progress for user:', userId, 'in competition:', competitionId);
+      console.log('Data being sent:', {
+        answers: answers,
+        score: score,
+        correct_answers: correctAnswers,
+        questions_answered: questionsAnswered,
+        time_taken: timeTaken,
+        current_question: currentQuestionIndex,
+      });
+      // --- END MODIFICATION ---
+
       const { error } = await supabase
         .from('competition_participants')
         .update({
           answers,
           score,
           correct_answers: correctAnswers,
-          // `incorrect_answers` and `skipped_answers` columns are no longer updated here
           questions_answered: questionsAnswered,
           time_taken: timeTaken,
           current_question: currentQuestionIndex,

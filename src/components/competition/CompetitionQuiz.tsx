@@ -195,115 +195,120 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
   // Enhanced completion logic with proper database updates
   const handleNextQuestion = useCallback(async () => {
-  if (!currentQuestion || isQuizCompleted || isSubmitting) return;
+    if (!currentQuestion || isQuizCompleted || isSubmitting) return;
 
-  setIsSubmitting(true);
+    setIsSubmitting(true);
 
-  try {
-    const userAnswer = selectedAnswer;
-    const isSkipped = !userAnswer || userAnswer.trim() === '';
-    const isCorrect = isSkipped ? false : calculateScore(currentQuestion.id, userAnswer);
+    // --- START MODIFICATION ---
+    console.log('handleNextQuestion: currentQuestion.id:', currentQuestion.id);
+    console.log('handleNextQuestion: selectedAnswer:', selectedAnswer);
+    // --- END MODIFICATION ---
 
-    let newScore = score;
-    let newCorrectAnswersCount = correctAnswersCount;
-    let newIncorrectAnswersCount = incorrectAnswersCount;
-    let newSkippedAnswersCount = skippedAnswersCount;
-    let newQuestionsAnsweredCount = questionsAnsweredCount;
+    try {
+      const userAnswer = selectedAnswer;
+      const isSkipped = !userAnswer || userAnswer.trim() === '';
+      const isCorrect = isSkipped ? false : calculateScore(currentQuestion.id, userAnswer);
 
-    if (isSkipped) {
-      newSkippedAnswersCount++;
-    } else {
-      newQuestionsAnsweredCount++;
-      if (isCorrect) {
-        newScore += 1; // Assuming 1 point per correct answer
-        newCorrectAnswersCount++;
+      let newScore = score;
+      let newCorrectAnswersCount = correctAnswersCount;
+      let newIncorrectAnswersCount = incorrectAnswersCount;
+      let newSkippedAnswersCount = skippedAnswersCount;
+      let newQuestionsAnsweredCount = questionsAnsweredCount;
+
+      if (isSkipped) {
+        newSkippedAnswersCount++;
       } else {
-        newIncorrectAnswersCount++;
-        if (competition.quiz_preferences?.negativeMarking) {
-          newScore += competition.quiz_preferences.negativeMarks || 0;
+        newQuestionsAnsweredCount++;
+        if (isCorrect) {
+          newScore += 1; // Assuming 1 point per correct answer
+          newCorrectAnswersCount++;
+        } else {
+          newIncorrectAnswersCount++;
+          if (competition.quiz_preferences?.negativeMarking) {
+            newScore += competition.quiz_preferences.negativeMarks || 0;
+          }
         }
       }
+
+      setScore(Math.max(0, newScore));
+      setCorrectAnswersCount(newCorrectAnswersCount);
+      setIncorrectAnswersCount(newIncorrectAnswersCount);
+      setSkippedAnswersCount(newSkippedAnswersCount);
+      setQuestionsAnsweredCount(newQuestionsAnsweredCount);
+
+      // Update progress in real-time
+      const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000); // Use questionStartTime
+
+      // Defensive check: Ensure currentQuestion.id is valid before using it as a key
+      const updatedAnswers = (currentQuestion && currentQuestion.id !== undefined && currentQuestion.id !== null)
+        ? { ...answers, [currentQuestion.id]: userAnswer }
+        : answers; // If id is invalid, don't update answers
+
+      setAnswers(updatedAnswers); // Update local answers state
+
+      if (user?.id) { // Ensure user is authenticated before updating progress
+        await updateParticipantProgress(
+          user.id,
+          competition.id,
+          updatedAnswers,
+          Math.max(0, newScore),
+          newCorrectAnswersCount,
+          // Removed newIncorrectAnswersCount, newSkippedAnswersCount from here
+          newQuestionsAnsweredCount,
+          totalTimeElapsed,
+          currentQuestionIndex + 1
+        );
+      }
+
+      if (isLastQuestion) {
+        console.log('Quiz completed, finishing...');
+        setIsQuizCompleted(true);
+
+        await handleCompetitionCompletion(
+          Math.max(0, newScore),
+          newCorrectAnswersCount,
+          newIncorrectAnswersCount,
+          newSkippedAnswersCount,
+          totalTimeElapsed,
+          updatedAnswers
+        );
+
+        setTimeout(() => {
+          onComplete();
+        }, 1000);
+      } else {
+        setCurrentQuestionIndex(prev => prev + 1);
+        setSelectedAnswer(''); // Clear selected answer for next question
+        setQuestionStartTime(Date.now()); // Reset question start time for next question
+      }
+    } catch (error) {
+      console.error('Error handling next question:', error);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setScore(Math.max(0, newScore));
-    setCorrectAnswersCount(newCorrectAnswersCount);
-    setIncorrectAnswersCount(newIncorrectAnswersCount);
-    setSkippedAnswersCount(newSkippedAnswersCount);
-    setQuestionsAnsweredCount(newQuestionsAnsweredCount);
-
-    // Update progress in real-time
-    const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000); // Use questionStartTime
-
-    // Defensive check: Ensure currentQuestion.id is valid before using it as a key
-    const updatedAnswers = (currentQuestion && currentQuestion.id !== undefined && currentQuestion.id !== null)
-      ? { ...answers, [currentQuestion.id]: userAnswer }
-      : answers; // If id is invalid, don't update answers
-
-    setAnswers(updatedAnswers); // Update local answers state
-
-    if (user?.id) { // Ensure user is authenticated before updating progress
-      await updateParticipantProgress(
-        user.id,
-        competition.id,
-        updatedAnswers,
-        Math.max(0, newScore),
-        newCorrectAnswersCount,
-        // Removed newIncorrectAnswersCount, newSkippedAnswersCount from here
-        newQuestionsAnsweredCount,
-        totalTimeElapsed,
-        currentQuestionIndex + 1
-      );
-    }
-
-    if (isLastQuestion) {
-      console.log('Quiz completed, finishing...');
-      setIsQuizCompleted(true);
-
-      await handleCompetitionCompletion(
-        Math.max(0, newScore),
-        newCorrectAnswersCount,
-        newIncorrectAnswersCount,
-        newSkippedAnswersCount,
-        totalTimeElapsed,
-        updatedAnswers
-      );
-
-      setTimeout(() => {
-        onComplete();
-      }, 1000);
-    } else {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setSelectedAnswer(''); // Clear selected answer for next question
-      setQuestionStartTime(Date.now()); // Reset question start time for next question
-    }
-  } catch (error) {
-    console.error('Error handling next question:', error);
-  } finally {
-    setIsSubmitting(false);
-  }
-}, [
-  currentQuestion,
-  selectedAnswer,
-  score,
-  correctAnswersCount,
-  incorrectAnswersCount,
-  skippedAnswersCount,
-  questionsAnsweredCount,
-  isLastQuestion,
-  calculateScore,
-  competition.id,
-  competition.quiz_preferences?.negativeMarking,
-  competition.quiz_preferences?.negativeMarks,
-  questionStartTime,
-  updateParticipantProgress,
-  onComplete,
-  isQuizCompleted,
-  isSubmitting,
-  answers,
-  totalTimeElapsed,
-  handleCompetitionCompletion,
-  user?.id
-]);
+  }, [
+    currentQuestion,
+    selectedAnswer,
+    score,
+    correctAnswersCount,
+    incorrectAnswersCount,
+    skippedAnswersCount,
+    questionsAnsweredCount,
+    isLastQuestion,
+    calculateScore,
+    competition.id,
+    competition.quiz_preferences?.negativeMarking,
+    competition.quiz_preferences?.negativeMarks,
+    questionStartTime,
+    updateParticipantProgress,
+    onComplete,
+    isQuizCompleted,
+    isSubmitting,
+    answers,
+    totalTimeElapsed,
+    handleCompetitionCompletion,
+    user?.id
+  ]);
 
   // Load participants and set up subscriptions
   useEffect(() => {

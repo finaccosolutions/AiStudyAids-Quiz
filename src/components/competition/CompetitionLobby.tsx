@@ -183,54 +183,61 @@ const CompetitionLobby: React.FC<CompetitionLobbyProps> = ({
 
 // Countdown logic based on competition.start_time
 useEffect(() => {
-  if (!isComponentMounted) return;
+    if (!isComponentMounted) return;
 
-  let timer: NodeJS.Timeout | null = null;
+    let timer: NodeJS.Timeout | null = null;
 
-  if (competition.status === 'active' && competition.start_time) {
-    const quizStartTime = new Date(competition.start_time).getTime();
-    const now = Date.now();
-    let remainingTime = Math.ceil((quizStartTime - now) / 1000);
+    if (competition.status === 'active' && competition.start_time) {
+      const quizStartTime = new Date(competition.start_time).getTime();
+      const now = Date.now();
+      let remainingTime = Math.ceil((quizStartTime - now) / 1000);
 
-    if (remainingTime <= 0) {
-      // If the start time has already passed, immediately start the quiz
-      if (isComponentMounted) {
-        console.log('Competition start time already passed, calling onStartQuiz');
-        onStartQuiz();
-      }
-      setTimeToQuizStart(null);
-      return;
-    }
+      // --- START MODIFICATION ---
+      console.log('Competition start_time:', competition.start_time);
+      console.log('Parsed quizStartTime (ms):', quizStartTime);
+      console.log('Current client time (ms):', now);
+      console.log('Initial remainingTime (s):', remainingTime);
+      // --- END MODIFICATION ---
 
-    // Initialize countdown
-    setTimeToQuizStart(remainingTime);
-
-    // Start interval to update countdown
-    timer = setInterval(() => {
-      remainingTime--;
       if (remainingTime <= 0) {
-        clearInterval(timer!);
+        // If the start time has already passed, immediately start the quiz
         if (isComponentMounted) {
-          console.log('Countdown finished, calling onStartQuiz');
+          console.log('Competition start time already passed, calling onStartQuiz');
           onStartQuiz();
         }
         setTimeToQuizStart(null);
-      } else {
-        setTimeToQuizStart(remainingTime);
+        return;
       }
-    }, 1000);
-  } else {
-    // Reset countdown if competition is not active or start_time is not set
-    setTimeToQuizStart(null);
-  }
 
-  return () => {
-    if (timer) {
-      console.log('Clearing countdown interval.');
-      clearInterval(timer);
+      // Initialize countdown
+      setTimeToQuizStart(remainingTime);
+
+      // Start interval to update countdown
+      timer = setInterval(() => {
+        remainingTime--;
+        if (remainingTime <= 0) {
+          clearInterval(timer!);
+          if (isComponentMounted) {
+            console.log('Countdown finished, calling onStartQuiz');
+            onStartQuiz();
+          }
+          setTimeToQuizStart(null);
+        } else {
+          setTimeToQuizStart(remainingTime);
+        }
+      }, 1000);
+    } else {
+      // Reset countdown if competition is not active or start_time is not set
+      setTimeToQuizStart(null);
     }
-  };
-}, [competition.status, competition.start_time, onStartQuiz, isComponentMounted]);
+
+    return () => {
+      if (timer) {
+        console.log('Clearing countdown interval.');
+        clearInterval(timer);
+      }
+    };
+  }, [competition.status, competition.start_time, onStartQuiz, isComponentMounted]);
 
  
   // Periodic data refresh to ensure consistency - using centralized function
