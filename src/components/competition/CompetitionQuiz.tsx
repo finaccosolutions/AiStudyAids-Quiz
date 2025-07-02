@@ -204,7 +204,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     }
   }, [competition.id, user?.id, completeCompetition]);
 
-  const handleNextQuestion = useCallback(async () => {
+  const handleNextQuestion = useCallback(async (userAnswerForCurrentQuestion: string) => {
     if (!currentQuestion) {
       console.error('handleNextQuestion: currentQuestion is undefined. Cannot proceed.');
       return;
@@ -214,9 +214,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
     setIsSubmitting(true);
 
-   // --- START MODIFICATION ---
-    const userAnswer = selectedAnswer;
-    // --- END MODIFICATION --
+   const userAnswer = userAnswerForCurrentQuestion; // Use the passed argument directly
 
     console.log('handleNextQuestion: Processing question:', currentQuestion.id, 'with userAnswer:', userAnswer);
 
@@ -462,9 +460,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       // This function is called by QuizQuestion when an answer is finalized (submitted, next, or timer runs out)
       // We need to ensure the selectedAnswer state is updated before processing the next question.
       // Since QuizQuestion already passes the latest selected answer, we can use it directly.
-      setSelectedAnswer(answer); // Update CompetitionQuiz's selectedAnswer state
-      handleNextQuestion(); // Then call handleNextQuestion to process
-    }, [setSelectedAnswer, handleNextQuestion]);
+      setSelectedAnswer(answer); // Update CompetitionQuiz's selectedAnswer state (for display)
+    handleNextQuestion(answer); // Pass the answer directly to handleNextQuestion
+  }, [setSelectedAnswer, handleNextQuestion]);
 
   const handleLeaveQuiz = async () => {
     if (isSubmitting) return;
@@ -658,9 +656,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                 userAnswer={answers[currentQuestion.id]}
                 onAnswer={handleAnswerSelect}
                 onPrevious={() => {}}
-                onNext={() => {}}
                 isLastQuestion={isLastQuestion}
-                onFinish={() => {}}
                 language={competition.quiz_preferences?.language || 'English'}
                 timeLimitEnabled={competition.quiz_preferences?.timeLimitEnabled || false}
                 timeLimit={competition.quiz_preferences?.timeLimit}
@@ -672,7 +668,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                 onQuitQuiz={() => setShowLeaveConfirm(true)}
                 displayHeader={false}
                 showPreviousButton={false}
-                onQuestionSubmit={handleQuestionSubmit}
+                onQuestionSubmit={handleQuestionSubmit} 
               />
             )}
           </div>
