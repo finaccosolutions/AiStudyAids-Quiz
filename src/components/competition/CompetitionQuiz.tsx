@@ -450,8 +450,18 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       };
     }, [competition.start_time, questions.length, isQuizCompleted]);
 
-    // NEW: handleQuestionSubmit callback
+    // NEW: Re-introduce handleAnswerSelect for QuizQuestion's onAnswer prop
+    const handleAnswerSelect = useCallback((answer: string) => {
+      if (isQuizCompleted || isSubmitting) return;
+      console.log('CompetitionQuiz: handleAnswerSelect: Setting selectedAnswer to:', answer);
+      setSelectedAnswer(answer);
+    }, [isQuizCompleted, isSubmitting]);
+
+    // NEW: handleQuestionSubmit callback for QuizQuestion's onQuestionSubmit prop
     const handleQuestionSubmit = useCallback((answer: string) => {
+      // This function is called by QuizQuestion when an answer is finalized (submitted, next, or timer runs out)
+      // We need to ensure the selectedAnswer state is updated before processing the next question.
+      // Since QuizQuestion already passes the latest selected answer, we can use it directly.
       setSelectedAnswer(answer); // Update CompetitionQuiz's selectedAnswer state
       handleNextQuestion(); // Then call handleNextQuestion to process
     }, [setSelectedAnswer, handleNextQuestion]);
@@ -648,9 +658,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                 userAnswer={answers[currentQuestion.id]}
                 onAnswer={handleAnswerSelect}
                 onPrevious={() => {}}
-                onNext={() => {}} // onNext is now handled by onQuestionSubmit
+                onNext={() => {}}
                 isLastQuestion={isLastQuestion}
-                onFinish={() => {}} // onFinish is now handled by onQuestionSubmit
+                onFinish={() => {}}
                 language={competition.quiz_preferences?.language || 'English'}
                 timeLimitEnabled={competition.quiz_preferences?.timeLimitEnabled || false}
                 timeLimit={competition.quiz_preferences?.timeLimit}
@@ -661,8 +671,8 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                 showQuitButton={true}
                 onQuitQuiz={() => setShowLeaveConfirm(true)}
                 displayHeader={false}
-                showPreviousButton={false} // Assuming no previous button in competition quiz
-                onQuestionSubmit={handleQuestionSubmit} // NEW PROP: Pass the new handler
+                showPreviousButton={false}
+                onQuestionSubmit={handleQuestionSubmit}
               />
             )}
           </div>
@@ -855,7 +865,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
