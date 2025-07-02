@@ -903,4 +903,4 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   );
 };
 
-export default CompetitionQuiz;
+export default CompetitionQuiz; 
