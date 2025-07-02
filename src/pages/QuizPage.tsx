@@ -850,6 +850,16 @@ const handleCreateCompetitionSuccess = useCallback(async (preferences, title, de
         if (!currentQuestion || !preferences) {
           return null;
         }
+
+        // Define the new handleSoloQuestionSubmit function
+        const handleSoloQuestionSubmit = (answer: string) => {
+          answerQuestion(currentQuestion.id, answer); // Record the answer
+          if (currentQuestionIndex === questions.length - 1) {
+            handleFinishQuiz(); // Finish if it's the last question
+          } else {
+            nextQuestion(); // Move to the next question
+          }
+        };
         
         return (
            <div className="w-full px-0 py-8">
@@ -858,9 +868,8 @@ const handleCreateCompetitionSuccess = useCallback(async (preferences, title, de
                 questionNumber={currentQuestionIndex + 1}
                 totalQuestions={questions.length}
                 userAnswer={answers[currentQuestion.id]}
-                onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)}
+                onAnswer={(answer) => answerQuestion(currentQuestion.id, answer)} // Keep this for internal state update
                 onPrevious={handlePrevious}
-                onNext={handleNext}
                 isLastQuestion={currentQuestionIndex === questions.length - 1}
                 onFinish={handleFinishQuiz}
                 language={preferences.language || 'en'}
@@ -875,6 +884,7 @@ const handleCreateCompetitionSuccess = useCallback(async (preferences, title, de
                 showQuitButton={true}
                 displayHeader={true} // Changed from showHeader to displayHeader
                 showPreviousButton={!(preferences.timeLimitEnabled && preferences.timeLimit)}
+                onQuestionSubmit={handleSoloQuestionSubmit} // Pass the new handler
               />
 
           </div>

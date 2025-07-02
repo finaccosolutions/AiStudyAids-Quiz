@@ -427,7 +427,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               <div className="text-center">
                 <h3 className={`text-lg sm:text-2xl font-bold ${performance.color} mb-2`}>Final Score</h3>
                 <div className="text-2xl sm:text-4xl font-bold text-gray-800 mb-2">
-                  {stats.finalScore.toFixed(1)} / {stats.totalQuestions}
+                  {Math.round(stats.finalScore)} / {stats.totalQuestions}
                 </div>
                 <p className={`text-sm sm:text-lg ${performance.color} font-medium`}>
                   {performance.message}
