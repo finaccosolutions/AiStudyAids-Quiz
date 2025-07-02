@@ -45,8 +45,6 @@ interface CompetitionStoreState {
     answers: Record<number, string>, 
     score: number, 
     correctAnswers: number, 
-    incorrectAnswers: number, // New parameter
-    skippedAnswers: number, // New parameter
     questionsAnswered: number, // New parameter
     timeTaken: number,   
     currentQuestionIndex: number
@@ -364,15 +362,14 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
 
   // Modified updateParticipantProgress to accept new counts
   updateParticipantProgress: async (
-    userId, 
-    competitionId, 
-    answers, 
-    score, 
-    correctAnswers, 
-    incorrectAnswers, 
-    skippedAnswers, 
-    questionsAnswered, 
-    timeTaken, 
+    userId,
+    competitionId,
+    answers,
+    score,
+    correctAnswers,
+    // Removed incorrectAnswers, skippedAnswers from here
+    questionsAnswered,
+    timeTaken,
     currentQuestionIndex
   ) => {
     try {
@@ -382,9 +379,8 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
           answers,
           score,
           correct_answers: correctAnswers,
-          incorrect_answers: incorrectAnswers, // New field
-          skipped_answers: skippedAnswers,     // New field
-          questions_answered: questionsAnswered, // New field
+          // `incorrect_answers` and `skipped_answers` columns are no longer updated here
+          questions_answered: questionsAnswered,
           time_taken: timeTaken,
           current_question: currentQuestionIndex,
           last_activity: new Date().toISOString(),
