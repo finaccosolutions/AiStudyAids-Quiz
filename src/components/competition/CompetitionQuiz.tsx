@@ -4,8 +4,8 @@ import { useCompetitionStore } from '../../store/useCompetitionStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../ui/Button';
 import { Card, CardBody } from '../ui/Card';
-import { 
-  Clock, Users, Trophy, Target, Zap, 
+import {
+  Clock, Users, Trophy, Target, Zap,
   CheckCircle, ArrowRight, Crown, Timer,
   Activity, Star, Award, TrendingUp,
   Brain, Eye, EyeOff, XCircle, MessageCircle,
@@ -17,7 +17,7 @@ import { Competition } from '../../types/competition';
 import { Question } from '../../types';
 import { speechService } from '../../services/speech';
 import { supabase } from '../../services/supabase';
-import QuizQuestion from '../quiz/QuizQuestion'; 
+import QuizQuestion from '../quiz/QuizQuestion';
 
 
 interface CompetitionQuizProps {
@@ -31,11 +31,12 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   onComplete,
   onLeave
 }) => {
+  console.log('CompetitionQuiz: Received competition prop:', competition);
   const questions = competition.questions || [];
 
   const { user } = useAuthStore();
-  const { 
-    participants, 
+  const {
+    participants,
     updateParticipantProgress,
     completeCompetition,
     subscribeToCompetition,
@@ -57,15 +58,14 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   );
   const [totalTimeElapsed, setTotalTimeElapsed] = useState(0);
   const [score, setScore] = useState(0);
-  const [correctAnswersCount, setCorrectAnswersCount] = useState(0); // Renamed for clarity
-  const [incorrectAnswersCount, setIncorrectAnswersCount] = useState(0); // New state
-  const [skippedAnswersCount, setSkippedAnswersCount] = useState(0); // New state
-  const [questionsAnsweredCount, setQuestionsAnsweredCount] = useState(0); // New state
+  const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
+  const [incorrectAnswersCount, setIncorrectAnswersCount] = useState(0);
+  const [skippedAnswersCount, setSkippedAnswersCount] = useState(0);
+  const [questionsAnsweredCount, setQuestionsAnsweredCount] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [showChat, setShowChat] = useState(false);
-  const [chatMessage, setChatMessage] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -76,22 +76,27 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   const leaderboard = getLiveLeaderboard(competition.id);
   const isCreator = user?.id === competition.creator_id;
 
-  const currentQuestion = questions[currentQuestionIndex]; // Define currentQuestion here
+  console.log('CompetitionQuiz: questions array:', questions);
+  console.log('CompetitionQuiz: currentQuestionIndex:', currentQuestionIndex);
+  const currentQuestion = questions[currentQuestionIndex];
+  console.log('CompetitionQuiz: currentQuestion:', currentQuestion);
+  // --- START MODIFICATION ---
+  console.log('CompetitionQuiz: currentQuestion.id:', currentQuestion?.id);
+  // --- END MODIFICATION ---
 
   const calculateScore = useCallback((questionId: number, userAnswer: string) => {
     const question = questions.find(q => q.id === questionId);
     if (!question) return false;
 
-    // Treat empty or whitespace-only answers as skipped
     const isSkipped = !userAnswer || userAnswer.trim() === '';
-    if (isSkipped) return false; // Skipped questions are not correct
+    if (isSkipped) return false;
 
     let isCorrect = false;
-    
+
     switch (question.type) {
       case 'multiple-choice':
       case 'true-false':
-        isCorrect = userAnswer && question.correctAnswer && 
+        isCorrect = userAnswer && question.correctAnswer &&
                    userAnswer.toLowerCase() === question.correctAnswer.toLowerCase();
         break;
       case 'multi-select':
@@ -102,15 +107,15 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                      userOptions.every((opt, index) => opt === correctOptions[index]);
         }
         break;
-      case 'sequence': // Add this case for sequence questions
+      case 'sequence':
         if (userAnswer && question.correctSequence) {
           try {
-            const userSequence = JSON.parse(userAnswer); // Parse the JSON string
+            const userSequence = JSON.parse(userAnswer);
             isCorrect = userSequence.length === question.correctSequence.length &&
                         userSequence.every((step: string, index: number) => step === question.correctSequence![index]);
           } catch (e) {
             console.error("Failed to parse sequence answer:", e);
-            isCorrect = false; // If parsing fails, it's incorrect
+            isCorrect = false;
           }
         }
         break;
@@ -120,9 +125,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
           const userLower = userAnswer.toLowerCase().trim();
           const correctLower = question.correctAnswer.toLowerCase().trim();
           isCorrect = userLower === correctLower;
-          
+
           if (!isCorrect && question.keywords) {
-            isCorrect = question.keywords.some(keyword => 
+            isCorrect = question.keywords.some(keyword =>
               userLower.includes(keyword.toLowerCase())
             );
           }
@@ -135,11 +140,10 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     return isCorrect;
   }, [questions]);
 
-  // New function to handle competition completion with proper database updates
-  const handleCompetitionCompletion = async (finalScore: number, correctAnswers: number, incorrectAnswers: number, skippedAnswers: number, timeTaken: number, answers: Record<number, string>) => {
+  const handleCompetitionCompletion = useCallback(async (finalScore: number, correctAnswers: number, incorrectAnswers: number, skippedAnswers: number, timeTaken: number, answers: Record<number, string>) => {
     try {
       console.log('Attempting to complete competition with:', {
-        competitionId: competition.id,
+        competitionId: competition.id, // Ensure competition.id is used here
         userId: user?.id,
         finalScore,
         correctAnswers,
@@ -156,7 +160,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({
-          competitionId: competition.id,
+          competitionId: competition.id, // Ensure competition.id is used here
           userId: user?.id,
           finalScore,
           correctAnswers,
@@ -179,35 +183,48 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
       const result = await response.json();
       console.log('Competition completion result:', result);
-      
+
       return result;
     } catch (error) {
       console.error('Detailed competition completion error:', error);
-      // Fallback to original method
       try {
-        await completeCompetition(competition.id);
+        await completeCompetition(competition.id); // Ensure competition.id is used here
       } catch (fallbackError) {
         console.error('Fallback method also failed:', fallbackError);
         throw fallbackError;
       }
     }
-  };
-
-  // Enhanced completion logic with proper database updates
+  }, [competition.id, user?.id, completeCompetition]);
+  
   const handleNextQuestion = useCallback(async () => {
-    if (!currentQuestion || isQuizCompleted || isSubmitting) return;
+    if (!currentQuestion) {
+      console.error('handleNextQuestion: currentQuestion is undefined. Cannot proceed.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (isQuizCompleted || isSubmitting) return;
 
     setIsSubmitting(true);
 
-    // --- START MODIFICATION ---
     console.log('handleNextQuestion: currentQuestion.id:', currentQuestion.id);
     console.log('handleNextQuestion: selectedAnswer:', selectedAnswer);
-    // --- END MODIFICATION ---
 
     try {
       const userAnswer = selectedAnswer;
       const isSkipped = !userAnswer || userAnswer.trim() === '';
-      const isCorrect = isSkipped ? false : calculateScore(currentQuestion.id, userAnswer);
+      
+      // --- START MODIFICATION ---
+      // Ensure currentQuestion.id is valid before using it as a key
+      const questionId = currentQuestion.id;
+      if (questionId === undefined || questionId === null) {
+        console.error('handleNextQuestion: currentQuestion.id is undefined or null. Cannot process answer.');
+        setIsSubmitting(false);
+        return;
+      }
+      // --- END MODIFICATION ---
+
+      const isCorrect = isSkipped ? false : calculateScore(questionId, userAnswer); // Use questionId here
 
       let newScore = score;
       let newCorrectAnswersCount = correctAnswersCount;
@@ -220,7 +237,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       } else {
         newQuestionsAnsweredCount++;
         if (isCorrect) {
-          newScore += 1; // Assuming 1 point per correct answer
+          newScore += 1;
           newCorrectAnswersCount++;
         } else {
           newIncorrectAnswersCount++;
@@ -236,24 +253,29 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       setSkippedAnswersCount(newSkippedAnswersCount);
       setQuestionsAnsweredCount(newQuestionsAnsweredCount);
 
-      // Update progress in real-time
-      const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000); // Use questionStartTime
+      const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000);
 
-      // Defensive check: Ensure currentQuestion.id is valid before using it as a key
-      const updatedAnswers = (currentQuestion && currentQuestion.id !== undefined && currentQuestion.id !== null)
-        ? { ...answers, [currentQuestion.id]: userAnswer }
-        : answers; // If id is invalid, don't update answers
+      // --- START MODIFICATION ---
+      const updatedAnswers = { ...answers, [questionId]: userAnswer }; // Use questionId here
+      // --- END MODIFICATION ---
 
-      setAnswers(updatedAnswers); // Update local answers state
+      setAnswers(updatedAnswers);
 
-      if (user?.id) { // Ensure user is authenticated before updating progress
+      console.log('handleNextQuestion: Calculated values before updateParticipantProgress:');
+      console.log('  newScore:', newScore);
+      console.log('  newCorrectAnswersCount:', newCorrectAnswersCount);
+      console.log('  newIncorrectAnswersCount:', newIncorrectAnswersCount);
+      console.log('  newSkippedAnswersCount:', newSkippedAnswersCount);
+      console.log('  newQuestionsAnsweredCount:', newQuestionsAnsweredCount);
+      console.log('  updatedAnswers:', updatedAnswers);
+
+      if (user?.id) {
         await updateParticipantProgress(
           user.id,
           competition.id,
           updatedAnswers,
           Math.max(0, newScore),
           newCorrectAnswersCount,
-          // Removed newIncorrectAnswersCount, newSkippedAnswersCount from here
           newQuestionsAnsweredCount,
           totalTimeElapsed,
           currentQuestionIndex + 1
@@ -278,8 +300,8 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
         }, 1000);
       } else {
         setCurrentQuestionIndex(prev => prev + 1);
-        setSelectedAnswer(''); // Clear selected answer for next question
-        setQuestionStartTime(Date.now()); // Reset question start time for next question
+        setSelectedAnswer('');
+        setQuestionStartTime(Date.now());
       }
     } catch (error) {
       console.error('Error handling next question:', error);
@@ -310,7 +332,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     user?.id
   ]);
 
-  // Load participants and set up subscriptions
   useEffect(() => {
     if (competition.id) {
       console.log('Setting up quiz subscriptions for competition:', competition.id);
@@ -318,7 +339,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       const unsubscribe = subscribeToCompetition(competition.id);
       const unsubscribeChat = subscribeToChat(competition.id);
       loadChatMessages(competition.id);
-      
+
       return () => {
         console.log('Cleaning up quiz subscriptions');
         unsubscribe();
@@ -327,7 +348,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     }
   }, [competition.id, loadParticipants, subscribeToCompetition, subscribeToChat, loadChatMessages]);
 
-  // Refresh participants periodically
   useEffect(() => {
     const interval = setInterval(() => {
       if (!isQuizCompleted) {
@@ -343,38 +363,34 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     const quizPrefs = competition.quiz_preferences;
 
     if (!quizPrefs || isQuizCompleted || questions.length === 0) {
-      setTimeLeft(null); // Clear timer if conditions not met
+      setTimeLeft(null);
       return;
     }
 
-    // If per-question time limit is enabled
     if (quizPrefs.timeLimitEnabled && quizPrefs.timeLimit && !quizPrefs.totalTimeLimit) {
       const perQuestionLimit = parseInt(quizPrefs.timeLimit);
       if (isNaN(perQuestionLimit) || perQuestionLimit <= 0) {
         setTimeLeft(null);
         return;
       }
-    
-      // Reset timer for new question
+
       if (currentQuestion && currentQuestion.id !== (questions[currentQuestionIndex - 1]?.id || null)) {
         setTimeLeft(perQuestionLimit);
       }
-    
+
       if (timeLeft !== null && timeLeft > 0) {
-        timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000); // Changed to setTimeout
+        timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000);
       } else if (timeLeft === 0) {
         handleNextQuestion();
       }
     }
-        // If total time limit is enabled
     else if (quizPrefs.timeLimitEnabled && quizPrefs.totalTimeLimit) {
       const totalLimit = parseInt(quizPrefs.totalTimeLimit);
       if (isNaN(totalLimit) || totalLimit <= 0) {
         setTimeLeft(null);
         return;
       }
-      
-      // Calculate remaining time based on total elapsed time
+
       const remaining = totalLimit - totalTimeElapsed;
       setTimeLeft(remaining);
 
@@ -382,10 +398,10 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
         handleCompetitionCompletion(score, correctAnswersCount, incorrectAnswersCount, skippedAnswersCount, totalTimeElapsed, answers);
         onComplete();
       } else {
-        timer = setTimeout(() => {}, 1000); // Keep this timer running to trigger re-render based on totalTimeElapsed
+        timer = setTimeout(() => {}, 1000);
       }
     } else {
-      setTimeLeft(null); // No time limit enabled
+      setTimeLeft(null);
     }
 
     return () => {
@@ -394,13 +410,13 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       }
     };
   }, [
-    timeLeft, 
-    questions.length, 
-    isQuizCompleted, 
-    competition.quiz_preferences, 
-    handleNextQuestion, 
-    totalTimeElapsed, 
-    currentQuestion, 
+    timeLeft,
+    questions.length,
+    isQuizCompleted,
+    competition.quiz_preferences,
+    handleNextQuestion,
+    totalTimeElapsed,
+    currentQuestion,
     currentQuestionIndex,
     handleCompetitionCompletion,
     onComplete,
@@ -412,10 +428,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   ]);
 
 
-  // Total time elapsed timer
-   useEffect(() => {
+  useEffect(() => {
       let timer: NodeJS.Timeout;
-      if (competition.start_time && questions.length > 0 && !isQuizCompleted) { // Changed from quiz_start_time to start_time
+      if (competition.start_time && questions.length > 0 && !isQuizCompleted) {
         const startTime = new Date(competition.start_time).getTime();
         timer = setInterval(() => {
           const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -431,35 +446,35 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
     const handleAnswerSelect = (answer: string) => {
       if (isQuizCompleted || isSubmitting) return;
+      console.log('handleAnswerSelect: Setting selectedAnswer to:', answer);
       setSelectedAnswer(answer);
     };
 
   const handleLeaveQuiz = async () => {
     if (isSubmitting) return;
-    
+
     setIsSubmitting(true);
-    console.log('Attempting to leave competition...'); // Debug log
-    console.log('User:', user); // Debug log
-    console.log('Is creator:', isCreator); // Debug log
+    console.log('Attempting to leave competition...');
+    console.log('User:', user);
+    console.log('Is creator:', isCreator);
 
     try {
         if (isCreator) {
-          console.log('User is creator, canceling competition...'); // Debug log
-          await cancelCompetition(competition.id); // Creator cancels the competition
+          console.log('User is creator, canceling competition...');
+          await cancelCompetition(competition.id);
         }
-        // All participants (including creator if not cancelled) leave
-      console.log('Leaving competition for participant...'); // Debug log
+      console.log('Leaving competition for participant...');
       await leaveCompetition(competition.id);
       if (onLeave) {
-        console.log('Calling onLeave callback...'); // Debug log
+        console.log('Calling onLeave callback...');
         onLeave();
       }
     } catch (error) {
-      console.error('Error leaving competition:', error); // Debug log
+      console.error('Error leaving competition:', error);
     } finally {
       setIsSubmitting(false);
       setShowLeaveConfirm(false);
-      console.log('Leave process finished.'); // Debug log
+      console.log('Leave process finished.');
     }
   };
 
@@ -472,14 +487,14 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
   const playQuestionAudio = () => {
     if (!currentQuestion) return;
-    
+
     if (isSpeaking) {
       speechService.stop();
       setIsSpeaking(false);
     } else {
       speechService.speak(currentQuestion.text, competition.quiz_preferences?.language || 'English');
       setIsSpeaking(true);
-      
+
       const checkSpeakingInterval = setInterval(() => {
         if (!speechService.isSpeaking()) {
           setIsSpeaking(false);
@@ -491,7 +506,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
   const formatTime = (seconds: number | null | undefined) => {
   if (seconds === null || seconds === undefined || isNaN(seconds)) {
-    return '00:00'; // Default display for invalid time
+    return '00:00';
   }
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
@@ -504,7 +519,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     return (questionsAnswered / questions.length) * 100;
   };
 
-  // Show error if no questions available or current question is not ready
   if (!questions.length || !currentQuestion) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
@@ -530,7 +544,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
   }
 
 
-  // Show completion message if quiz is completed
   if (isQuizCompleted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
@@ -549,57 +562,56 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
-      {/* Header with live stats */}
-      <div className="bg-black bg-opacity-30 backdrop-blur-sm border-b border-white border-opacity-20 py-2 sm:py-4"> {/* Reduced vertical padding */}
-        <div className="w-full px-2 sm:px-4"> {/* Changed max-w-7xl mx-auto to w-full px-2 sm:px-4 */}
-          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4"> {/* Added flex-wrap and adjusted gap */}
-            <div className="flex items-center space-x-1 sm:space-x-4"> {/* Adjusted space-x */}
-              <div className="flex items-center space-x-1 sm:space-x-2"> {/* Adjusted space-x */}
-                <Trophy className="w-5 h-5 text-yellow-400" /> {/* Reduced icon size */}
-                <span className="text-base sm:text-xl font-bold text-white">{competition.title}</span> {/* Adjusted font size */}
+      <div className="bg-black bg-opacity-30 backdrop-blur-sm border-b border-white border-opacity-20 py-2 sm:py-4">
+        <div className="w-full px-2 sm:px-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center space-x-1 sm:space-x-4">
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+                <span className="text-base sm:text-xl font-bold text-white">{competition.title}</span>
                 {isCreator && (
-                  <span className="px-1.5 py-0.5 bg-yellow-500 text-yellow-900 text-xs font-bold rounded-full"> {/* Adjusted padding and font size */}
+                  <span className="px-1.5 py-0.5 bg-yellow-500 text-yellow-900 text-xs font-bold rounded-full">
                     CREATOR
                   </span>
                 )}
               </div>
-              <div className="flex items-center space-x-1 sm:space-x-2"> {/* Adjusted space-x */}
-                <Target className="w-4 h-4 sm:w-5 h-5 text-blue-400" /> {/* Reduced icon size */}
-                <span className="text-sm sm:text-base text-white">Question {currentQuestionIndex + 1}/{questions.length}</span> {/* Adjusted font size */}
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <Target className="w-4 h-4 sm:w-5 h-5 text-blue-400" />
+                <span className="text-sm sm:text-base text-white">Question {currentQuestionIndex + 1}/{questions.length}</span>
               </div>
             </div>
-            
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4"> {/* Added flex-wrap and adjusted gap */}
+
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
               {competition.quiz_preferences?.timeLimitEnabled && (
-                <div className={`flex items-center space-x-1 px-2 py-1 rounded-lg ${ /* Adjusted padding and space-x */
+                <div className={`flex items-center space-x-1 px-2 py-1 rounded-lg ${
                   timeLeft !== null && timeLeft <= 10 ? 'bg-red-500 bg-opacity-30' : 'bg-white bg-opacity-20'
                 }`}>
-                  <Clock className={`w-4 h-4 ${timeLeft !== null && timeLeft <= 10 ? 'text-red-300' : 'text-white'}`} /> {/* Reduced icon size */}
-                  <span className={`font-mono text-sm font-bold ${ /* Adjusted font size */
+                  <Clock className={`w-4 h-4 ${timeLeft !== null && timeLeft <= 10 ? 'text-red-300' : 'text-white'}`} />
+                  <span className={`font-mono text-sm font-bold ${
                     timeLeft !== null && timeLeft <= 10 ? 'text-red-300' : 'text-white'
                   }`}>
                     {timeLeft !== null ? formatTime(timeLeft) : 'N/A'}
                   </span>
                 </div>
               )}
-              <div className="flex items-center space-x-1 bg-white bg-opacity-20 px-2 py-1 rounded-lg"> {/* Adjusted padding and space-x */}
-                <Timer className="w-4 h-4 text-cyan-400" /> {/* Reduced icon size */}
-                <span className="font-mono text-sm font-bold text-white">{formatTime(totalTimeElapsed)}</span> {/* Adjusted font size */}
+              <div className="flex items-center space-x-1 bg-white bg-opacity-20 px-2 py-1 rounded-lg">
+                <Timer className="w-4 h-4 text-cyan-400" />
+                <span className="font-mono text-sm font-bold text-white">{formatTime(totalTimeElapsed)}</span>
               </div>
-              <div className="flex items-center space-x-1 bg-white bg-opacity-20 px-2 py-1 rounded-lg"> {/* Adjusted padding and space-x */}
-                <Zap className="w-4 h-4 text-green-400" /> {/* Reduced icon size */}
-                <span className="font-bold text-sm text-white">{score.toFixed(1)} pts</span> {/* Adjusted font size */}
+              <div className="flex items-center space-x-1 bg-white bg-opacity-20 px-2 py-1 rounded-lg">
+                <Zap className="w-4 h-4 text-green-400" />
+                <span className="font-bold text-sm text-white">{score.toFixed(1)} pts</span>
               </div>
               <button
                 onClick={() => setShowLeaderboard(!showLeaderboard)}
-                className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white" /* Adjusted padding and space-x */
+                className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white"
               >
                 {showLeaderboard ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 <span className="text-xs">Leaderboard</span>
               </button>
               <button
                 onClick={() => setShowChat(!showChat)}
-                className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white" /* Adjusted padding and space-x */
+                className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-white"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span className="text-sm">Chat</span>
@@ -609,7 +621,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                 disabled={isSubmitting}
                 className={`flex items-center space-x-1 px-2 py-1 rounded-lg bg-red-500 bg-opacity-30 hover:bg-opacity-50 transition-all text-red-200 hover:text-white ${
                   isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
-                }`} /* Adjusted padding and space-x */
+                }`}
               >
                 <LogOut className="w-4 h-4" />
                 <span className="text-sm">Leave</span>
@@ -621,32 +633,32 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
       <div className="w-full px-0 sm:px-4 py-8">
         <div className={showLeaderboard ? 'lg:col-span-3' : 'w-full'}>
-          {/* Main Quiz Area */}
-<div className={showLeaderboard ? 'lg:col-span-3' : 'w-full max-w-full mx-auto'}>
-<QuizQuestion
-  question={currentQuestion}
-  questionNumber={currentQuestionIndex + 1}
-  totalQuestions={questions.length}
-  userAnswer={answers[currentQuestion?.id]}
-  onAnswer={handleAnswerSelect}
-  onPrevious={() => { /* Competition quiz does not allow previous question */ }}
-  onNext={handleNextQuestion}
-  isLastQuestion={isLastQuestion}
-  onFinish={handleNextQuestion} // handleNextQuestion will check if it's last question
-  language={competition.quiz_preferences?.language || 'English'}
-  timeLimitEnabled={competition.quiz_preferences?.timeLimitEnabled || false}
-  timeLimit={competition.quiz_preferences?.timeLimit} // Per-question limit
-  totalTimeLimit={competition.quiz_preferences?.totalTimeLimit} // Total quiz limit
-  totalTimeRemaining={timeLeft} // Use timeLeft for overall timer
-  mode="exam" // Competition is always exam mode
-  answerMode="immediate" // Answers are recorded immediately
-  showQuitButton={true} // Show quit button
-  onQuitQuiz={() => setShowLeaveConfirm(true)} // Show leave confirmation
-  displayHeader={false} // Add this prop to hide the header
-/>
-</div>
+          <div className={showLeaderboard ? 'lg:col-span-3' : 'w-full max-w-full mx-auto'}>
+            {currentQuestion && (
+              <QuizQuestion
+                question={currentQuestion}
+                questionNumber={currentQuestionIndex + 1}
+                totalQuestions={questions.length}
+                userAnswer={answers[currentQuestion.id]}
+                onAnswer={handleAnswerSelect}
+                onPrevious={() => {}}
+                onNext={handleNextQuestion}
+                isLastQuestion={isLastQuestion}
+                onFinish={handleNextQuestion}
+                language={competition.quiz_preferences?.language || 'English'}
+                timeLimitEnabled={competition.quiz_preferences?.timeLimitEnabled || false}
+                timeLimit={competition.quiz_preferences?.timeLimit}
+                totalTimeLimit={competition.quiz_preferences?.totalTimeLimit}
+                totalTimeRemaining={timeLeft}
+                mode="exam"
+                answerMode="immediate"
+                showQuitButton={true}
+                onQuitQuiz={() => setShowLeaveConfirm(true)}
+                displayHeader={false}
+              />
+            )}
+          </div>
 
-          {/* Live Leaderboard */}
           <AnimatePresence>
             {showLeaderboard && (
               <motion.div
@@ -661,10 +673,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                       <Users className="w-5 h-5 mr-2 text-purple-600" />
                       Live Rankings ({joinedParticipants.length})
                     </h3>
-                    
+
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       {joinedParticipants.map((participant, index) => {
-                        // Ensure participant.score is a number before toFixed
                         const participantScore = typeof participant.score === 'number' ? participant.score : 0;
                         return (
                           <motion.div
@@ -698,11 +709,10 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                                   <span>•</span>
                                   <span>{formatTime(participant.time_taken || 0)}</span>
                                 </div>
-                                
-                                {/* Progress bar */}
+
                                 <div className="mt-2">
                                   <div className="w-full bg-gray-200 rounded-full h-1">
-                                    <div 
+                                    <div
                                       className="bg-gradient-to-r from-purple-500 to-indigo-500 h-1 rounded-full transition-all duration-300"
                                       style={{ width: `${getProgressPercentage(participant)}%` }}
                                     />
@@ -715,8 +725,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                                   </div>
                                 </div>
                               </div>
-                              
-                              {/* Online indicator */}
+
                               <div className="flex flex-col items-center space-y-1">
                                 <div className={`w-2 h-2 rounded-full ${
                                   participant.is_online ? 'bg-green-400 animate-pulse' : 'bg-gray-400'
@@ -729,7 +738,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                       })}
                     </div>
 
-                    {/* Your Progress Summary */}
                     <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
                       <h4 className="font-semibold text-purple-800 mb-3 flex items-center">
                         <Star className="w-4 h-4 mr-2" />
@@ -767,7 +775,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
           </AnimatePresence>
         </div>
 
-        {/* Chat Panel */}
         <AnimatePresence>
           {showChat && (
             <motion.div
@@ -834,7 +841,6 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
           )}
         </AnimatePresence>
 
-        {/* Leave Confirmation Modal */}
         <AnimatePresence>
           {showLeaveConfirm && (
             <motion.div

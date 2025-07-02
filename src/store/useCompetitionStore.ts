@@ -331,11 +331,11 @@ export const useCompetitionStore = create<CompetitionStoreState>((set, get) => (
       }
 
       const result = await response.json();
+      console.log('startCompetition: Edge Function result (questions):', result.questions);
       set({ currentCompetition: { ...competition, status: 'active', questions: result.questions, start_time: result.startTime } });
     } catch (error: any) {
-      console.error('Error starting competition:', error.message); // Log the error
+      console.error('Error starting competition:', error.message);
       set({ error: error.message || 'Failed to start competition' });
-      // Do not re-throw here, as the error is already handled by setting the state
     } finally {
       set({ isLoading: false });
     }
