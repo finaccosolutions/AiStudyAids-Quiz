@@ -84,10 +84,20 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
 
   const calculateScore = useCallback((questionId: number, userAnswer: string) => {
     const question = questions.find(q => q.id === questionId);
-    if (!question) return false;
+    if (!question) {
+      console.error('calculateScore: Question not found for ID:', questionId);
+      return false;
+    }
+
+    console.log('calculateScore: Evaluating question:', question.id, 'Type:', question.type);
+    console.log('calculateScore: User Answer:', userAnswer);
+    console.log('calculateScore: Correct Answer/Options:', question.correctAnswer || question.correctOptions || question.correctSequence);
 
     const isSkipped = !userAnswer || userAnswer.trim() === '';
-    if (isSkipped) return false;
+    if (isSkipped) {
+      console.log('calculateScore: Answer skipped.');
+      return false;
+    }
 
     let isCorrect = false;
 
@@ -134,7 +144,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       default:
         isCorrect = false;
     }
-
+    console.log('calculateScore: Is Correct:', isCorrect);
     return isCorrect;
   }, [questions]);
 
@@ -205,8 +215,10 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     setIsSubmitting(true);
 
    // --- START MODIFICATION ---
-    const userAnswer = selectedAnswer; // Use the selectedAnswer state directly
+    const userAnswer = selectedAnswer;
     // --- END MODIFICATION --
+
+    console.log('handleNextQuestion: Processing question:', currentQuestion.id, 'with userAnswer:', userAnswer);
 
     try {
       const isSkipped = !userAnswer || userAnswer.trim() === '';
@@ -321,7 +333,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     totalTimeElapsed,
     handleCompetitionCompletion,
     user?.id,
-    selectedAnswer // Add selectedAnswer to dependencies
+    selectedAnswer
   ]);
 
   useEffect(() => {
@@ -373,7 +385,8 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       if (timeLeft !== null && timeLeft > 0) {
         timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000);
       } else if (timeLeft === 0) {
-        handleNextQuestion();
+        // This will now be handled by onQuestionSubmit -> handleNextQuestion
+        // handleNextQuestion();
       }
     }
     else if (quizPrefs.timeLimitEnabled && quizPrefs.totalTimeLimit) {
@@ -406,7 +419,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     questions.length,
     isQuizCompleted,
     competition.quiz_preferences,
-    handleNextQuestion,
+    // handleNextQuestion, // Removed from dependencies as it's called via onQuestionSubmit
     totalTimeElapsed,
     currentQuestion,
     currentQuestionIndex,
@@ -417,7 +430,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
     incorrectAnswersCount,
     skippedAnswersCount,
     answers,
-    selectedAnswer // Keep selectedAnswer in dependencies for timer-triggered next question
+    selectedAnswer
   ]);
 
 
@@ -437,11 +450,11 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
       };
     }, [competition.start_time, questions.length, isQuizCompleted]);
 
-    const handleAnswerSelect = (answer: string) => {
-      if (isQuizCompleted || isSubmitting) return;
-      console.log('handleAnswerSelect: Setting selectedAnswer to:', answer);
-      setSelectedAnswer(answer);
-    };
+    // NEW: handleQuestionSubmit callback
+    const handleQuestionSubmit = useCallback((answer: string) => {
+      setSelectedAnswer(answer); // Update CompetitionQuiz's selectedAnswer state
+      handleNextQuestion(); // Then call handleNextQuestion to process
+    }, [setSelectedAnswer, handleNextQuestion]);
 
   const handleLeaveQuiz = async () => {
     if (isSubmitting) return;
@@ -635,9 +648,9 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                 userAnswer={answers[currentQuestion.id]}
                 onAnswer={handleAnswerSelect}
                 onPrevious={() => {}}
-                onNext={handleNextQuestion}
+                onNext={() => {}} // onNext is now handled by onQuestionSubmit
                 isLastQuestion={isLastQuestion}
-                onFinish={handleNextQuestion}
+                onFinish={() => {}} // onFinish is now handled by onQuestionSubmit
                 language={competition.quiz_preferences?.language || 'English'}
                 timeLimitEnabled={competition.quiz_preferences?.timeLimitEnabled || false}
                 timeLimit={competition.quiz_preferences?.timeLimit}
@@ -648,6 +661,8 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                 showQuitButton={true}
                 onQuitQuiz={() => setShowLeaveConfirm(true)}
                 displayHeader={false}
+                showPreviousButton={false} // Assuming no previous button in competition quiz
+                onQuestionSubmit={handleQuestionSubmit} // NEW PROP: Pass the new handler
               />
             )}
           </div>
@@ -853,7 +868,7 @@ const CompetitionQuiz: React.FC<CompetitionQuizProps> = ({
                   <h3 className="text-lg font-bold text-gray-800">Leave Competition?</h3>
                 </div>
                 <p className="text-gray-600 mb-6">
-                  Are you sure you want to leave this competition? Your progress will be lost and you won't be able to rejoin.
+                  Are you sure you want to leave this quiz? Your progress will be lost and you won't be able to rejoin.
                   {isCreator && (
                     <span className="block mt-2 text-orange-600 font-medium">
                       As the creator, leaving will end the competition for all participants.

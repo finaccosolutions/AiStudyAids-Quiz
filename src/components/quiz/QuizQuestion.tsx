@@ -20,7 +20,7 @@ interface QuizQuestionProps {
   questionNumber: number;
   totalQuestions: number;
   userAnswer?: string;
-  onAnswer: (answer: string) => void;
+  onAnswer: (answer: string) => void; // Keep this for initial answer setting if needed
   onPrevious: () => void;
   onNext: () => void;
   isLastQuestion: boolean;
@@ -35,8 +35,9 @@ interface QuizQuestionProps {
   onQuitQuiz?: () => void;
   totalTimeElapsed?: number;
   showQuitButton?: boolean;
-  displayHeader?: boolean; // Add this line
+  displayHeader?: boolean;
   showPreviousButton: boolean;
+  onQuestionSubmit: (answer: string) => void; // NEW PROP: Function to submit the answer to the parent
 }
 
 const QuizQuestion: React.FC<QuizQuestionProps> = ({
@@ -59,7 +60,8 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   onQuitQuiz,
   totalTimeElapsed = 0,
   showQuitButton = true,
-  displayHeader = true, // Add this with a default value
+  displayHeader = true,
+  onQuestionSubmit, // NEW PROP: Destructure from props
 }) => {
   const { apiKey, preferences } = useQuizStore(); // Get apiKey and preferences from store
   const [questionTimeLeft, setQuestionTimeLeft] = useState<number | null>(null);
@@ -79,7 +81,7 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   const [isCorrectAnswer, setIsCorrectAnswer] = useState<boolean | null>(null);
   const [practiceExplanation, setPracticeExplanation] = useState<string | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false); // New state for submit button
+  const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
 
   // Initialize timers based on preferences
 useEffect(() => {
@@ -127,7 +129,7 @@ useEffect(() => {
           clearInterval(questionTimerRef.current!); // Clear interval immediately
           if (isComponentMountedRef.current) {
             // CRITICAL FIX: Ensure answer is recorded before moving on
-            onAnswer(selectedAnswer); // Record the current selected answer
+            onQuestionSubmit(selectedAnswer); // Use onQuestionSubmit to pass the answer
             setTimeout(() => {
               if (isLastQuestion) {
                 onFinish();
@@ -148,7 +150,7 @@ useEffect(() => {
       clearInterval(questionTimerRef.current);
     }
   };
-}, [questionTimeLeft, timeLimitEnabled, timeLimit, totalTimeLimit, isLastQuestion, onNext, onFinish, onAnswer, selectedAnswer]); // Add all relevant dependencies
+}, [questionTimeLeft, timeLimitEnabled, timeLimit, totalTimeLimit, isLastQuestion, onNext, onFinish, onQuestionSubmit, selectedAnswer]); // Add onQuestionSubmit to dependencies
 
   // Update selected answer when userAnswer prop changes
   useEffect(() => {
@@ -174,7 +176,7 @@ useEffect(() => {
     if (!selectedAnswer || isAnswerSubmitted || isEvaluating) return;
 
     setIsAnswerSubmitted(true);
-    onAnswer(selectedAnswer); // Update the main quiz state with the selected answer
+    onQuestionSubmit(selectedAnswer); // Use onQuestionSubmit here
 
     if (mode === 'practice' && apiKey && preferences) {
       setIsEvaluating(true);
@@ -238,17 +240,17 @@ useEffect(() => {
         setIsEvaluating(false);
       }
     }
-  }, [onAnswer, mode, apiKey, preferences, question, language, selectedAnswer, isAnswerSubmitted, isEvaluating]);
+  }, [onQuestionSubmit, mode, apiKey, preferences, question, language, selectedAnswer, isAnswerSubmitted, isEvaluating]); // Add onQuestionSubmit to dependencies
 
   const handleNextQuestion = useCallback(() => {
     // CRITICAL FIX: Ensure answer is recorded before moving on
-    onAnswer(selectedAnswer); 
+    onQuestionSubmit(selectedAnswer); // Use onQuestionSubmit here
     if (isLastQuestion) {
       onFinish();
     } else {
       onNext();
     }
-  }, [isLastQuestion, onNext, onFinish, onAnswer, selectedAnswer]);
+  }, [isLastQuestion, onNext, onFinish, onQuestionSubmit, selectedAnswer]); // Add onQuestionSubmit to dependencies
 
   const handleSpeech = useCallback(() => {
     if (isSpeaking) {
