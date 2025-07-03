@@ -226,7 +226,7 @@ const validatedPreferences = {
     
     try {
       // Fetch historical questions to avoid repetition
-      const historicalResults = await getQuizResultsWithAnalytics(userId, 50); // Fetch last 50 results
+      const historicalResults = await getQuizResultsWithAnalytics(userId, 200); // Increased limit to 200
       const historicalQuestions: string[] = [];
       historicalResults.forEach((result: any) => {
         if (result.questions) {

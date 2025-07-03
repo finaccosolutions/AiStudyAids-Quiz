@@ -32,7 +32,7 @@ export const generateQuiz = async (
   if (historicalQuestions.length > 0) {
     historicalAvoidancePrompt = `
 CRITICAL REPETITION AVOIDANCE:
-DO NOT generate questions that are similar to or exact duplicates of the following past questions:
+DO NOT generate questions that are similar in concept, phrasing, or core idea to the following past questions. Focus on semantic uniqueness, not just lexical differences. Avoid re-using the same examples or scenarios.
 ${historicalQuestions.map((q, index) => `${index + 1}. ${q}`).join('\n')}
 `;
   }
@@ -208,7 +208,7 @@ Example:
     "Restore from the latest backup"
   ],
   "correctAnswer": "Analyze logs and metrics for root cause",
-  "explanation": "Analysis of each action and its consequences:\\n1. Rolling back immediately: Risky without understanding the issue, could cause data inconsistencies and might not solve the problem if it's unrelated to the deployment.\\n2. Scaling database resources: Premature solution without understanding if database is the real bottleneck, wastes time and resources if the issue lies elsewhere.\\n3. Analyzing logs and metrics: Best first action as it quickly identifies the root cause, minimizes risk, and ensures the correct solution is implemented.\\n4. Restoring backup: Most disruptive option with guaranteed data loss, should only be used as a last resort after other options are exhausted."
+  "explanation": "Analysis of each action and its consequences:\\n1. Rolling back immediately: Risky without understanding the issue, could cause data inconsistencies and might not solve the problem if it's unrelated to the deployment.\\n2. Scaling database resources: Premature solution without understanding if database is the real bottleneck and wastes time and resources if the issue lies elsewhere.\\n3. Analyzing logs and metrics: Best first action as it quickly identifies the root cause, minimizes risk, and ensures the correct solution is implemented.\\n4. Restoring backup: Most disruptive option with guaranteed data loss, should only be used as a last resort after other options are exhausted."
 }
 
 For short-answer:

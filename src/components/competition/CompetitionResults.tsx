@@ -56,6 +56,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
   const [showTimerWarning, setShowTimerWarning] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false); // New state for share modal
   const [shareLink, setShareLink] = useState(''); // New state for share link
+  const [showParticipantGraph, setShowParticipantGraph] = useState(false); // New state for participant graph
 
   // New states for chart visibility
   const [showQuestionTypePerformance, setShowQuestionTypePerformance] = useState(false);
@@ -155,7 +156,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
           }
 
           if (resultsData) {
-            // Map the database data to a more usable format, including profile data
+            // Map the database data to a more usable format (camelCase)
             const mappedResult = {
               id: resultsData.id,
               competitionId: resultsData.competition_id,
@@ -690,7 +691,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
                   <BarChart3 className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-blue-600" />
                   Competition Insights
                   {!isCompetitionFullyComplete && (
-                    <span className="ml-2 sm:ml-3 px-2 sm:px-3 py-1 bg-orange-100 text-orange-700 text-xs sm:text-sm font-medium rounded-full">
+                    <span className="ml-2 sm:ml-3 px-2 sm:px-3 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
                       Live Data
                     </span>
                   )}
@@ -879,6 +880,93 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
               </div>
             </CardBody>
           </Card>
+        </motion.div>
+
+        {/* Participant Performance Overview */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.0 }}
+          className="mb-6 sm:mb-8 px-0 sm:px-0"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center">
+              <BarChart3 className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3 text-blue-600" />
+              Participant Performance Overview
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowParticipantGraph(!showParticipantGraph)}
+              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-sm"
+            >
+              {showParticipantGraph ? (
+                <>
+                  <ChevronUp className="w-4 h-4 mr-2" />
+                  Hide Graph
+                </>
+               ) : (
+                <>
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                  Show Graph
+                </>
+              )}
+            </Button>
+          </div>
+
+          <AnimatePresence>
+            {showParticipantGraph && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-4 sm:mt-6 overflow-hidden"
+              >
+                <Card className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={sortedParticipants}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey={(participant) => participant.profile?.full_name || 'Anonymous'}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        interval={0}
+                      />
+                      <YAxis />
+                      <Tooltip
+                        formatter={(value: number, name: string, props: any) => {
+                          // Correctly access the participant object from the payload
+                          const participant = props.payload?.[0]?.payload;
+                          if (!participant) {
+                            return ['N/A']; // Handle case where participant is undefined
+                          }
+
+                          // Robustly get score and format it
+                          const scoreValue = typeof participant.score === 'number' ? participant.score : 0;
+                          const formattedScore = scoreValue.toFixed(1);
+
+                          const correctAnswers = participant.correct_answers || 0;
+                          const totalQuestions = competition.questions?.length || 0;
+                          const timeTaken = participant.time_taken || 0;
+
+                          return [
+                            `Score: ${formattedScore}`,
+                            `Correct: ${correctAnswers}/${totalQuestions}`,
+                            `Time: ${formatTime(timeTaken)}`,
+                          ];
+                        }}
+                        labelFormatter={(label: string) => `Participant: ${label}`}
+                      />
+                      <Legend />
+                      <Bar dataKey="score" fill="#8884d8" name="Score" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* Detailed Analysis Section (using competitionResults) */}
@@ -1128,7 +1216,7 @@ const CompetitionResults: React.FC<CompetitionResultsProps> = ({
               )}
             </AnimatePresence>
           </motion.div>
-        )}
+      )}
 
           {/* Recommendations */}
           {competitionResults && (
