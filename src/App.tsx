@@ -19,6 +19,7 @@ import ProfilePage from './pages/ProfilePage';
 import CompetitionPage from './pages/CompetitionPage';
 import AiTutorialPage from './pages/AiTutorialPage';
 import AuthRedirectPage from './pages/AuthRedirectPage';
+import EmailConfirmationPage from './pages/EmailConfirmationPage';
 import SharedQuizResultPage from './pages/SharedQuizResultPage';
 import SharedCompetitionResultPage from './pages/SharedCompetitionResultPage'; // New import
 
@@ -72,6 +73,7 @@ const App: React.FC = () => {
         <Route index element={<HomePage />} />
         <Route path="auth" element={<AuthPage />} />
         <Route path="auth-redirect" element={<AuthRedirectPage />} />
+        <Route path="EmailConfirmationPage" element={<EmailConfirmationPage />} />
         <Route path="quiz" element={<ProtectedRoute><QuizRoute /></ProtectedRoute>} />
         <Route path="api-settings" element={<ProtectedRoute><ApiSettingsPage /></ProtectedRoute>} />
         <Route path="question-bank" element={<ProtectedRoute><QuestionBankPage /></ProtectedRoute>} />
