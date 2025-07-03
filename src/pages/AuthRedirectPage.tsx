@@ -27,11 +27,11 @@ const AuthRedirectPage: React.FC = () => {
       const accessToken = hashParams.get('access_token');
       const refreshToken = hashParams.get('refresh_token');
 
-      if (type === 'signup_confirmation') {
+      if (type === 'signup') {
         setRedirectType('signup_confirmation');
         setMessage('Your email address has been successfully verified. You can now sign in to your account.');
         setIsProcessing(false);
-      } else if (type === 'recovery' || type === 'password_reset') {
+      } else if (type === 'recovery') {
         if (accessToken && refreshToken) {
           const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
 
